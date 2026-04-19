@@ -1,3 +1,6 @@
+// Kept for backward compatibility with pre-engine-port sentinel test
+export const ENGINE_SENTINEL = 'riskrask-engine' as const;
+
 // Core reducer
 export { apply, EngineError } from './reducer';
 export type { ApplyResult } from './reducer';
