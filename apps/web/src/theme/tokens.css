@@ -1,0 +1,21 @@
+:root {
+  --bg-0: #0a1628;
+  --bg-1: #142440;
+  --panel-bg: rgba(10, 22, 40, 0.92);
+  --panel-border: rgba(217, 119, 6, 0.3);
+  --divider: rgba(255, 255, 255, 0.06);
+  --amber: #d97706;
+  --amber-2: #f59e0b;
+  --crimson: #dc2626;
+  --sapphire: #2563eb;
+  --emerald: #059669;
+  --violet: #7c3aed;
+  --rose: #ec4899;
+  --neutral: #475569;
+  --text-1: #e5e7eb;
+  --text-2: #94a3b8;
+  --text-3: #64748b;
+  --font-serif: "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+}

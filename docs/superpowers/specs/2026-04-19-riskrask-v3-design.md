@@ -290,7 +290,7 @@ create table profiles (
 
 -- Share-code saves
 create table saves (
-  code            text primary key check (code ~ '^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$'),
+  code            text primary key check (code ~ '^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$'),
   state_json      jsonb not null,
   schema_version  int  not null,
   owner_id        uuid references profiles(id) on delete set null,
@@ -380,9 +380,9 @@ RLS policies:
 
 ### 9.1 Alphabet & format
 
-`SAVE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"` — 32 chars, Crockford-style, excludes `0 O 1 I L`. 8 chars → 32^8 ≈ 1.1 × 10¹² keyspace. Collision probability at 10⁶ saves ≈ 0.9 × 10⁻⁶ — trivial with a retry loop.
+`SAVE_ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"` — 31 chars, Crockford-style, excludes `0 O 1 I L`. 8 chars → 31^8 ≈ 8.5 × 10¹¹ keyspace. Collision probability at 10⁶ saves ≈ 1.2 × 10⁻⁶ — trivial with a retry loop.
 
-`SAVE_CODE_RE = /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{8}$/`. Case-insensitive input normalizes to uppercase; display formats as `XXXX-XXXX` for readability.
+`SAVE_CODE_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8}$/`. Case-insensitive input normalizes to uppercase; display formats as `XXXX-XXXX` for readability.
 
 ### 9.2 Generation
 
@@ -392,7 +392,7 @@ Server-side only — Postgres function called by the `create-save` edge function
 create or replace function generate_save_code() returns text
 language plpgsql volatile as $$
 declare
-  alphabet text := '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+  alphabet text := '23456789ABCDEFGHJKMNPQRSTUVWXYZ';
   attempt  text;
   tries    int := 0;
 begin

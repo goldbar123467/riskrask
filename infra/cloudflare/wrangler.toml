@@ -1,0 +1,6 @@
+name = "riskrask-edge"
+compatibility_date = "2026-04-01"
+main = "workers/rate-limit/src/index.ts"
+workers_dev = false
+
+# Placeholder — actual workers will be configured in Track F.

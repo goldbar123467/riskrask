@@ -1,0 +1,25 @@
+{
+  "name": "@riskrask/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/index.ts",
+    "start": "bun src/index.ts",
+    "build": "bun build src/index.ts --target=bun --outdir=dist",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@riskrask/ai": "workspace:*",
+    "@riskrask/engine": "workspace:*",
+    "@riskrask/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.45.4",
+    "hono": "^4.6.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.3"
+  }
+}
