@@ -58,7 +58,7 @@ export function getWeight(
   key: string,
 ): number {
   if (!ps) return 1.0;
-  const weights = ps.runtimeWeights as Record<string, Record<string, number>>;
+  const weights = ps.runtimeWeights as unknown as Record<string, Record<string, number>>;
   return (weights[section as string] as Record<string, number> | undefined)?.[key] ?? 1.0;
 }
 

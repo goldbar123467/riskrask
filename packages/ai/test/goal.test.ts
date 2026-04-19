@@ -28,7 +28,7 @@ describe('Goal', () => {
 
   test('goalProgress for eliminate-first is 0 when no one eliminated', () => {
     const state = buildMidgameState();
-    const goal = { type: GoalTypes.ELIMINATE_FIRST as const, params: {} };
+    const goal = { type: 'eliminate-first' as const, params: {} };
     expect(goalProgress(state, P0, goal, 0)).toBe(0);
   });
 
@@ -41,13 +41,13 @@ describe('Goal', () => {
         i === 1 ? { ...p, eliminated: true } : p
       ),
     };
-    const goal = { type: GoalTypes.ELIMINATE_FIRST as const, params: {} };
+    const goal = { type: 'eliminate-first' as const, params: {} };
     expect(goalProgress(modState, P0, goal, 0)).toBe(1);
   });
 
   test('goalBonus returns 0 when no matching goal', () => {
     const state = buildMidgameState();
-    const goal = { type: GoalTypes.SURVIVE_WITH as const, params: { turn: 15, minTerritories: 8 } };
+    const goal = { type: 'survive-with' as const, params: { turn: 15, minTerritories: 8 } };
     // attack action on a different continent should give 0
     const owned = Object.entries(state.territories).filter(([, t]) => t.owner !== P0);
     if (owned.length === 0) return;
