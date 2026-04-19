@@ -1,15 +1,14 @@
-# Reverse proxy in front of the Bun + Hono server.
-# Replace api.example.com with the real DNS once Phase 3 is done.
-
 {
-	# email used for ACME / Let's Encrypt notifications (only used if not behind CF Origin cert)
+	# email kept for ACME notifications (unused when we use a static cert)
 	email kitchen@imsaindy.org
+	# Disable automatic HTTPS issuance — we use the CF Origin cert
+	auto_https disable_redirects
 }
 
 api.upsidedownatlas.com {
+	tls /certs/origin.crt /certs/origin.key
 	encode gzip zstd
 
-	# WebSocket and HTTP both proxy through the same upstream
 	reverse_proxy server:8787 {
 		header_up Host {host}
 		header_up X-Real-IP {remote}
@@ -17,7 +16,6 @@ api.upsidedownatlas.com {
 		header_up X-Forwarded-Proto {scheme}
 	}
 
-	# Standard hardening
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
@@ -32,7 +30,7 @@ api.upsidedownatlas.com {
 	}
 }
 
-# Default catch-all (so accidental hits to the box's IP don't leak the api host)
-:80, :443 {
+# Catch-all so direct hits to the IP do not leak the API host
+:80 {
 	respond "riskrask" 200
 }
