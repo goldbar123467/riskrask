@@ -40,10 +40,7 @@ export function PowersList({ state, humanPlayerId }: PowersListProps) {
             }
           >
             {/* Faction color chip */}
-            <div
-              className="h-2.5 w-2.5 shrink-0 rotate-45"
-              style={{ background: player.color }}
-            />
+            <div className="h-2.5 w-2.5 shrink-0 rotate-45" style={{ background: player.color }} />
 
             {/* Name */}
             <span

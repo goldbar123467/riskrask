@@ -53,8 +53,7 @@ export function Dossier({
   const player = state.players.find((p) => p.id === humanPlayerId);
   const phase = uiPhase(state, humanPlayerId);
 
-  const isHumanTurn =
-    state.players[state.currentPlayerIdx]?.id === humanPlayerId;
+  const isHumanTurn = state.players[state.currentPlayerIdx]?.id === humanPlayerId;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto" aria-label="dossier">

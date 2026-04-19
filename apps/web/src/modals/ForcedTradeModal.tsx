@@ -24,11 +24,10 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div
+      <dialog
         className="flex w-[380px] flex-col gap-5 border border-warn bg-bg-0 p-7"
-        role="dialog"
         aria-label="forced-trade-modal"
-        aria-modal="true"
+        open
       >
         <div>
           <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-warn">
@@ -38,7 +37,7 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
           <p className="mt-1 font-mono text-[10px] text-ink-faint">
             {forcedTrade.reason === 'five-card-limit'
               ? 'You have 5 cards. You must trade before continuing.'
-              : 'Trade the eliminated player\'s cards.'}
+              : "Trade the eliminated player's cards."}
           </p>
         </div>
 
@@ -46,7 +45,7 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
         <div className="flex flex-wrap gap-1.5">
           {cards.map((card, i) => (
             <div
-              key={i}
+              key={`${card.type}-${card.territory ?? ''}-${i}`}
               className={`flex flex-col items-center gap-0.5 border p-1.5 ${
                 bestSet?.includes(i) ? 'border-hot bg-hot/10' : 'border-line bg-panel'
               }`}
@@ -63,12 +62,14 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
 
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={onCancel}
             className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-danger hover:text-danger"
           >
             Skip
           </button>
           <button
+            type="button"
             onClick={() => bestSet && onTrade(bestSet)}
             disabled={!bestSet}
             className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
@@ -76,7 +77,7 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
             Trade
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

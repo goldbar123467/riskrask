@@ -12,9 +12,15 @@ export function ZoomControl({ onZoomIn, onZoomOut, onFit, disabled }: ZoomContro
   const isDisabled = disabled === true;
   return (
     <div className="absolute bottom-4 right-4 z-10 flex flex-col gap-1">
-      <ZBtn onClick={onZoomIn} disabled={isDisabled} title="Zoom in">+</ZBtn>
-      <ZBtn onClick={onFit} disabled={isDisabled} title="Fit" className="text-[9px]">FIT</ZBtn>
-      <ZBtn onClick={onZoomOut} disabled={isDisabled} title="Zoom out">−</ZBtn>
+      <ZBtn onClick={onZoomIn} disabled={isDisabled} title="Zoom in">
+        +
+      </ZBtn>
+      <ZBtn onClick={onFit} disabled={isDisabled} title="Fit" className="text-[9px]">
+        FIT
+      </ZBtn>
+      <ZBtn onClick={onZoomOut} disabled={isDisabled} title="Zoom out">
+        −
+      </ZBtn>
     </div>
   );
 }
@@ -34,6 +40,7 @@ function ZBtn({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       disabled={disabled}
       title={title}

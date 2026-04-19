@@ -37,9 +37,19 @@ export function AttackPanel({
 
       {/* Src / Tgt */}
       <div className="flex items-center gap-2">
-        <TerritoryChip label="FROM" name={selected ?? '—'} armies={srcTerr ? srcTerr.armies : undefined} color="var(--usa)" />
+        <TerritoryChip
+          label="FROM"
+          name={selected ?? '—'}
+          armies={srcTerr ? srcTerr.armies : undefined}
+          color="var(--usa)"
+        />
         <span className="font-mono text-[10px] text-hot">→</span>
-        <TerritoryChip label="TO" name={target ?? '—'} armies={tgtTerr ? tgtTerr.armies : undefined} color="var(--rus)" />
+        <TerritoryChip
+          label="TO"
+          name={target ?? '—'}
+          armies={tgtTerr ? tgtTerr.armies : undefined}
+          color="var(--rus)"
+        />
       </div>
 
       <p className="font-mono text-[10px] text-ink-faint">
@@ -53,12 +63,14 @@ export function AttackPanel({
       {/* Action buttons */}
       <div className="flex gap-1.5">
         <button
+          type="button"
           onClick={onCancel}
           className="border border-line px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-ink-dim hover:border-danger hover:text-danger"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={onSingle}
           disabled={!canAttack}
           className="flex-1 border border-line py-2 font-mono text-[9px] uppercase tracking-widest text-ink-dim hover:border-hot hover:text-hot disabled:cursor-not-allowed disabled:text-ink-ghost"
@@ -66,6 +78,7 @@ export function AttackPanel({
           Single
         </button>
         <button
+          type="button"
           onClick={onBlitz}
           disabled={!canAttack}
           className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[9px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
@@ -73,6 +86,7 @@ export function AttackPanel({
           Blitz
         </button>
         <button
+          type="button"
           onClick={onEndAttack}
           className="border border-line px-3 py-2 font-mono text-[9px] uppercase tracking-widest text-ink-dim hover:border-ok hover:text-ok"
         >
@@ -96,7 +110,9 @@ function TerritoryChip({
 }) {
   return (
     <div className="flex flex-1 flex-col gap-0.5 border border-line bg-panel p-2">
-      <span className="font-mono text-[7px] uppercase tracking-[0.16em] text-ink-ghost">{label}</span>
+      <span className="font-mono text-[7px] uppercase tracking-[0.16em] text-ink-ghost">
+        {label}
+      </span>
       <span className="truncate font-display text-[11px] text-ink" style={{ color }}>
         {name.length > 12 ? name.substring(0, 12) : name}
       </span>

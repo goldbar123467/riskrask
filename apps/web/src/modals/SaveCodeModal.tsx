@@ -28,22 +28,21 @@ export function SaveCodeModal({ state, onClose }: SaveCodeModalProps) {
     }
   }
 
-  const formatted = code
-    ? `${code.substring(0, 4)}-${code.substring(4, 8)}`
-    : null;
+  const formatted = code ? `${code.substring(0, 4)}-${code.substring(4, 8)}` : null;
 
   const url = code ? `https://riskrask.com/?save=${code}` : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div
+      <dialog
         className="flex w-[380px] flex-col gap-5 border border-line bg-bg-0 p-7"
-        role="dialog"
         aria-label="save-code-modal"
-        aria-modal="true"
+        open
       >
         <div>
-          <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-faint">Save Game</p>
+          <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-faint">
+            Save Game
+          </p>
           <h2 className="font-display text-xl text-ink">Share Code</h2>
         </div>
 
@@ -54,10 +53,9 @@ export function SaveCodeModal({ state, onClose }: SaveCodeModalProps) {
         ) : (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between border border-hot bg-hot/5 px-4 py-3">
-              <span className="font-display text-2xl tracking-[0.2em] text-hot">
-                {formatted}
-              </span>
+              <span className="font-display text-2xl tracking-[0.2em] text-hot">{formatted}</span>
               <button
+                type="button"
                 onClick={() => url && void navigator.clipboard.writeText(url)}
                 className="font-mono text-[9px] uppercase tracking-widest text-ink-faint hover:text-ink"
               >
@@ -68,12 +66,11 @@ export function SaveCodeModal({ state, onClose }: SaveCodeModalProps) {
           </div>
         )}
 
-        {error && (
-          <p className="font-mono text-[10px] text-danger">{error}</p>
-        )}
+        {error && <p className="font-mono text-[10px] text-danger">{error}</p>}
 
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={onClose}
             className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-line-2 hover:text-ink"
           >
@@ -81,6 +78,7 @@ export function SaveCodeModal({ state, onClose }: SaveCodeModalProps) {
           </button>
           {!code && (
             <button
+              type="button"
               onClick={() => void handleSave()}
               disabled={loading}
               className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:opacity-50"
@@ -89,7 +87,7 @@ export function SaveCodeModal({ state, onClose }: SaveCodeModalProps) {
             </button>
           )}
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

@@ -7,18 +7,11 @@ interface AdjacencyLinesProps {
 
 const SEA_THRESHOLD = 260;
 
-function euclidean(
-  ax: number,
-  ay: number,
-  bx: number,
-  by: number,
-): number {
+function euclidean(ax: number, ay: number, bx: number, by: number): number {
   return Math.sqrt((bx - ax) ** 2 + (by - ay) ** 2);
 }
 
-const edgeExitSet = new Set(
-  EDGE_EXIT_PAIRS.map(([a, b]) => [a, b].sort().join('|'))
-);
+const edgeExitSet = new Set(EDGE_EXIT_PAIRS.map(([a, b]) => [a, b].sort().join('|')));
 
 /**
  * Renders dashed adjacency edges. Long edges (>260 euclidean) get the `sea` style.

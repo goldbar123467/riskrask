@@ -82,7 +82,9 @@ export function Home() {
           />
         </div>
         <h1 className="font-display text-sm font-medium tracking-[0.36em] text-ink">RISKRASK</h1>
-        <span className="font-mono text-[10px] tracking-[0.12em] text-ink-faint">v3 · COMMAND CONSOLE</span>
+        <span className="font-mono text-[10px] tracking-[0.12em] text-ink-faint">
+          v3 · COMMAND CONSOLE
+        </span>
       </div>
 
       {/* Actions */}
@@ -92,6 +94,7 @@ export function Home() {
         ) : (
           <>
             <button
+              type="button"
               onClick={() => void navigate('/setup')}
               className="border border-hot bg-hot/10 py-3 font-display tracking-[0.2em] text-hot hover:bg-hot/20"
               data-testid="new-game-btn"
@@ -101,6 +104,7 @@ export function Home() {
 
             {existingState && (
               <button
+                type="button"
                 onClick={() => void navigate('/play')}
                 className="border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-line-2 hover:text-ink"
               >
@@ -122,15 +126,14 @@ export function Home() {
                   className="flex-1 border border-line bg-panel px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-ghost focus:border-hot focus:outline-none"
                 />
                 <button
+                  type="button"
                   onClick={() => void handleLoadCode()}
                   className="border border-line px-4 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
                 >
                   Load
                 </button>
               </div>
-              {loadError && (
-                <p className="font-mono text-[9px] text-danger">{loadError}</p>
-              )}
+              {loadError && <p className="font-mono text-[9px] text-danger">{loadError}</p>}
             </div>
           </>
         )}

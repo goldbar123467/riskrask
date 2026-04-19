@@ -36,10 +36,7 @@ export function useSoloDispatcher(_humanPlayerId: string): void {
   }, [state, dispatch]);
 }
 
-function runAiStep(
-  state: GameState,
-  dispatch: DispatchFn,
-): void {
+function runAiStep(state: GameState, dispatch: DispatchFn): void {
   const cp = state.players[state.currentPlayerIdx];
   if (!cp || !cp.isAI) return;
   if (state.phase === 'done') return;

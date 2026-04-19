@@ -2,12 +2,12 @@ import { apply, createInitialState, playerId } from '@riskrask/engine';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { Map } from './Map';
+import { Map as GameMap } from './Map';
 
 function makeState() {
   // Create a state where Alaska is owned by p1, Kamchatka by p2 (adjacent via edge)
   // We'll use a real game state after setup
-  let state = createInitialState({
+  const state = createInitialState({
     seed: 'map-test',
     players: [
       { id: playerId('p1'), name: 'Human', color: '#4f7dd4', isAI: false },
@@ -22,8 +22,9 @@ describe('Map node click interactions', () => {
   it('renders the map without crashing', () => {
     const state = makeState();
     render(
-      <svg>
-        <Map
+      <svg aria-label="test-map" role="img">
+        <title>Test Map</title>
+        <GameMap
           state={state}
           humanPlayerId="p1"
           selected={null}
@@ -41,8 +42,9 @@ describe('Map node click interactions', () => {
     const onSelect = vi.fn();
 
     render(
-      <svg>
-        <Map
+      <svg aria-label="test-map-2" role="img">
+        <title>Test Map 2</title>
+        <GameMap
           state={state}
           humanPlayerId="p1"
           selected={null}

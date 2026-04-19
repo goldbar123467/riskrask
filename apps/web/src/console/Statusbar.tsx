@@ -42,7 +42,9 @@ function StatusCell({
 }) {
   return (
     <div className="flex items-center gap-2 border-r border-line px-4">
-      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">{label}</span>
+      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
+        {label}
+      </span>
       <span className={`font-mono text-[11px] tracking-[0.1em] ${valueClass}`}>{value}</span>
     </div>
   );

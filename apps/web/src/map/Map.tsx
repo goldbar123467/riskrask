@@ -17,7 +17,11 @@ interface MapProps {
 
 const NEUTRAL_COLOR = 'rgba(140,155,175,0.4)';
 
-function ownerColor(state: GameState, terrName: TerritoryName, playerColors: Record<string, string>): string {
+function ownerColor(
+  state: GameState,
+  terrName: TerritoryName,
+  playerColors: Record<string, string>,
+): string {
   const owner = state.territories[terrName]?.owner;
   if (!owner) return NEUTRAL_COLOR;
   return playerColors[owner] ?? PALETTE[0]?.color ?? NEUTRAL_COLOR;
@@ -28,7 +32,7 @@ function ownerColor(state: GameState, terrName: TerritoryName, playerColors: Rec
  * Uses territory positions from the engine's TERRITORIES constant.
  * Selection is managed by the parent (Play.tsx) and passed down.
  */
-export function Map({ state, humanPlayerId, selected, target, onSelect, onHover }: MapProps) {
+export function GameMap({ state, humanPlayerId, selected, target, onSelect, onHover }: MapProps) {
   // Build a stable player-id → color map
   const playerColors: Record<string, string> = {};
   for (const p of state.players) {
@@ -71,26 +75,28 @@ export function Map({ state, humanPlayerId, selected, target, onSelect, onHover 
       height="100%"
       style={{ display: 'block' }}
       aria-label="game-map"
+      role="img"
     >
+      <title>Game Map</title>
       {/* Lat/long grid */}
       <g aria-label="grid" opacity="0.04">
-        {Array.from({ length: 13 }, (_, i) => (
+        {Array.from({ length: 13 }, (_, i) => i * 53).map((y) => (
           <line
-            key={`h${i}`}
+            key={`h${y}`}
             x1="0"
-            y1={i * 53}
+            y1={y}
             x2="1000"
-            y2={i * 53}
+            y2={y}
             stroke="rgba(80,100,140,1)"
             strokeWidth="1"
           />
         ))}
-        {Array.from({ length: 13 }, (_, i) => (
+        {Array.from({ length: 13 }, (_, i) => i * 83).map((x) => (
           <line
-            key={`v${i}`}
-            x1={i * 83}
+            key={`v${x}`}
+            x1={x}
             y1="0"
-            x2={i * 83}
+            x2={x}
             y2="640"
             stroke="rgba(80,100,140,1)"
             strokeWidth="1"
@@ -129,15 +135,10 @@ export function Map({ state, humanPlayerId, selected, target, onSelect, onHover 
       })}
 
       {/* Selected territory overlay */}
-      {selected && (
-        <SelectedOverlay
-          selected={selected}
-          target={target}
-          state={state}
-        />
-      )}
+      {selected && <SelectedOverlay selected={selected} target={target} state={state} />}
     </svg>
   );
 }
 
-export { TERRITORIES };
+// Re-export as Map for callers that import { Map }
+export { GameMap as Map, TERRITORIES };

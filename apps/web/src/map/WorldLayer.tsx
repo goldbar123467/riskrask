@@ -37,12 +37,7 @@ export function WorldLayer() {
   return (
     <g aria-label="world-layer">
       {outline && (
-        <path
-          d={outline}
-          fill="#0e131a"
-          stroke="rgba(150,170,200,0.22)"
-          strokeWidth="0.8"
-        />
+        <path d={outline} fill="#0e131a" stroke="rgba(150,170,200,0.22)" strokeWidth="0.8" />
       )}
       {boundaries && (
         <path

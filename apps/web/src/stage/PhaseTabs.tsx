@@ -32,9 +32,7 @@ export function PhaseTabs({ currentPhase, isHumanTurn }: PhaseTabsProps) {
     <div className="absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-stretch border border-line bg-bg-0/80">
       {TABS.map(({ id, label }) => {
         const isActive = id === currentPhase;
-        const isReachable =
-          isHumanTurn &&
-          (id === currentPhase || isUpcoming(currentPhase, id));
+        const isReachable = isHumanTurn && (id === currentPhase || isUpcoming(currentPhase, id));
 
         return (
           <div

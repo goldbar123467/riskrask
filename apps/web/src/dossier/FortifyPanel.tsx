@@ -69,12 +69,14 @@ export function FortifyPanel({
 
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={onSkip}
           className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-line-2 hover:text-ink"
         >
           Skip
         </button>
         <button
+          type="button"
           onClick={() => onConfirm(count)}
           disabled={!canDo}
           className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"

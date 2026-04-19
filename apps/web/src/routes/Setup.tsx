@@ -80,6 +80,7 @@ export function Setup() {
             {[3, 4, 5, 6].map((n) => (
               <button
                 key={n}
+                type="button"
                 onClick={() => setPlayerCount(n)}
                 className={`flex-1 border py-2 font-mono text-sm transition-colors ${
                   playerCount === n
@@ -105,15 +106,16 @@ export function Setup() {
               maxLength={20}
             />
             <div className="flex gap-1">
-              {PALETTE.slice(0, 5).map((p, i) => (
+              {PALETTE.slice(0, 5).map((p, paletteIdx) => (
                 <button
-                  key={i}
-                  onClick={() => setHostColorIdx(i)}
+                  key={p.name}
+                  type="button"
+                  onClick={() => setHostColorIdx(paletteIdx)}
                   title={p.name}
                   className="h-8 w-8 border-2 transition-all"
                   style={{
                     background: p.color,
-                    borderColor: hostColorIdx === i ? 'var(--hot)' : 'transparent',
+                    borderColor: hostColorIdx === paletteIdx ? 'var(--hot)' : 'transparent',
                   }}
                 />
               ))}
@@ -124,7 +126,7 @@ export function Setup() {
         {/* Other seats */}
         <Section title="Other Players">
           {otherSeats.map((seat, i) => (
-            <div key={i} className="flex items-center gap-2">
+            <div key={`seat-${i + 1}`} className="flex items-center gap-2">
               <input
                 type="text"
                 value={seat.name}
@@ -133,6 +135,7 @@ export function Setup() {
                 maxLength={20}
               />
               <button
+                type="button"
                 onClick={() => updateSeat(i, { isAI: !seat.isAI })}
                 className={`border px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest transition-colors ${
                   seat.isAI
@@ -157,6 +160,7 @@ export function Setup() {
               placeholder="game seed"
             />
             <button
+              type="button"
               onClick={() => setSeed(randomSeed())}
               className="border border-line px-3 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
             >
@@ -167,6 +171,7 @@ export function Setup() {
 
         {/* Launch */}
         <button
+          type="button"
           onClick={handleLaunch}
           className="w-full border border-hot bg-hot/10 py-3 font-display tracking-[0.2em] text-hot hover:bg-hot/20"
         >
@@ -174,6 +179,7 @@ export function Setup() {
         </button>
 
         <button
+          type="button"
           onClick={() => void navigate('/')}
           className="w-full border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
         >

@@ -12,7 +12,13 @@ interface DeployPanelProps {
  * DEPLOY phase hero: big headline + readouts + Confirm/Cancel pair.
  * Shown when phase === reinforce (placement step).
  */
-export function DeployPanel({ state, humanPlayerId, selected, onConfirm, onCancel }: DeployPanelProps) {
+export function DeployPanel({
+  state,
+  humanPlayerId,
+  selected,
+  onConfirm,
+  onCancel,
+}: DeployPanelProps) {
   const player = state.players.find((p) => p.id === humanPlayerId);
   const reserves = player?.reserves ?? 0;
   const selectedTerr = selected ? state.territories[selected] : null;
@@ -32,9 +38,7 @@ export function DeployPanel({ state, humanPlayerId, selected, onConfirm, onCance
           label="TARGET"
           value={selected ? (selected.length > 10 ? selected.substring(0, 10) : selected) : '—'}
         />
-        {selectedTerr && (
-          <Readout label="ARMIES" value={String(selectedTerr.armies)} />
-        )}
+        {selectedTerr && <Readout label="ARMIES" value={String(selectedTerr.armies)} />}
       </div>
 
       {/* Progress bar */}
@@ -54,12 +58,14 @@ export function DeployPanel({ state, humanPlayerId, selected, onConfirm, onCance
       {/* Confirm / Cancel pair */}
       <div className="flex gap-2">
         <button
+          type="button"
           onClick={onCancel}
           className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-danger hover:text-danger"
         >
           Cancel
         </button>
         <button
+          type="button"
           onClick={onConfirm}
           disabled={!selected || reserves <= 0}
           className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
@@ -74,7 +80,9 @@ export function DeployPanel({ state, humanPlayerId, selected, onConfirm, onCance
 function Readout({ label, value, hot }: { label: string; value: string; hot?: boolean }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-ink-ghost">{label}</span>
+      <span className="font-mono text-[8px] uppercase tracking-[0.16em] text-ink-ghost">
+        {label}
+      </span>
       <span className={`font-display text-sm ${hot ? 'text-hot' : 'text-ink'}`}>{value}</span>
     </div>
   );

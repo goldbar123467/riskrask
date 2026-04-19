@@ -34,11 +34,7 @@ export function Node({
   const { x, y } = territory;
   const unitType = unitTypeForTerritory(name);
 
-  const strokeColor = selected
-    ? 'var(--hot)'
-    : targetable
-      ? 'rgba(255,255,100,0.7)'
-      : ownerColor;
+  const strokeColor = selected ? 'var(--hot)' : targetable ? 'rgba(255,255,100,0.7)' : ownerColor;
 
   const strokeWidth = selected ? 2 : targetable ? 1.5 : 1;
   const fillColor = owned ? `${ownerColor}22` : 'rgba(10,15,20,0.7)';
@@ -47,9 +43,14 @@ export function Node({
     <g
       data-territory={name}
       onClick={() => onSelect(name)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') onSelect(name);
+      }}
       onMouseEnter={() => onHover(name)}
       onMouseLeave={() => onHover(null)}
       style={{ cursor: 'pointer' }}
+      tabIndex={0}
+      aria-label={name}
     >
       {/* Hex outline shell */}
       <HexPath
@@ -64,13 +65,7 @@ export function Node({
 
       {/* Unit silhouette — top half of hex */}
       {territory.armies > 0 && (
-        <UnitSilhouette
-          type={unitType}
-          color={ownerColor}
-          x={x}
-          y={y - 4}
-          size={9}
-        />
+        <UnitSilhouette type={unitType} color={ownerColor} x={x} y={y - 4} size={9} />
       )}
 
       {/* Underline divider */}

@@ -46,19 +46,11 @@ export function Shell({ brand, topbar, rail, stage, dossier, statusbar }: ShellP
         {topbar}
       </div>
 
-      <div
-        aria-label="rail"
-        style={{ gridArea: 'rail' }}
-        className="border-r border-line bg-bg-1"
-      >
+      <div aria-label="rail" style={{ gridArea: 'rail' }} className="border-r border-line bg-bg-1">
         {rail}
       </div>
 
-      <div
-        aria-label="stage"
-        style={{ gridArea: 'stage' }}
-        className="relative overflow-hidden"
-      >
+      <div aria-label="stage" style={{ gridArea: 'stage' }} className="relative overflow-hidden">
         {stage}
       </div>
 

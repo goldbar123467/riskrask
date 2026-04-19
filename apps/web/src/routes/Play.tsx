@@ -1,15 +1,16 @@
 import type { Action, Effect, TerritoryName } from '@riskrask/engine';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Brand } from '../console/Brand';
 import { Rail } from '../console/Rail';
-import { Shell } from '../console/Shell';
+import { ResponsiveShell } from '../console/ResponsiveShell';
 import { Statusbar } from '../console/Statusbar';
 import { Topbar } from '../console/Topbar';
 import { Dossier } from '../dossier/Dossier';
 import { uiPhase } from '../game/phase';
 import { useGame } from '../game/useGame';
 import { useSoloDispatcher } from '../game/useSoloDispatcher';
+import { useHotkeys } from '../hooks/useHotkey';
 import { ForcedTradeModal } from '../modals/ForcedTradeModal';
 import { MoveModal } from '../modals/MoveModal';
 import { VictoryModal } from '../modals/VictoryModal';
@@ -206,6 +207,26 @@ export function Play() {
     void navigate('/setup');
   }
 
+  // Hotkeys — defined after handlers so they can reference them
+  useHotkeys(
+    // biome-ignore lint/correctness/useExhaustiveDependencies: handlers are inline; stable via state/selected/target
+    useMemo(
+      () => ({
+        ' ': () => {
+          if (!state) return;
+          if (state.phase === 'reinforce' && selected) handleDeployConfirm();
+          else if (state.phase === 'attack' && selected && target) handleAttackBlitz();
+        },
+        Escape: () => {
+          setSelected(null);
+          setTarget(null);
+        },
+      }),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [state, selected, target],
+    ),
+  );
+
   if (!state) return null;
 
   const phase = uiPhase(state, humanPlayerId);
@@ -213,7 +234,7 @@ export function Play() {
 
   return (
     <>
-      <Shell
+      <ResponsiveShell
         brand={<Brand />}
         topbar={
           <Topbar
@@ -248,7 +269,9 @@ export function Play() {
             onDeployConfirm={handleDeployConfirm}
             onDeployCancel={handleDeployCancel}
             onTrade={handleTrade}
-            onSkipDraft={() => { /* just skip, phase heroes show deploy next */ }}
+            onSkipDraft={() => {
+              /* just skip, phase heroes show deploy next */
+            }}
             onAttackSingle={handleAttackSingle}
             onAttackBlitz={handleAttackBlitz}
             onEndAttack={handleEndAttack}
@@ -281,7 +304,9 @@ export function Play() {
           state={state}
           forcedTrade={state.pendingForcedTrade}
           onTrade={handleTrade}
-          onCancel={() => { /* forced trade cannot be skipped — do nothing */ }}
+          onCancel={() => {
+            /* forced trade cannot be skipped — do nothing */
+          }}
         />
       )}
 

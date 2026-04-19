@@ -11,11 +11,7 @@ export function useHotkey(key: string, handler: HotkeyHandler): void {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       // Don't trigger when typing in inputs
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
       if (e.key === key || e.key.toLowerCase() === key.toLowerCase()) {
@@ -29,17 +25,11 @@ export function useHotkey(key: string, handler: HotkeyHandler): void {
 }
 
 /** Convenience wrapper for multiple keys */
-export function useHotkeys(
-  bindings: Record<string, HotkeyHandler>,
-): void {
+export function useHotkeys(bindings: Record<string, HotkeyHandler>): void {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
         return;
       }
       const handler = bindings[e.key] ?? bindings[e.key.toLowerCase()];

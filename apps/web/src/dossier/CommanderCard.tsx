@@ -14,13 +14,8 @@ export function CommanderCard({ name, tag, color }: CommanderCardProps) {
       aria-label="commander-card"
     >
       {/* Crest: rotated square with faction color */}
-      <div
-        className="relative flex h-8 w-8 shrink-0 items-center justify-center"
-      >
-        <div
-          className="absolute h-6 w-6 rotate-45 border"
-          style={{ borderColor: color }}
-        />
+      <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
+        <div className="absolute h-6 w-6 rotate-45 border" style={{ borderColor: color }} />
         <div
           className="absolute h-2 w-2"
           style={{ background: color, boxShadow: `0 0 8px ${color}` }}

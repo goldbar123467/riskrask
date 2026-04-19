@@ -47,6 +47,5 @@ export const useGame = create<GameStore>((set, get) => ({
   setSelected: (name) => set({ selected: name }),
   setHover: (name) => set({ hoverTarget: name }),
 
-  shiftEffect: () =>
-    set((prev) => ({ effectsQueue: prev.effectsQueue.slice(1) })),
+  shiftEffect: () => set((prev) => ({ effectsQueue: prev.effectsQueue.slice(1) })),
 }));

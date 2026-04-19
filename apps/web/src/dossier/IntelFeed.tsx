@@ -20,7 +20,7 @@ export function IntelFeed({ state }: IntelFeedProps) {
       ) : (
         entries.map((entry, i) => (
           <div
-            key={i}
+            key={`${entry.turn}-${i}`}
             className="flex items-baseline gap-2 border-t border-line/40 px-4 py-1.5"
           >
             <span className="shrink-0 font-mono text-[8px] text-ink-ghost">T{entry.turn}</span>

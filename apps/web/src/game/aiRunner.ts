@@ -1,10 +1,5 @@
 import type { Action, GameState, PlayerId } from '@riskrask/engine';
-import {
-  ADJACENCY,
-  TERR_ORDER,
-  createRng,
-  nextInt,
-} from '@riskrask/engine';
+import { ADJACENCY, TERR_ORDER, createRng, nextInt } from '@riskrask/engine';
 
 /**
  * Dilettante AI: picks a legal random action using the engine's RNG.
@@ -19,6 +14,12 @@ export function dilettanteTurn(state: GameState, playerId: PlayerId): Action[] {
   if (!player) return [];
 
   const actions: Action[] = [];
+
+  // Resolve pending move first
+  if (state.pendingMove) {
+    actions.push({ type: 'move-after-capture', count: state.pendingMove.min });
+    return actions;
+  }
 
   if (state.phase === 'setup-claim') {
     const unclaimed = TERR_ORDER.filter((n) => state.territories[n]?.owner === null);
@@ -51,31 +52,40 @@ export function dilettanteTurn(state: GameState, playerId: PlayerId): Action[] {
   }
 
   if (state.phase === 'attack') {
-    // Maybe attack once, then end
+    // Attack aggressively: pick best available attack, then end
     const sources = TERR_ORDER.filter((n) => {
       const t = state.territories[n];
-      return t?.owner === playerId && t.armies >= 2;
+      return t?.owner === playerId && t.armies >= 3; // 3+ to be aggressive
     });
 
-    let attacked = false;
-    if (sources.length > 0 && nextInt(rng, 2) === 1) {
-      const src = sources[nextInt(rng, sources.length)];
+    if (sources.length > 0) {
+      // Sort by armies desc to pick strongest
+      sources.sort((a, b) => {
+        const ta = state.territories[a]?.armies ?? 0;
+        const tb = state.territories[b]?.armies ?? 0;
+        return tb - ta;
+      });
+      const src = sources[0];
       if (src) {
         const targets = (ADJACENCY[src] ?? []).filter((n) => {
           const t = state.territories[n];
           return t?.owner !== playerId && t?.owner !== null;
         });
         if (targets.length > 0) {
-          const tgt = targets[nextInt(rng, targets.length)];
+          // Pick weakest target
+          targets.sort((a, b) => {
+            const ta = state.territories[a]?.armies ?? 999;
+            const tb = state.territories[b]?.armies ?? 999;
+            return ta - tb;
+          });
+          const tgt = targets[0];
           if (tgt) {
             actions.push({ type: 'attack-blitz', from: src, to: tgt });
-            attacked = true;
           }
         }
       }
     }
 
-    void attacked;
     actions.push({ type: 'end-attack-phase' });
     return actions;
   }

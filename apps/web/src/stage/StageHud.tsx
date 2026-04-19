@@ -35,14 +35,18 @@ export function StageHud({ state, hover }: StageHudProps) {
 
       {/* Bottom-left: Legend */}
       <div className="pointer-events-none absolute bottom-4 left-3 z-10 border border-line bg-bg-0/80 px-3 py-2">
-        <p className="mb-1.5 font-mono text-[8px] uppercase tracking-[0.16em] text-ink-ghost">Legend</p>
+        <p className="mb-1.5 font-mono text-[8px] uppercase tracking-[0.16em] text-ink-ghost">
+          Legend
+        </p>
         <div className="flex flex-col gap-1">
-          {state.players.filter((p) => !p.eliminated).map((p) => (
-            <div key={p.id} className="flex items-center gap-2">
-              <div className="h-2 w-2 rotate-45" style={{ background: p.color }} />
-              <span className="font-mono text-[8px] text-ink-faint">{p.name}</span>
-            </div>
-          ))}
+          {state.players
+            .filter((p) => !p.eliminated)
+            .map((p) => (
+              <div key={p.id} className="flex items-center gap-2">
+                <div className="h-2 w-2 rotate-45" style={{ background: p.color }} />
+                <span className="font-mono text-[8px] text-ink-faint">{p.name}</span>
+              </div>
+            ))}
         </div>
       </div>
     </>

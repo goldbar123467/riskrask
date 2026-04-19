@@ -18,11 +18,10 @@ export function VictoryModal({ state, onRematch }: VictoryModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <div
+      <dialog
         className="flex w-[400px] flex-col gap-5 border border-hot bg-bg-0 p-8"
-        role="dialog"
         aria-label="victory-modal"
-        aria-modal="true"
+        open
       >
         {/* Header */}
         <div className="flex flex-col items-center gap-2">
@@ -43,9 +42,7 @@ export function VictoryModal({ state, onRematch }: VictoryModalProps) {
             .filter((p) => !p.eliminated || p.id === state.winner)
             .slice(0, 4)
             .map((p) => {
-              const terrs = Object.values(state.territories).filter(
-                (t) => t.owner === p.id,
-              ).length;
+              const terrs = Object.values(state.territories).filter((t) => t.owner === p.id).length;
               return (
                 <div key={p.id} className="flex flex-col items-center gap-1">
                   <div className="h-2 w-2 rotate-45" style={{ background: p.color }} />
@@ -59,19 +56,21 @@ export function VictoryModal({ state, onRematch }: VictoryModalProps) {
         {/* Buttons: Cancel (dismiss) + Confirm (rematch) */}
         <div className="flex gap-3">
           <button
+            type="button"
             onClick={() => void navigate('/')}
             className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-line-2 hover:text-ink"
           >
             Home
           </button>
           <button
+            type="button"
             onClick={onRematch}
             className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20"
           >
             Rematch
           </button>
         </div>
-      </div>
+      </dialog>
     </div>
   );
 }

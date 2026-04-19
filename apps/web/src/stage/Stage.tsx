@@ -1,8 +1,8 @@
 import type { GameState, TerritoryName } from '@riskrask/engine';
 import { useRef } from 'react';
 import { TransformComponent, TransformWrapper, useControls } from 'react-zoom-pan-pinch';
-import { type UIPhase } from '../game/phase';
-import { Map } from '../map/Map';
+import type { UIPhase } from '../game/phase';
+import { Map as GameMap } from '../map/Map';
 import { PhaseTabs } from './PhaseTabs';
 import { StageHud } from './StageHud';
 import { ZoomControl } from './ZoomControl';
@@ -45,8 +45,7 @@ export function Stage({
           backgroundImage:
             'linear-gradient(rgba(80,100,140,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(80,100,140,0.04) 1px, transparent 1px)',
           backgroundSize: '80px 80px',
-          maskImage:
-            'radial-gradient(ellipse 90% 80% at center, #000 50%, transparent 100%)',
+          maskImage: 'radial-gradient(ellipse 90% 80% at center, #000 50%, transparent 100%)',
         }}
       />
 
@@ -110,7 +109,7 @@ function ZoomInner({
         contentStyle={{ width: '100%', height: '100%' }}
       >
         <div ref={wrapRef} style={{ width: '100%', height: '100%', minHeight: '400px' }}>
-          <Map
+          <GameMap
             state={state}
             humanPlayerId={humanPlayerId}
             selected={selected}

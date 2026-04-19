@@ -15,7 +15,11 @@ export function createWsClient(_roomId: string, _jwt: string): WsClient {
   // Stub — no-op
   return {
     connected: false,
-    send: () => { /* Track F */ },
-    close: () => { /* Track F */ },
+    send: () => {
+      /* Track F */
+    },
+    close: () => {
+      /* Track F */
+    },
   };
 }
