@@ -24,7 +24,10 @@ export async function verifySupabaseJwt(authHeader: string | null): Promise<Veri
 
   try {
     const client = anonClient(jwt);
-    const { data: { user }, error } = await client.auth.getUser();
+    const {
+      data: { user },
+      error,
+    } = await client.auth.getUser();
     if (error || !user) return null;
     return { id: user.id, email: user.email };
   } catch {

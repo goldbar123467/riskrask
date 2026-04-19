@@ -1,121 +1,189 @@
-# Track D — React Web Client Plan
+# Track D — React Web Client Plan (Command Console)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans. TDD on stateful logic; visual work verified in dev server + Playwright.
 
-**Goal:** Build the React + Vite player client in `apps/web` covering the solo-mode golden path: setup screen → game round loop → victory. Port the v2 Cold-War aesthetic, mobile tabs, and SVG map. Multiplayer wiring arrives in Track F.
+**Goal:** Build the React + Vite player client in `apps/web` covering the solo-mode golden path (setup → game loop → victory) against the **Command Console** visual direction. Multiplayer wiring arrives in Track F; this track must leave a clean seam for it.
 
-**Architecture:**
-- `routes/` for top-level pages; `components/` for shared UI; `map/` for SVG territory rendering; `game/` for Zustand stores + engine bindings; `net/` stubs the WebSocket client (used in Track F).
-- Engine + AI packages consumed as workspace deps.
-- Solo mode runs engine in-process; the same UI works for multiplayer by swapping the store's dispatcher.
+**Reference mockups (read before coding):**
+- `design/mockups/command-console.html` — layout, tokens, HUD composition
+- `design/mockups/command-console-screenshot.png` — tonal reference
+- `design/mockups/README.md` — what to take vs ignore
 
-**Reference:** `archive/riskindex-v2-mobile.html` for DOM structure, SVG rendering in `renderMap()`, sidebar in `renderSidebar()`, controls in `renderControls()`, setup screen in `initSetupScreen()`, mobile tabs in `wireMobileTabs()`.
+Territory coordinates come from `packages/engine/src/board.ts` (ported in Track B) — **not** from the mockup's placeholder positions.
+
+**Tech Stack:** React 18, Vite, Tailwind, Zustand, TanStack Query, Framer Motion, `react-zoom-pan-pinch`, Vitest + RTL, Playwright.
 
 **Worktree:** `.claude/worktrees/track-d-web`.
 
-**Dependency:** Engine types from Track B. Can start in parallel by stubbing types if B is late.
+**Dependency:** Track B (engine) must be merged first. The engine exposes `GameState`, `Action`, `apply()`, `createInitialState()`, and per-territory positional metadata via `TERRITORIES[name]`.
 
 ---
+
+## Theme tokens
+
+Already set in `apps/web/src/theme/tokens.css` by Phase 0. Do not edit them unless the design spec §3 changes. Use Tailwind utilities mapped to these CSS variables.
 
 ## File structure
 
 | File | Purpose |
 |---|---|
 | `src/main.tsx` | Bootstrap |
-| `src/App.tsx` | Router + Query + theme providers |
-| `src/routes/Home.tsx` | Landing + "new game" + "load save code" |
-| `src/routes/Play.tsx` | Setup screen OR active game |
-| `src/routes/Replay.tsx` | (stub; finished in Track H) |
-| `src/game/useGame.ts` | Zustand store wrapping an engine state + dispatch |
-| `src/game/useSoloDispatcher.ts` | Dispatch that applies actions locally via `apply` |
-| `src/game/aiRunner.ts` | Runs `takeTurn` for AI players between human turns |
-| `src/map/Map.tsx` | SVG map with pan/zoom |
-| `src/map/Territory.tsx` | Single node (circle + label + army count) |
-| `src/map/AdjacencyLines.tsx` | Static adjacency graph |
-| `src/map/PulseLayer.tsx` | Attack-line pulse animations |
-| `src/components/Sidebar.tsx` | Player roster + turn info + dice panel |
-| `src/components/Controls.tsx` | Phase-specific action buttons |
-| `src/components/DicePanel.tsx` | 3D-ish dice renderer (port v2 `makeDie`) |
-| `src/components/LogPanel.tsx` | Scrolling log with continent badges |
-| `src/components/MobileTabs.tsx` | Bottom tab bar + auto-switch |
-| `src/components/SetupScreen.tsx` | Player slot editor, archetype picker, voice preview |
-| `src/components/Modal.tsx` | Shared modal shell |
-| `src/components/ForcedTradeModal.tsx` | Mid-attack forced card-trade UI |
-| `src/components/MoveModal.tsx` | Post-capture move-armies picker |
-| `src/components/SaveCodeModal.tsx` | Share this save UI (hits `/api/saves` in Track E) |
-| `src/theme/tokens.css` | CSS variables (copied from v2) |
-| `src/theme/index.css` | Tailwind layers + global resets |
-| `src/test/setup.ts` | RTL + jest-dom setup |
-| `e2e/solo-game.spec.ts` | Playwright golden path |
+| `src/App.tsx` | Router + Query + root layout |
+| `src/routes/Home.tsx` | Landing: new-game / enter-save-code / resume last |
+| `src/routes/Setup.tsx` | Setup wizard (player count, archetype picker, start) |
+| `src/routes/Play.tsx` | Live Console shell containing the grid |
+| `src/routes/Replay.tsx` | Stub — full build in Track H |
+| `src/console/Shell.tsx` | Grid layout: brand / topbar / rail / stage / dossier / statusbar |
+| `src/console/Brand.tsx` | 72×56 rotated-square mark cell |
+| `src/console/Topbar.tsx` | Session # · Turn · Phase · Clock · Players · icon-buttons |
+| `src/console/Rail.tsx` | Vertical nav MAP/ARMY/INTEL/DIPL/LOG/HELP, swaps dossier content |
+| `src/console/Statusbar.tsx` | LINK / TICK / LAT / WINDOW cells |
+| `src/stage/Stage.tsx` | Map host: zoom/pan wrapper + corner HUDs + phase tabs + zoom control |
+| `src/stage/PhaseTabs.tsx` | Draft / Deploy / Attack / Fortify / End — derived from `state.phase` and reinforcement/trade flags |
+| `src/stage/ZoomControl.tsx` | +/– + fit buttons, disabled during Setup |
+| `src/stage/StageHud.tsx` | 4 corner overlays: theatre / coordinates / legend / selected-callout |
+| `src/map/Map.tsx` | SVG root (viewBox 0 0 1500 960), renders world.svg, grid, continents, edges, nodes |
+| `src/map/WorldLayer.tsx` | Imports `/assets/world.svg` as a module and pastes outline + boundaries |
+| `src/map/ContinentLabel.tsx` | Per-continent title with glow filter and bonus tspan |
+| `src/map/AdjacencyLines.tsx` | Dashed edges; long edges get the `sea` style |
+| `src/map/Node.tsx` | One territory marker: hex/diamond/shield shell + unit silhouette + count + name label |
+| `src/map/UnitSilhouette.tsx` | Four SVG silhouettes: tank/drone/jet/inf — ported from mockup |
+| `src/map/SelectedOverlay.tsx` | Crosshair ring + callout for selected territory |
+| `src/dossier/Dossier.tsx` | Scrollable sidebar host; switches sections based on `Rail` active item |
+| `src/dossier/CommanderCard.tsx` | Crest + name + tag row |
+| `src/dossier/DeployPanel.tsx` | Big `DEPLOY` headline + readouts + progress + Confirm/Cancel — shown when phase === reinforce (placement) |
+| `src/dossier/DraftPanel.tsx` | Card-trade UI (three-of-a-kind / one-of-each detection) — shown when phase === reinforce (trade step) |
+| `src/dossier/AttackPanel.tsx` | Src/Tgt + Single/Blitz/End buttons + last-roll dice |
+| `src/dossier/FortifyPanel.tsx` | Src/Tgt + army slider + Confirm/Skip |
+| `src/dossier/PowersList.tsx` | Per-player chip/name/territories/armies/bar; me-row highlight |
+| `src/dossier/IntelFeed.tsx` | Last 4 log entries with timestamps |
+| `src/dossier/DicePanel.tsx` | 3×2 dice grid (attacker above, defender below) with shake |
+| `src/game/useGame.ts` | Zustand store: `state`, `dispatch(action)`, `effects`, `selected`, `hover` |
+| `src/game/useSoloDispatcher.ts` | Calls engine `apply`; runs AI turns via a setTimeout queue so dice animate |
+| `src/game/aiRunner.ts` | Wraps `@riskrask/ai.takeTurn(state, playerId, rng)` into a dispatch loop |
+| `src/game/selectors.ts` | Pure helpers: `myPlayer(state)`, `myReinforcementsRemaining(state)`, `continentBonuses(state, pid)`, `isClickable(state, name, selected)`, `canBlitz(state, src, tgt)`, etc. |
+| `src/game/phase.ts` | Maps engine phase + sub-flags to UI label (Draft/Deploy/Attack/Fortify/End) |
+| `src/modals/ForcedTradeModal.tsx` | Mid-attack + end-of-turn forced card trade |
+| `src/modals/MoveModal.tsx` | Post-capture move-armies picker (min = dice rolled) |
+| `src/modals/VictoryModal.tsx` | Winner + share code + rematch |
+| `src/modals/SaveCodeModal.tsx` | `POST /api/saves`, display `XXXX-XXXX`, copy + URL |
+| `src/net/api.ts` | Typed `fetch` wrappers for `/api/saves/*` |
+| `src/net/ws.ts` | WebSocket client stub (real impl in Track F) |
+| `src/hooks/useHotkey.ts` | Keyboard shortcuts (`1-5` phase tabs, `Space` = confirm, `Esc` = cancel) |
+| `src/hooks/useClock.ts` | Countdown (solo = decorative; multiplayer = server deadline) |
+| `src/test/setup.ts` | RTL + jest-dom |
+| `e2e/solo-game.spec.ts` | Playwright: solo game seed → victory |
+
+Keep each file ≤300 lines. Split further if a component's internals exceed that.
+
+## Canonical conventions
+
+- Faction colors come from player.factionKey: `usa | rus | chn | eu | neu`. The palette has no more than 5 slots; a 6th player is recycled from `neu` — no extra colors invented.
+- Every clickable territory state has three props: `{ owned: boolean; selected: boolean; targetable: boolean }`. No other booleans allowed in `<Node>`.
+- Dice animations: 600ms shake, then static for 1.2s before the next roll. Blitz advances on each roll without UI click.
+- Intel feed: subscribe to the last 4 entries of `state.log`. Long lines truncate with ellipsis — no word wrap.
+- Confirmation buttons are ALWAYS a pair: left = danger/cancel, right = primary/confirm. No single-button modals.
 
 ## Tasks
 
-### Task 1: Providers + router
+### Task 1: Shell + grid
 
-- [ ] `App.tsx` with `BrowserRouter`, `QueryClientProvider`, a `<ThemeTokens />` no-op that ensures tokens.css is loaded, and routes for `/`, `/play`, `/play/:roomId`, `/replay/:id`.
-- [ ] Vitest test: renders `Home` at `/`.
+- [ ] `src/console/Shell.tsx` implements the `72px | 1fr | 380px` + `56 / 1 / 48` grid from design spec §3.1. Accepts `<Brand/>`, `<Topbar/>`, `<Rail/>`, children (stage), `<Dossier/>`, `<Statusbar/>` slots.
+- [ ] Vitest test: mounts `<Shell>` with dummy slots, asserts each area renders in its labeled region.
 - [ ] Commit.
 
-### Task 2: Zustand store + solo dispatcher
+### Task 2: Brand + Topbar + Rail + Statusbar
 
-- [ ] `useGame`: holds `state: GameState | null`, `effectsBuffer: Effect[]`, `dispatch(action)`.
-- [ ] `useSoloDispatcher`: calls `apply(state, action)`; pushes effects; advances AI turns automatically via `aiRunner`.
-- [ ] Test: fire `claim-territory` actions for 4 seats; assert store state matches engine state.
+- [ ] All four are pure presentational. No store reads. Props in, JSX out.
+- [ ] Brand: 28×28 rotated-square mark with hot-accent inner dot.
+- [ ] Topbar: accepts `session`, `turn`, `phase`, `clock`, `players` strings; renders the 5-cell layout.
+- [ ] Rail: accepts `activeItem: 'map'|'army'|'intel'|'dipl'|'log'|'help'`, `onSelect`. Hot-accent bar on the left edge of active item.
+- [ ] Statusbar: accepts `{ link: 'stable'|'lagging'|'down'; tickLabel; latencyMs; windowLabel }`.
+- [ ] One RTL test per component.
 
-### Task 3: SVG map
+### Task 3: Game store + solo dispatcher
 
-- [ ] Port v2 `renderMap()`'s layout (node positions are stored on `TERRITORIES` from engine's `board.ts`; add `x`, `y` fields there if not already — Track B note).
-- [ ] `Map.tsx` wraps `react-zoom-pan-pinch` + an SVG `<svg viewBox>`; renders `AdjacencyLines` + all `Territory` nodes.
-- [ ] `Territory.tsx` props: `{ name, owner, armies, selected, source, target, onSelect }`. Filters/drop-shadow match v2 selectors (`.node-group.selected`, `.source`, `.target`).
-- [ ] Tween army count via Framer Motion's `animate(value)` or a simple `useTween` hook that mirrors `tweenNumber` from v2.
-- [ ] Vitest render test.
+- [ ] `useGame`: `{ state: GameState | null; selected: TerritoryName | null; hoverTarget: TerritoryName | null; effectsQueue: Effect[]; dispatch(action) }`.
+- [ ] `useSoloDispatcher`: wraps engine `apply`. On phase change, if current player is AI, enqueue `takeTurn` actions with 450ms throttle so the UI animates.
+- [ ] Test: 3-AI game runs to a winner in <500 turns given seed `'solo-test-1'`. Must remain deterministic.
 
-### Task 4: Setup screen
+### Task 4: Map — world layer + grid + continents + edges
 
-- [ ] Player-count slider (3–6).
-- [ ] Per-slot: name input, archetype picker with description, "human/AI" toggle.
-- [ ] "Start game" button → calls engine `createInitialState` → navigates to `/play`.
-- [ ] Keyboard scroll behaviour from v2 `wireSetupKeyboardScroll`.
+- [ ] `Map.tsx` renders an SVG with viewBox `0 0 1500 960`.
+- [ ] Import `world.svg` as a raw string via Vite's `?raw` suffix. Extract `#outline` and `#boundaries` paths via regex at module load, cached.
+- [ ] Render in z order: lat/long grid, world outline (fill `#0e131a`, stroke `rgba(150,170,200,0.22)`), boundaries, continent titles, adjacency edges.
+- [ ] `ContinentLabel` uses the glow filter from the mockup (`feGaussianBlur` + `feMerge`).
+- [ ] `AdjacencyLines` marks edges whose euclidean length exceeds 260 as `sea` (shorter dash pattern).
 
-### Task 5: Round loop UI
+### Task 5: Map — nodes and selection
 
-- [ ] Sidebar shows current player + phase + reinforcements-remaining + card count + current continent bonuses.
-- [ ] Controls change per phase. Reinforce: "Place 1 here" or multi-place via number input. Attack: "Roll one" / "Blitz". Fortify: source/target picker with army slider. "End phase" button always available when legal.
-- [ ] Dice panel shows last roll with shake animation.
-- [ ] Log panel tails the state's log array.
+- [ ] `Node.tsx` draws the hex shell, unit silhouette (tank default; mix option randomizes by hash of territory name), underline, count, label below. Owner color drives stroke + count color.
+- [ ] Selection state props in; no global access. Root `<Map>` manages selection and passes down.
+- [ ] Clicking: `onSelect(name)` bubbles up. If no current selection and the territory is not mine (in attack phase), do nothing. If mine in reinforce phase → selects. If mine in attack phase → selects as source. If selected-as-source and clicking an adjacent enemy territory → sets as target (but doesn't attack — the AttackPanel's "Single/Blitz" buttons fire the action).
+- [ ] `SelectedOverlay`: dashed ring + crosshair + callout showing `▸ {NAME}` / `OWN · {armies} → {action_hint}` / borders list.
+- [ ] Test: Click on owned territory in attack phase; assert `selected` updates. Click on adjacent enemy; assert `target` updates. Click on non-adjacent territory; assert no target change.
 
-### Task 6: Mobile tabs + auto-switch
+### Task 6: Dossier sections
 
-- [ ] Bottom tab bar (Map / Controls / Log / Roster).
-- [ ] Auto-switch mirrors v2 `autoSwitchTab()` — watch `state.phase` and route.
-- [ ] Manual override flag so user can stay on a tab if they tapped it.
+- [ ] `Dossier.tsx` switches its middle "phase hero" panel based on `UIPhase` from `phase.ts`:
+  - Draft → `<DraftPanel>` (card trade)
+  - Deploy → `<DeployPanel>`
+  - Attack → `<AttackPanel>` + `<DicePanel>`
+  - Fortify → `<FortifyPanel>`
+- [ ] `CommanderCard`, `PowersList`, `IntelFeed` are always visible.
+- [ ] `PowersList` highlights the "me" row with a faction-tinted gradient stripe.
+- [ ] `IntelFeed` reads `state.log.slice(-4).reverse()`, renders timestamp + sentence.
 
-### Task 7: Modals
+### Task 7: Setup wizard
 
-- [ ] Forced trade (mid-attack and end-of-turn).
-- [ ] Move armies after capture (min = dice rolled, max = src.armies - 1).
-- [ ] Victory + "new game" + "share code" modals.
+- [ ] `/setup` route. Steps:
+  1. Player count (3–6) + host faction.
+  2. Per seat: human or AI; if AI, archetype dropdown (from `@riskrask/ai`).
+  3. Starting seed (random default, editable for replay).
+- [ ] On "Launch", `createInitialState({ seed, players })` and navigate to `/play`.
+- [ ] No multiplayer hooks here; that's Track F.
 
-### Task 8: Save code flow (solo)
+### Task 8: Modals
 
-- [ ] `SaveCodeModal` calls `POST /api/saves` with the current state and displays the returned code as `XXXX-XXXX` with a copy button + shareable URL.
-- [ ] On `?save=CODE` URL param, Home auto-fetches and navigates to `/play`.
-- [ ] In Track E the server endpoint exists; in this track, stub the fetch behind a feature flag or mock.
+- [ ] `ForcedTradeModal`: shown when `state.pendingForcedTrade` is set. Presents three-of-a-kind / one-of-each options; player picks one.
+- [ ] `MoveModal`: armies slider `[diceRolled, src.armies-1]`.
+- [ ] `VictoryModal`: winner name, shareable code (from Save API), Rematch button (re-enters setup with same players).
+- [ ] `SaveCodeModal`: `POST /api/saves`, shows `XXXX-XXXX` with copy button + `riskrask.com/?save=XXXXXXXX`.
 
-### Task 9: Playwright golden path
+### Task 9: URL save loading
 
-- [ ] Spin up dev server, configure 3-player game (2 AI dilettante + 1 human), play to end with scripted clicks; assert a victor is announced. Allow the fuzz-style test to be seeded via a `?seed=` URL param wired in Task 2.
+- [ ] On `/?save=CODE` mount, Home component calls `GET /api/saves/:code`, migrates, then navigates to `/play` with the loaded state.
+- [ ] Error states: 404 → "save not found", 410 → "save expired".
 
-### Task 10: Commit + PR
+### Task 10: Hotkeys + clock
+
+- [ ] `useHotkey('1'..'5')` jumps between phase tabs (only those that are legal for the current state).
+- [ ] `Space` = primary-action; `Esc` = cancel.
+- [ ] `useClock` counts down from `state.phaseDeadlineMs` if present; otherwise hidden.
+
+### Task 11: Responsive collapse
+
+- [ ] Below 900px width, Dossier becomes a bottom sheet with a toggle button; Stage takes full width. Rail collapses to a top tab strip.
+- [ ] Test: Playwright mobile-chrome project asserts sheet toggles.
+
+### Task 12: Playwright golden path
+
+- [ ] `e2e/solo-game.spec.ts`: launch with seed `'pw-1'`, 2 AI dilettantes + 1 human. Scripted clicks play Deploy → Attack (one blitz) → Fortify → End. Repeat until victory is declared. Spec passes in <30s on CI.
+
+### Task 13: Commit + merge
+
+Final commit message:
 
 ```
-web: React + Vite client covering solo golden path
+web(track-d): Command Console UI for solo golden path
 
-- Router, Zustand game store, solo dispatcher
-- SVG map with pan/zoom and territory tweens
-- Setup screen, round-loop controls, dice/log panels
-- Mobile tabs with auto-switch
-- Save-code modal, Playwright solo golden-path spec
+- Shell grid + Brand/Topbar/Rail/Statusbar
+- Stage with world map, phase tabs, zoom, 4 HUDs, selection overlay
+- Dossier: CommanderCard, phase-specific panel, PowersList, IntelFeed, DicePanel
+- Zustand game store + solo dispatcher + AI runner
+- Setup wizard, save-code modal, URL save loading
+- Playwright solo golden-path green
 
 Ref: docs/superpowers/specs/2026-04-19-riskrask-v3-design.md §3, §4
+Mockups: design/mockups/command-console.*
 ```

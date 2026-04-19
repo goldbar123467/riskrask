@@ -9,17 +9,17 @@
  * 100% exercising the route logic.
  */
 
-import { describe, expect, test, mock, beforeAll } from 'bun:test';
+import { beforeAll, describe, expect, mock, test } from 'bun:test';
 
 // ---------------------------------------------------------------------------
 // Stub Supabase client calls so no real network is needed.
 // ---------------------------------------------------------------------------
 
 // We must set env vars before importing the app so supabase.ts reads them.
-process.env['SUPABASE_URL'] = 'http://stub.local';
-process.env['SUPABASE_SERVICE_ROLE_KEY'] = 'service-stub-key';
-process.env['SUPABASE_ANON_KEY'] = 'anon-stub-key';
-process.env['SUPABASE_FUNCTIONS_URL'] = 'http://edge.stub.local/functions/v1';
+process.env.SUPABASE_URL = 'http://stub.local';
+process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-stub-key';
+process.env.SUPABASE_ANON_KEY = 'anon-stub-key';
+process.env.SUPABASE_FUNCTIONS_URL = 'http://edge.stub.local/functions/v1';
 
 // ---------------------------------------------------------------------------
 // Stub fetch (used by POST /api/saves which proxies to the edge function)

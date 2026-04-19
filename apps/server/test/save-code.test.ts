@@ -7,14 +7,14 @@
 import { describe, expect, test } from 'bun:test';
 import {
   CURRENT_SCHEMA_VERSION,
+  MIGRATIONS,
   SAVE_ALPHABET,
   SAVE_CODE_RE,
-  formatSaveCode,
-  parseSaveCode,
-  isSaveCode,
   assertMigrationRegistryIsComplete,
-  MIGRATIONS,
+  formatSaveCode,
+  isSaveCode,
   migrateSave,
+  parseSaveCode,
 } from '@riskrask/shared';
 
 describe('SAVE_ALPHABET', () => {

@@ -31,6 +31,7 @@ All decisions are final and made autonomously.
 | Package manager + runtime | Bun (workspaces, scripts, server runtime) | User requested Bun. Fast installs, native TS, native test runner, `bun serve` for prod. |
 | Client bundler | Vite 5 | User requested Vite. Fast HMR, Rollup output. |
 | Client framework | React 18 + TypeScript | Mature, fits the component model for SVG map + panels. No SSR needed. |
+| Visual direction | **"Command Console"** — full-bleed dark app, single hot accent, muted faction palette (USA slate-blue, RUS signal-red, CHN amber, EU sage). Space Grotesk / JetBrains Mono / Inter. See `design/mockups/command-console.html` + screenshot. This supersedes v2's amber/crimson theater palette. |
 | Client routing | React Router v6 | Only three routes (`/`, `/play/:roomId`, `/replay/:id`). |
 | Client state | Zustand for local UI state; TanStack Query for server state + cache; a single WebSocket "game room" store subscribed via a custom hook | Avoids Redux boilerplate; WebSocket pushes feed Zustand; TanStack Query handles lobby/list/save codes. |
 | Styling | Tailwind CSS + a small `theme.css` for the CSS variables already used in v2 | Preserves the Cold War palette (`--amber`, `--crimson`, `--sapphire`, etc.). Utility classes for everything new. No runtime CSS-in-JS. |
@@ -51,6 +52,44 @@ All decisions are final and made autonomously.
 | E2E | Playwright (chromium + mobile-chrome projects) | Covers the visual golden paths. |
 | Linter / formatter | Biome (single binary, replaces ESLint + Prettier) | Fast. One config. |
 | CI | GitHub Actions: typecheck, lint, unit, build, playwright headless | Table stakes. |
+
+### 3.1 UI layout (Command Console)
+
+The player client is a single full-bleed `grid-template-areas` app. Desktop target; mobile collapses the dossier into a bottom sheet.
+
+```
+┌──────┬────────────────────────────────────────────────┬──────────────┐
+│brand │                topbar (56px)                   │              │
+├──────┼────────────────────────────────────────────────┤              │
+│      │                                                │              │
+│ rail │                  stage (map)                   │   dossier    │
+│(72px)│                                                │   (380px)    │
+│      │                                                │              │
+├──────┼────────────────────────────────────────────────┴──────────────┤
+│      │                    statusbar (48px)                           │
+└──────┴───────────────────────────────────────────────────────────────┘
+```
+
+- **Brand** (72×56): rotated-square logo mark.
+- **Topbar** (right of brand): Session # · Turn · Phase · Clock · Player count · icon-buttons (mute, settings, exit).
+- **Rail** (72px left column): vertical nav — MAP / ARMY / INTEL / DIPL / LOG / HELP.
+- **Stage**: the map in its own SVG. Four corner HUDs (theatre / coordinates / legend / selected-callout), a phase-tab bar at top-center (Draft · Deploy · Attack · Fortify · End), and a zoom control at bottom-right. Map renders on top of `world.svg` landmass outline.
+- **Dossier** (380px right column): scrollable sections — Commander card, phase hero (big headline + readouts + progress + Confirm/Cancel), Powers list with per-player chip+name+territories+armies+bar (me row subtly highlighted), Intel feed (last 4 turn events).
+- **Statusbar**: LINK (connection), TICK (turn counter), LAT (ping), WINDOW (timer deadline in the "hot" accent), build tag.
+
+### 3.2 Phase vocabulary
+
+UI labels map to engine phases:
+
+| UI label | Engine phase | Notes |
+|---|---|---|
+| 01 Draft | `reinforce` (card-trade step) | Optional; auto-skipped if no trade-in is possible |
+| 02 Deploy | `reinforce` (placement step) | Pays armies onto owned territories |
+| 03 Attack | `attack` | Single-roll or blitz |
+| 04 Fortify | `fortify` | One move per turn |
+| 05 End | `end-turn` dispatch | Confirm & advance |
+
+Setup-phase screens (claim + initial placement) render outside the Console shell and drop into the shell once the game is live.
 
 ## 4. Repository layout
 

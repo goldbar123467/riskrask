@@ -1,11 +1,11 @@
 import { describe, expect, test } from 'bun:test';
+import { CURRENT_SCHEMA_VERSION } from '../src/index';
 import {
-  assertMigrationRegistryIsComplete,
   GameStateSchema,
   MIGRATIONS,
+  assertMigrationRegistryIsComplete,
   migrateSave,
 } from '../src/saves';
-import { CURRENT_SCHEMA_VERSION } from '../src/index';
 
 describe('saves schema + migration registry', () => {
   // -----------------------------------------------------------------------
@@ -81,7 +81,7 @@ describe('saves schema + migration registry', () => {
   // -----------------------------------------------------------------------
   test('migration walk advances schemaVersion through multiple steps', () => {
     // Temporarily push two migrations into the registry.
-    const pushed: typeof MIGRATIONS[number][] = [
+    const pushed: (typeof MIGRATIONS)[number][] = [
       { from: 1, to: 2, run: (s) => ({ ...s, addedInV2: true }) },
       { from: 2, to: 3, run: (s) => ({ ...s, addedInV3: 42 }) },
     ];

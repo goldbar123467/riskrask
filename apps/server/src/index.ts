@@ -12,9 +12,7 @@ app.use(
   '*',
   cors({
     origin: (origin) => {
-      const allowed = (
-        process.env['ALLOWED_ORIGINS'] ?? 'http://localhost:5173,http://localhost:5174'
-      )
+      const allowed = (process.env.ALLOWED_ORIGINS ?? 'http://localhost:5173,http://localhost:5174')
         .split(',')
         .map((s) => s.trim());
       return allowed.includes(origin ?? '') ? origin : null;
@@ -32,9 +30,8 @@ app.route('/api/saves', savesRouter);
 // ---------------------------------------------------------------------------
 // Boot
 // ---------------------------------------------------------------------------
-const port = Number(process.env['PORT'] ?? 8787);
+const port = Number(process.env.PORT ?? 8787);
 
-// biome-ignore lint/suspicious/noConsole: boot log is intentional
 console.log(`riskrask-server listening on :${port}`);
 
 export default { port, fetch: app.fetch };

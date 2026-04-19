@@ -1,0 +1,1044 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>RISK — Command Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    /* base palette — cold cosmic */
+    --bg-0:#070809;
+    --bg-1:#0b0d11;
+    --bg-2:#10141a;
+    --panel:#0d1015;
+    --panel-2:#12161d;
+    --line:#1c2029;
+    --line-2:#242933;
+    --ink:#e8ecf2;
+    --ink-dim:#8a94a5;
+    --ink-faint:#4a5262;
+    --ink-ghost:#2c313c;
+
+    /* factions — flag-inspired but muted cold */
+    --usa:#4f7dd4;       /* slate-blue */
+    --rus:#c94a4a;       /* signal red */
+    --chn:#d4a24a;       /* amber */
+    --eu: #5fb38a;       /* sage */
+
+    /* hero accent: one hot color */
+    --hot:#ff4d2e;
+    --hot-glow:rgba(255,77,46,0.18);
+  }
+
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg-0);color:var(--ink);font-family:'Inter',sans-serif;min-height:100vh;overflow-x:hidden}
+
+  /* full-bleed app */
+  .app{
+    display:grid;
+    grid-template-columns: 72px 1fr 380px;
+    grid-template-rows: 56px 1fr 48px;
+    grid-template-areas:
+      "brand  topbar  topbar"
+      "rail   stage   dossier"
+      "rail   statusbar statusbar";
+    width:100vw;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse 1400px 900px at 55% 40%, #0f131a 0%, #070809 70%),
+      var(--bg-0);
+  }
+
+  /* ===== BRAND CORNER ===== */
+  .brand{
+    grid-area:brand;
+    border-right:1px solid var(--line);
+    border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;
+    background:var(--bg-1);
+    position:relative;
+  }
+  .brand-mark{
+    width:28px;height:28px;
+    position:relative;
+  }
+  .brand-mark::before,.brand-mark::after{
+    content:"";position:absolute;inset:0;
+    border:1.5px solid var(--ink);
+  }
+  .brand-mark::before{ transform:rotate(45deg); }
+  .brand-mark::after{ width:6px;height:6px;inset:auto;top:11px;left:11px;background:var(--hot);border-color:var(--hot);box-shadow:0 0 12px var(--hot-glow)}
+
+  /* ===== TOPBAR ===== */
+  .topbar{
+    grid-area:topbar;
+    display:flex;align-items:stretch;
+    border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,#0c0f14 0%,#0a0d11 100%);
+  }
+  .topbar-title{
+    display:flex;align-items:center;gap:18px;padding:0 24px;
+    border-right:1px solid var(--line);
+  }
+  .topbar-title h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:500;font-size:13px;letter-spacing:0.36em;margin:0;
+    color:var(--ink);
+  }
+  .topbar-title .sub{
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;color:var(--ink-faint);letter-spacing:0.12em;
+  }
+  .topbar-meta{
+    display:flex;align-items:center;flex:1;
+  }
+  .topbar-cell{
+    padding:0 20px;height:100%;display:flex;flex-direction:column;justify-content:center;gap:2px;
+    border-right:1px solid var(--line);min-width:130px;
+  }
+  .topbar-cell .k{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase}
+  .topbar-cell .v{font-family:'Space Grotesk',sans-serif;font-size:13px;color:var(--ink);letter-spacing:0.04em}
+  .topbar-cell .v .dim{color:var(--ink-dim)}
+  .topbar-cell.turn .v{color:var(--hot)}
+
+  .topbar-right{display:flex;align-items:center;gap:10px;padding:0 18px}
+  .iconbtn{
+    width:30px;height:30px;border:1px solid var(--line);background:var(--panel);
+    display:flex;align-items:center;justify-content:center;color:var(--ink-dim);cursor:pointer;
+  }
+  .iconbtn:hover{color:var(--ink);border-color:var(--line-2)}
+
+  /* ===== LEFT RAIL ===== */
+  .rail{
+    grid-area:rail;
+    border-right:1px solid var(--line);
+    background:var(--bg-1);
+    display:flex;flex-direction:column;align-items:center;padding-top:14px;gap:6px;
+  }
+  .rail .item{
+    width:44px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    color:var(--ink-faint);cursor:pointer;position:relative;
+    font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:0.12em;
+  }
+  .rail .item.active{color:var(--ink)}
+  .rail .item.active::before{
+    content:"";position:absolute;left:0;top:8px;bottom:8px;width:2px;background:var(--hot);
+  }
+  .rail .item svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.4}
+  .rail .spacer{flex:1}
+
+  /* ===== STAGE (MAP) ===== */
+  .stage{
+    grid-area:stage;
+    position:relative;
+    overflow:hidden;
+    background:
+      radial-gradient(circle at 50% 45%, #0d1118 0%, #06070a 65%);
+  }
+  /* grid background */
+  .stage::before{
+    content:"";position:absolute;inset:0;
+    background-image:
+      linear-gradient(rgba(80,100,140,0.04) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(80,100,140,0.04) 1px,transparent 1px);
+    background-size:80px 80px;
+    mask-image:radial-gradient(ellipse 90% 80% at center,#000 50%,transparent 100%);
+    pointer-events:none;
+  }
+  /* crosshair marks in corners */
+  .stage::after{
+    content:"";position:absolute;inset:16px;pointer-events:none;
+    background:
+      linear-gradient(var(--line-2),var(--line-2)) top left / 16px 1px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) top left / 1px 16px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) top right / 16px 1px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) top right / 1px 16px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) bottom left / 16px 1px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) bottom left / 1px 16px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) bottom right / 16px 1px no-repeat,
+      linear-gradient(var(--line-2),var(--line-2)) bottom right / 1px 16px no-repeat;
+  }
+
+  .stage-inner{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+  .map-wrap{position:relative;width:100%;height:100%;}
+  .map-svg{position:absolute;inset:0;width:100%;height:100%;}
+
+  /* stage-overlay HUD elements */
+  .stage-hud{position:absolute;pointer-events:none}
+  .stage-hud.tl{top:18px;left:18px}
+  .stage-hud.tr{top:18px;right:18px;text-align:right}
+  .stage-hud.bl{bottom:18px;left:18px}
+  .stage-hud.br{bottom:18px;right:18px;text-align:right}
+
+  .hud-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase;margin-bottom:4px}
+  .hud-val{font-family:'Space Grotesk',sans-serif;font-size:14px;color:var(--ink-dim);letter-spacing:0.04em}
+  .hud-mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);letter-spacing:0.08em}
+
+  /* phase indicator */
+  .phase-tab{
+    position:absolute;left:50%;top:18px;transform:translateX(-50%);
+    display:flex;gap:0;border:1px solid var(--line);background:rgba(10,12,16,0.85);backdrop-filter:blur(4px);
+    font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.18em;text-transform:uppercase;
+  }
+  .phase-tab span{padding:8px 18px;color:var(--ink-faint);border-right:1px solid var(--line)}
+  .phase-tab span:last-child{border-right:0}
+  .phase-tab span.on{color:var(--hot);background:linear-gradient(180deg,rgba(255,77,46,0.12),transparent);position:relative}
+  .phase-tab span.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:1px;background:var(--hot)}
+
+  /* zoom control */
+  .zoom-ctl{
+    position:absolute;right:18px;bottom:18px;
+    display:flex;flex-direction:column;border:1px solid var(--line);background:rgba(10,12,16,0.85);
+    font-family:'JetBrains Mono',monospace;font-size:12px;
+  }
+  .zoom-ctl button{
+    width:28px;height:28px;background:none;border:0;color:var(--ink-dim);cursor:pointer;border-bottom:1px solid var(--line);
+  }
+  .zoom-ctl button:last-child{border-bottom:0}
+  .zoom-ctl .lvl{padding:4px 0;color:var(--ink-faint);text-align:center;font-size:9px;letter-spacing:0.1em;border-bottom:1px solid var(--line)}
+
+  /* continent label */
+  .continent-label{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:300;
+    letter-spacing:0.42em;
+    fill:rgba(230,236,245,0.38);
+    text-transform:uppercase;
+    pointer-events:none;
+    paint-order:stroke fill;
+    stroke:rgba(255,255,255,0.12);
+    stroke-width:3;
+    stroke-linejoin:round;
+    filter:url(#labelGlow);
+  }
+  .continent-bonus{
+    font-family:'JetBrains Mono',monospace;
+    fill:rgba(255,255,255,0.55);
+    stroke:none;
+    letter-spacing:0.1em;
+  }
+
+  /* territory node styles */
+  .node-g{cursor:pointer}
+  .node-label{
+    font-family:'JetBrains Mono',monospace;
+    font-size:8.5px;
+    fill:var(--ink-dim);
+    letter-spacing:0.08em;
+    text-transform:uppercase;
+    text-anchor:middle;
+    pointer-events:none;
+  }
+  .node-link{
+    stroke:rgba(120,140,170,0.18);
+    stroke-width:1;
+    stroke-dasharray:2 3;
+    fill:none;
+  }
+  .node-link.sea{stroke-dasharray:1 4}
+
+  /* the marker itself — hexagonal chit with unit silhouette */
+  .marker-outer{stroke-width:1.5;fill:rgba(10,12,16,0.92)}
+  .marker-inner{stroke:none}
+  .marker-count{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:600;
+    font-size:11px;
+    letter-spacing:0;
+    text-anchor:middle;
+    dominant-baseline:central;
+  }
+
+  /* selected territory glow */
+  .node-g.selected .marker-outer{
+    filter:drop-shadow(0 0 6px var(--hot));
+    stroke:var(--hot) !important;
+  }
+  .node-g.selected .node-label{fill:var(--ink);font-weight:600}
+
+  /* ===== DOSSIER (right panel) ===== */
+  .dossier{
+    grid-area:dossier;
+    border-left:1px solid var(--line);
+    background:var(--panel);
+    display:flex;flex-direction:column;
+    overflow-y:auto;
+  }
+  .d-section{
+    border-bottom:1px solid var(--line);
+    padding:20px 22px;
+  }
+  .d-head{
+    display:flex;justify-content:space-between;align-items:baseline;
+    font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-faint);
+    letter-spacing:0.22em;text-transform:uppercase;margin-bottom:14px;
+  }
+  .d-head .idx{color:var(--ink-ghost)}
+
+  /* you + turn block */
+  .you-card{
+    display:flex;gap:14px;align-items:center;
+  }
+  .you-crest{
+    width:44px;height:44px;border:1.5px solid var(--usa);
+    display:flex;align-items:center;justify-content:center;position:relative;
+    background:rgba(79,125,212,0.06);
+  }
+  .you-crest svg{width:26px;height:26px}
+  .you-info{flex:1}
+  .you-info .name{font-family:'Space Grotesk',sans-serif;font-size:16px;letter-spacing:0.04em;color:var(--ink)}
+  .you-info .tag{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--usa);letter-spacing:0.16em;text-transform:uppercase;margin-top:2px}
+
+  /* DEPLOY headline */
+  .deploy-head{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:500;font-size:28px;letter-spacing:0.08em;
+    margin:0 0 6px;color:var(--ink);
+  }
+  .deploy-sub{
+    font-family:'Inter',sans-serif;font-size:12px;line-height:1.55;color:var(--ink-dim);margin:0 0 18px;
+  }
+
+  /* armies readout */
+  .readout{
+    display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:baseline;
+    padding:12px 0;border-top:1px solid var(--line-2);
+  }
+  .readout:first-of-type{border-top:0;padding-top:0}
+  .readout .k{font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-faint);letter-spacing:0.16em;text-transform:uppercase}
+  .readout .v{font-family:'Space Grotesk',sans-serif;font-size:22px;color:var(--ink);letter-spacing:0.02em;font-weight:400}
+  .readout .v .tot{color:var(--ink-faint);font-size:14px}
+
+  .progress{
+    height:2px;background:var(--ink-ghost);position:relative;margin-top:10px;
+  }
+  .progress::after{content:"";position:absolute;left:0;top:0;bottom:0;width:23%;background:var(--hot)}
+
+  /* powers list */
+  .powers{display:flex;flex-direction:column;gap:8px}
+  .power{
+    display:grid;grid-template-columns:22px 1fr auto auto;gap:10px;align-items:center;
+    padding:8px 0;border-top:1px solid var(--line-2);
+  }
+  .power:first-child{border-top:0}
+  .power.me{background:linear-gradient(90deg,rgba(79,125,212,0.06),transparent);margin:0 -22px;padding:8px 22px}
+  .power .chip{width:14px;height:14px;border:1.5px solid currentColor;position:relative}
+  .power .chip::after{content:"";position:absolute;inset:2px;background:currentColor;opacity:0.18}
+  .power .name{font-family:'Space Grotesk',sans-serif;font-size:13px;letter-spacing:0.02em}
+  .power .name .title{color:var(--ink-faint);font-size:10.5px;margin-left:6px;letter-spacing:0.08em;text-transform:uppercase}
+  .power .armies,.power .terr{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);letter-spacing:0.06em;text-align:right;min-width:36px}
+  .power .bar{grid-column:2 / -1;height:1px;background:var(--line-2);position:relative;margin-top:2px}
+  .power .bar::after{content:"";position:absolute;left:0;top:0;bottom:0;background:currentColor}
+
+  /* intel feed */
+  .feed{font-family:'Inter',sans-serif;font-size:12px;line-height:1.6;color:var(--ink-dim)}
+  .feed .line{padding:10px 0;border-top:1px solid var(--line-2);display:flex;gap:10px}
+  .feed .line:first-child{border-top:0;padding-top:0}
+  .feed .t{font-family:'JetBrains Mono',monospace;color:var(--ink-faint);font-size:9.5px;letter-spacing:0.12em;min-width:42px;padding-top:2px}
+  .feed b{color:var(--ink);font-weight:500}
+  .feed .hot{color:var(--hot)}
+
+  /* action row */
+  .actions{display:flex;gap:8px;margin-top:4px}
+  .btn{
+    flex:1;padding:12px 14px;border:1px solid var(--line-2);background:var(--panel-2);
+    color:var(--ink-dim);font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:0.2em;
+    text-transform:uppercase;cursor:pointer;text-align:center;
+  }
+  .btn.primary{
+    background:linear-gradient(180deg,rgba(95,200,140,0.18),rgba(95,200,140,0.04));
+    border-color:#5fc88c;color:#8ae3a8;
+    box-shadow:inset 0 0 0 1px rgba(95,200,140,0.18), 0 0 18px rgba(95,200,140,0.15);
+  }
+  .btn.danger{
+    background:linear-gradient(180deg,rgba(230,70,70,0.16),rgba(230,70,70,0.04));
+    border-color:#e65a5a;color:#f08c8c;
+    box-shadow:inset 0 0 0 1px rgba(230,70,70,0.18), 0 0 14px rgba(230,70,70,0.1);
+  }
+  .btn:hover{color:var(--ink);border-color:var(--ink-faint)}
+  .btn.primary:hover{color:#e7ffee;background:linear-gradient(180deg,rgba(95,200,140,0.28),rgba(95,200,140,0.08));box-shadow:inset 0 0 0 1px rgba(95,200,140,0.3), 0 0 22px rgba(95,200,140,0.22)}
+  .btn.danger:hover{color:#ffe7e7;background:linear-gradient(180deg,rgba(230,70,70,0.26),rgba(230,70,70,0.08))}
+
+  /* ===== STATUSBAR ===== */
+  .statusbar{
+    grid-area:statusbar;
+    border-top:1px solid var(--line);background:var(--bg-1);
+    display:flex;align-items:center;padding:0;
+    font-family:'JetBrains Mono',monospace;font-size:9.5px;color:var(--ink-faint);letter-spacing:0.18em;text-transform:uppercase;
+  }
+  .statusbar .cell{padding:0 20px;height:100%;display:flex;align-items:center;gap:8px;border-right:1px solid var(--line)}
+  .statusbar .cell.ok{color:#5fb38a}
+  .statusbar .cell.hot{color:var(--hot)}
+  .statusbar .fill{flex:1}
+  .statusbar .dot{width:6px;height:6px;background:currentColor;border-radius:50%;box-shadow:0 0 8px currentColor}
+
+  /* ========= TWEAKS PANEL ========= */
+  .tweaks{
+    position:fixed;right:16px;bottom:60px;width:280px;
+    background:rgba(13,16,21,0.96);border:1px solid var(--line-2);
+    font-family:'Inter',sans-serif;font-size:12px;color:var(--ink);
+    display:none;z-index:100;backdrop-filter:blur(8px);
+  }
+  .tweaks.on{display:block}
+  .tweaks h3{
+    margin:0;padding:12px 14px;font-family:'Space Grotesk',sans-serif;font-size:11px;letter-spacing:0.28em;
+    color:var(--ink-dim);border-bottom:1px solid var(--line-2);text-transform:uppercase;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  .tweaks .sec{padding:10px 14px;border-bottom:1px solid var(--line-2)}
+  .tweaks .lbl{font-size:10px;color:var(--ink-faint);letter-spacing:0.12em;text-transform:uppercase;margin-bottom:8px;font-family:'JetBrains Mono',monospace}
+  .tweaks .opts{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+  .tweaks .opt{
+    border:1px solid var(--line-2);padding:8px 6px;text-align:center;cursor:pointer;
+    font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:0.1em;color:var(--ink-dim);text-transform:uppercase;
+  }
+  .tweaks .opt.on{border-color:var(--hot);color:var(--hot);background:rgba(255,77,46,0.08)}
+  .tweaks .swatches{display:flex;gap:6px}
+  .tweaks .sw{width:22px;height:22px;border:1px solid var(--line-2);cursor:pointer;position:relative}
+  .tweaks .sw.on{border-color:#fff}
+
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- BRAND -->
+  <div class="brand"><div class="brand-mark"></div></div>
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-title">
+      <h1>RISK</h1>
+      <span class="sub">v2.41 · CONSOLE</span>
+    </div>
+    <div class="topbar-meta">
+      <div class="topbar-cell">
+        <span class="k">Session</span>
+        <span class="v">#A7-3319 <span class="dim">// ranked</span></span>
+      </div>
+      <div class="topbar-cell turn">
+        <span class="k">Turn</span>
+        <span class="v">01 <span class="dim">/ 40</span></span>
+      </div>
+      <div class="topbar-cell">
+        <span class="k">Phase</span>
+        <span class="v">Deploy <span class="dim">· reinforce</span></span>
+      </div>
+      <div class="topbar-cell">
+        <span class="k">Clock</span>
+        <span class="v" id="clock">00 : 58</span>
+      </div>
+      <div class="topbar-cell">
+        <span class="k">Players</span>
+        <span class="v">4 <span class="dim">· 1 HUMAN / 3 AI</span></span>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="iconbtn" title="Mute">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 010 7"/></svg>
+      </div>
+      <div class="iconbtn" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.1a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.1a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33h.01a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.1a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82v.01a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.1a1.65 1.65 0 00-1.51 1z"/></svg>
+      </div>
+      <div class="iconbtn" title="Exit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 6l12 12M6 18L18 6"/></svg>
+      </div>
+    </div>
+  </header>
+
+  <!-- LEFT RAIL -->
+  <aside class="rail">
+    <div class="item active" title="Map">
+      <svg viewBox="0 0 24 24"><path d="M9 3L3 5v16l6-2 6 2 6-2V3l-6 2-6-2zM9 3v16M15 5v16"/></svg>
+      <span>MAP</span>
+    </div>
+    <div class="item" title="Armies">
+      <svg viewBox="0 0 24 24"><path d="M4 20l8-14 8 14H4z"/><path d="M8 20v-4M16 20v-4M12 14v6"/></svg>
+      <span>ARMY</span>
+    </div>
+    <div class="item" title="Intel">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+      <span>INTEL</span>
+    </div>
+    <div class="item" title="Diplomacy">
+      <svg viewBox="0 0 24 24"><path d="M4 7l8-4 8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/></svg>
+      <span>DIPL</span>
+    </div>
+    <div class="item" title="Log">
+      <svg viewBox="0 0 24 24"><path d="M4 4h12l4 4v12H4z"/><path d="M8 10h8M8 14h8M8 18h5"/></svg>
+      <span>LOG</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="item" title="Help">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 015 0c0 1.5-2.5 2-2.5 4M12 17v.5"/></svg>
+      <span>HELP</span>
+    </div>
+  </aside>
+
+  <!-- STAGE (map) -->
+  <main class="stage">
+    <div class="phase-tab">
+      <span>01 · Draft</span>
+      <span class="on">02 · Deploy</span>
+      <span>03 · Attack</span>
+      <span>04 · Fortify</span>
+      <span>05 · End</span>
+    </div>
+
+    <div class="stage-hud tl">
+      <div class="hud-lbl">// THEATRE</div>
+      <div class="hud-val">Earth · Global</div>
+      <div class="hud-mono" style="margin-top:6px;color:var(--ink-faint)">42 territories · 6 continents</div>
+    </div>
+
+    <div class="stage-hud tr">
+      <div class="hud-lbl">// COORDINATES</div>
+      <div class="hud-mono" id="coord">LAT 00° 00' 00"   LON 000° 00' 00"</div>
+      <div class="hud-mono" style="color:var(--ink-faint);margin-top:4px">ZOOM 1.00×  ·  N ↑</div>
+    </div>
+
+    <div class="stage-hud bl">
+      <div class="hud-lbl">// LEGEND</div>
+      <div style="display:flex;gap:14px;align-items:center;font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--ink-dim);letter-spacing:0.1em">
+        <span style="display:flex;align-items:center;gap:6px"><i style="display:inline-block;width:10px;height:10px;border:1.5px solid var(--usa);transform:rotate(45deg)"></i>YOU</span>
+        <span style="display:flex;align-items:center;gap:6px"><i style="display:inline-block;width:10px;height:10px;border:1.5px solid var(--rus);transform:rotate(45deg)"></i>RU.AI</span>
+        <span style="display:flex;align-items:center;gap:6px"><i style="display:inline-block;width:10px;height:10px;border:1.5px solid var(--chn);transform:rotate(45deg)"></i>CN.AI</span>
+        <span style="display:flex;align-items:center;gap:6px"><i style="display:inline-block;width:10px;height:10px;border:1.5px solid var(--eu);transform:rotate(45deg)"></i>EU.AI</span>
+      </div>
+    </div>
+
+    <div class="zoom-ctl">
+      <button>+</button>
+      <div class="lvl">1.0×</div>
+      <button>−</button>
+      <button style="font-size:9px">⤢</button>
+    </div>
+
+    <!-- the map -->
+    <div class="stage-inner">
+      <div class="map-wrap" id="mapwrap"></div>
+    </div>
+  </main>
+
+  <!-- DOSSIER -->
+  <aside class="dossier">
+
+    <div class="d-section">
+      <div class="d-head"><span>// COMMANDER</span><span class="idx">01 / 04</span></div>
+      <div class="you-card">
+        <div class="you-crest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--usa)" stroke-width="1.3">
+            <path d="M12 2l8 5v5c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7l8-5z"/>
+            <path d="M8 11l3 3 5-6"/>
+          </svg>
+        </div>
+        <div class="you-info">
+          <div class="name">USA Command</div>
+          <div class="tag">YOU · Gen. H. Vance</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-section">
+      <h2 class="deploy-head">DEPLOY</h2>
+      <p class="deploy-sub">Your draft phase. Distribute reinforcements across your 13 territories before advancing to the attack phase.</p>
+
+      <div class="readout">
+        <span class="k">Armies to deploy</span>
+        <span class="v">18</span>
+      </div>
+      <div class="readout">
+        <span class="k">Deployed this turn</span>
+        <span class="v">5 <span class="tot">/ 23</span></span>
+      </div>
+      <div class="progress"></div>
+      <div class="readout">
+        <span class="k">Continent bonus</span>
+        <span class="v" style="color:var(--eu)">+0</span>
+      </div>
+      <div class="readout">
+        <span class="k">Territories held</span>
+        <span class="v">13 <span class="tot">/ 42</span></span>
+      </div>
+
+      <div class="actions" style="margin-top:18px">
+        <button class="btn danger">✕ CANCEL</button>
+        <button class="btn primary">CONFIRM ▸</button>
+      </div>
+    </div>
+
+    <div class="d-section">
+      <div class="d-head"><span>// POWERS</span><span class="idx">LIVE</span></div>
+      <div class="powers">
+
+        <div class="power me" style="color:var(--usa)">
+          <div class="chip"></div>
+          <div class="name">USA <span class="title">// YOU</span></div>
+          <div class="terr">13</div>
+          <div class="armies">32</div>
+          <div class="bar" style="width:31%"></div>
+        </div>
+
+        <div class="power" style="color:var(--rus)">
+          <div class="chip"></div>
+          <div class="name">RUS <span class="title">// Zhukov.ai</span></div>
+          <div class="terr">11</div>
+          <div class="armies">33</div>
+          <div class="bar" style="width:32%"></div>
+        </div>
+
+        <div class="power" style="color:var(--chn)">
+          <div class="chip"></div>
+          <div class="name">CHN <span class="title">// Sun.ai</span></div>
+          <div class="terr">10</div>
+          <div class="armies">18</div>
+          <div class="bar" style="width:18%"></div>
+        </div>
+
+        <div class="power" style="color:var(--eu)">
+          <div class="chip"></div>
+          <div class="name">EU <span class="title">// Bonaparte.ai</span></div>
+          <div class="terr">8</div>
+          <div class="armies">19</div>
+          <div class="bar" style="width:19%"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="d-section">
+      <div class="d-head"><span>// INTEL FEED</span><span class="idx">last 4</span></div>
+      <div class="feed">
+        <div class="line"><span class="t">T01:58</span><span>New war cycle begins. Order: <b>CHN</b> → <b>YOU</b> → <b>RUS</b> → <b>EU</b>.</span></div>
+        <div class="line"><span class="t">T01:42</span><span><b class="hot">Zhukov.ai</b> garrisoned <b>Kamchatka</b> (+2). Threat axis: NE Pacific.</span></div>
+        <div class="line"><span class="t">T01:12</span><span><b>Bonaparte.ai</b> proposed <b>non-aggression</b> · <b>EU↔USA</b>, 3 turns.</span></div>
+        <div class="line"><span class="t">T00:44</span><span>Satellite uplink stable · 42 / 42 territories visible.</span></div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- STATUSBAR -->
+  <footer class="statusbar">
+    <div class="cell ok"><span class="dot"></span>LINK · STABLE</div>
+    <div class="cell">TICK 18 / 40</div>
+    <div class="cell">LAT 42ms</div>
+    <div class="cell hot"><span class="dot"></span>DEPLOY WINDOW · 0:58</div>
+    <div class="fill"></div>
+    <div class="cell" style="border-right:0">RISK · COLD THEATRE BUILD · 2026</div>
+  </footer>
+
+</div>
+
+<!-- tweaks -->
+<div class="tweaks" id="tweaks">
+  <h3>TWEAKS<span style="font-size:9px;color:var(--ink-faint)">↓</span></h3>
+  <div class="sec">
+    <div class="lbl">Hot accent</div>
+    <div class="swatches" id="accent-sw">
+      <div class="sw on" data-accent="#ff4d2e" style="background:#ff4d2e" title="Flare"></div>
+      <div class="sw" data-accent="#f5c542" style="background:#f5c542" title="Amber"></div>
+      <div class="sw" data-accent="#6af0c5" style="background:#6af0c5" title="Cyan"></div>
+      <div class="sw" data-accent="#b38cff" style="background:#b38cff" title="Violet"></div>
+      <div class="sw" data-accent="#ff2e78" style="background:#ff2e78" title="Magenta"></div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="lbl">Unit silhouette</div>
+    <div class="opts" id="unit-sw">
+      <div class="opt on" data-unit="mix">MIX</div>
+      <div class="opt" data-unit="tank">TANK</div>
+      <div class="opt" data-unit="drone">DRONE</div>
+      <div class="opt" data-unit="jet">JET</div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="lbl">Marker shape</div>
+    <div class="opts" id="shape-sw" style="grid-template-columns:repeat(3,1fr)">
+      <div class="opt on" data-shape="hex">HEX</div>
+      <div class="opt" data-shape="diamond">DMD</div>
+      <div class="opt" data-shape="shield">SHLD</div>
+    </div>
+  </div>
+  <div class="sec">
+    <div class="lbl">Map topo</div>
+    <div class="opts" id="topo-sw" style="grid-template-columns:repeat(3,1fr)">
+      <div class="opt" data-topo="off">OFF</div>
+      <div class="opt on" data-topo="subtle">SUBTLE</div>
+      <div class="opt" data-topo="rich">RICH</div>
+    </div>
+  </div>
+</div>
+
+<script type="application/json" id="territories">
+[
+  {"id":"ALA","name":"Alaska","cx":130,"cy":240,"cont":"NA","own":"EU","n":1},
+  {"id":"NWT","name":"NW Territory","cx":260,"cy":230,"cont":"NA","own":"CN","n":2},
+  {"id":"GRN","name":"Greenland","cx":540,"cy":175,"cont":"NA","own":"RU","n":1},
+  {"id":"ALB","name":"Alberta","cx":240,"cy":320,"cont":"NA","own":"RU","n":1},
+  {"id":"ONT","name":"Ontario","cx":340,"cy":340,"cont":"NA","own":"CN","n":1},
+  {"id":"QUE","name":"Quebec","cx":430,"cy":330,"cont":"NA","own":"EU","n":1},
+  {"id":"WUS","name":"Western US","cx":230,"cy":420,"cont":"NA","own":"US","n":1},
+  {"id":"EUS","name":"Eastern US","cx":340,"cy":430,"cont":"NA","own":"RU","n":1},
+  {"id":"CAM","name":"C. America","cx":290,"cy":570,"cont":"NA","own":"US","n":1},
+
+  {"id":"VEN","name":"Venezuela","cx":360,"cy":620,"cont":"SA","own":"RU","n":1},
+  {"id":"BRA","name":"Brazil","cx":450,"cy":700,"cont":"SA","own":"CN","n":1},
+  {"id":"PER","name":"Peru","cx":340,"cy":750,"cont":"SA","own":"CN","n":1},
+  {"id":"ARG","name":"Argentina","cx":400,"cy":850,"cont":"SA","own":"CN","n":1},
+
+  {"id":"ICE","name":"Iceland","cx":580,"cy":220,"cont":"EU","own":"RU","n":1},
+  {"id":"SCA","name":"Scandinavia","cx":720,"cy":230,"cont":"EU","own":"US","n":1},
+  {"id":"GBR","name":"Great Britain","cx":600,"cy":340,"cont":"EU","own":"RU","n":1},
+  {"id":"UKR","name":"Ukraine","cx":800,"cy":340,"cont":"EU","own":"RU","n":1},
+  {"id":"NEU","name":"N. Europe","cx":720,"cy":370,"cont":"EU","own":"US","n":1},
+  {"id":"WEU","name":"W. Europe","cx":650,"cy":450,"cont":"EU","own":"EU","n":1},
+  {"id":"SEU","name":"S. Europe","cx":750,"cy":450,"cont":"EU","own":"EU","n":1},
+
+  {"id":"NAF","name":"N. Africa","cx":700,"cy":580,"cont":"AF","own":"CN","n":1},
+  {"id":"EGY","name":"Egypt","cx":810,"cy":555,"cont":"AF","own":"EU","n":1},
+  {"id":"EAF","name":"E. Africa","cx":850,"cy":680,"cont":"AF","own":"EU","n":1},
+  {"id":"CON","name":"Congo","cx":800,"cy":720,"cont":"AF","own":"CN","n":1},
+  {"id":"SAF","name":"S. Africa","cx":790,"cy":810,"cont":"AF","own":"US","n":1},
+  {"id":"MAD","name":"Madagascar","cx":900,"cy":790,"cont":"AF","own":"CN","n":1},
+
+  {"id":"URA","name":"Ural","cx":960,"cy":280,"cont":"AS","own":"US","n":1},
+  {"id":"SIB","name":"Siberia","cx":1060,"cy":230,"cont":"AS","own":"US","n":1},
+  {"id":"YAK","name":"Yakutsk","cx":1170,"cy":200,"cont":"AS","own":"CN","n":1},
+  {"id":"KAM","name":"Kamchatka","cx":1310,"cy":230,"cont":"AS","own":"CN","n":1},
+  {"id":"IRK","name":"Irkutsk","cx":1120,"cy":360,"cont":"AS","own":"RU","n":1},
+  {"id":"MON","name":"Mongolia","cx":1180,"cy":400,"cont":"AS","own":"US","n":1},
+  {"id":"JAP","name":"Japan","cx":1330,"cy":420,"cont":"AS","own":"CN","n":1},
+  {"id":"AFG","name":"Afghanistan","cx":990,"cy":420,"cont":"AS","own":"US","n":1},
+  {"id":"CHN","name":"China","cx":1120,"cy":470,"cont":"AS","own":"US","n":1},
+  {"id":"MDE","name":"Middle East","cx":900,"cy":490,"cont":"AS","own":"US","n":1},
+  {"id":"IND","name":"India","cx":1040,"cy":570,"cont":"AS","own":"RU","n":1},
+  {"id":"SIA","name":"Siam","cx":1140,"cy":620,"cont":"AS","own":"US","n":1},
+
+  {"id":"INO","name":"Indonesia","cx":1230,"cy":700,"cont":"AU","own":"US","n":1},
+  {"id":"NGU","name":"New Guinea","cx":1360,"cy":700,"cont":"AU","own":"CN","n":1},
+  {"id":"WAS","name":"W. Australia","cx":1260,"cy":830,"cont":"AU","own":"CN","n":1},
+  {"id":"EAS","name":"E. Australia","cx":1370,"cy":830,"cont":"AU","own":"CN","n":1}
+]
+</script>
+
+<script type="application/json" id="edges">
+[
+["ALA","NWT"],["ALA","ALB"],["NWT","ALB"],["NWT","ONT"],["NWT","GRN"],["ALB","ONT"],["ALB","WUS"],
+["ONT","QUE"],["ONT","WUS"],["ONT","EUS"],["QUE","EUS"],["QUE","GRN"],["WUS","EUS"],["WUS","CAM"],
+["CAM","VEN"],["VEN","BRA"],["VEN","PER"],["BRA","PER"],["BRA","ARG"],["PER","ARG"],["BRA","NAF"],
+["ICE","SCA"],["ICE","GBR"],["ICE","GRN"],["GBR","SCA"],["GBR","NEU"],["GBR","WEU"],["SCA","NEU"],["SCA","UKR"],
+["UKR","NEU"],["UKR","SEU"],["UKR","URA"],["UKR","AFG"],["UKR","MDE"],["NEU","WEU"],["NEU","SEU"],
+["WEU","SEU"],["WEU","NAF"],["SEU","NAF"],["SEU","EGY"],["SEU","MDE"],
+["NAF","EGY"],["NAF","EAF"],["NAF","CON"],["EGY","EAF"],["EGY","MDE"],["EAF","CON"],["EAF","MDE"],
+["EAF","SAF"],["EAF","MAD"],["CON","SAF"],["SAF","MAD"],
+["URA","SIB"],["URA","AFG"],["URA","CHN"],["SIB","YAK"],["SIB","IRK"],["SIB","MON"],["SIB","CHN"],
+["YAK","KAM"],["YAK","IRK"],["IRK","KAM"],["IRK","MON"],["KAM","MON"],["KAM","JAP"],["KAM","ALA"],
+["MON","JAP"],["MON","CHN"],["AFG","MDE"],["AFG","IND"],["AFG","CHN"],["CHN","IND"],["CHN","SIA"],
+["IND","MDE"],["IND","SIA"],["SIA","INO"],
+["INO","NGU"],["INO","WAS"],["NGU","EAS"],["NGU","WAS"],["WAS","EAS"]
+]
+</script>
+
+<script>
+// ================== MAP BUILD ==================
+const OWNER_COLOR = {US:'var(--usa)', RU:'var(--rus)', CN:'var(--chn)', EU:'var(--eu)'};
+const OWNER_HEX   = {US:'#4f7dd4', RU:'#c94a4a', CN:'#d4a24a', EU:'#5fb38a'};
+
+const TERRITORIES = JSON.parse(document.getElementById('territories').textContent);
+const EDGES = JSON.parse(document.getElementById('edges').textContent);
+const T_MAP = Object.fromEntries(TERRITORIES.map(t => [t.id, t]));
+
+// viewBox we draw into
+const VB_W = 1500, VB_H = 960;
+
+// continent labels placement
+const CONTS = [
+  {id:'NA', name:'NORTH AMERICA', bonus:'+5', x:150, y:110, size:26},
+  {id:'SA', name:'SOUTH AMERICA', bonus:'+2', x:300, y:920, size:22},
+  {id:'EU', name:'EUROPE',        bonus:'+5', x:620, y:170, size:24},
+  {id:'AF', name:'AFRICA',        bonus:'+3', x:640, y:910, size:24},
+  {id:'AS', name:'ASIA',          bonus:'+7', x:1250,y:130, size:30},
+  {id:'AU', name:'OCEANIA',       bonus:'+2', x:1270,y:930, size:20}
+];
+
+// Tweak state
+const TWEAK_DEFAULS = /*EDITMODE-BEGIN*/{
+  "accent": "#ff4d2e",
+  "unit": "tank",
+  "shape": "hex",
+  "topo": "off"
+}/*EDITMODE-END*/;
+
+let state = {...TWEAK_DEFAULS};
+
+// ---- unit silhouettes ----
+function unitSVG(kind, color){
+  const s = color;
+  const SIL = {
+    tank: `<g fill="none" stroke="${s}" stroke-width="1.2" stroke-linejoin="round">
+      <rect x="-8" y="-1" width="16" height="5" rx="0.5"/>
+      <rect x="-5.5" y="-4.5" width="11" height="4" rx="0.5"/>
+      <line x1="5" y1="-2.5" x2="10" y2="-2.5" stroke-width="1"/>
+      <line x1="-8" y1="4.5" x2="8" y2="4.5" stroke-dasharray="1 0.8"/>
+    </g>`,
+    drone: `<g fill="none" stroke="${s}" stroke-width="1.1">
+      <circle cx="-6" cy="-3" r="3"/><circle cx="6" cy="-3" r="3"/>
+      <circle cx="-6" cy="3"  r="3"/><circle cx="6" cy="3" r="3"/>
+      <line x1="-6" y1="-3" x2="6" y2="3"/>
+      <line x1="6"  y1="-3" x2="-6" y2="3"/>
+      <rect x="-2" y="-2" width="4" height="4" fill="${s}" opacity="0.25" stroke-width="0.8"/>
+    </g>`,
+    jet: `<g fill="none" stroke="${s}" stroke-width="1.2" stroke-linejoin="round">
+      <path d="M0,-8 L3,3 L8,5 L2,5 L0,8 L-2,5 L-8,5 L-3,3 Z"/>
+      <line x1="0" y1="-4" x2="0" y2="2" stroke-width="0.8"/>
+    </g>`,
+    inf: `<g fill="none" stroke="${s}" stroke-width="1.2">
+      <circle cx="0" cy="-4" r="2.2"/>
+      <path d="M-4,7 L-2,-1 L2,-1 L4,7"/>
+      <line x1="-5" y1="2" x2="5" y2="2"/>
+    </g>`
+  };
+  if(kind === 'mix'){
+    const keys = ['tank','drone','jet','inf'];
+    return SIL[keys[Math.floor(Math.random()*keys.length)]];
+  }
+  return SIL[kind] || SIL.tank;
+}
+
+// ---- marker shapes ----
+function shapePath(shape, r){
+  if(shape === 'diamond'){
+    return `<polygon points="0,${-r} ${r},0 0,${r} ${-r},0" />`;
+  }
+  if(shape === 'shield'){
+    return `<path d="M ${-r},${-r*0.7} L ${r},${-r*0.7} L ${r},${r*0.2} Q ${r},${r} 0,${r*1.05} Q ${-r},${r} ${-r},${r*0.2} Z" />`;
+  }
+  // hex (flat-top)
+  const pts = [];
+  for(let i=0;i<6;i++){
+    const a = (Math.PI/3)*i + Math.PI/6;
+    pts.push(`${(r*Math.cos(a)).toFixed(1)},${(r*Math.sin(a)).toFixed(1)}`);
+  }
+  return `<polygon points="${pts.join(' ')}" />`;
+}
+
+// seedable so "mix" is stable per territory
+function hashInt(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h)}
+function pickUnitFor(tid){
+  const keys = ['tank','drone','jet','inf'];
+  return keys[hashInt(tid) % keys.length];
+}
+
+async function buildMap(){
+  const wrap = document.getElementById('mapwrap');
+  // load raw svg
+  const raw = await fetch('assets/world.svg').then(r=>r.text());
+  // extract outline + boundary paths
+  const outlineMatch = raw.match(/<path id="outline"[^>]*d="([^"]+)"[^>]*\/?>/);
+  const boundariesMatch = raw.match(/<path id="boundaries"[^>]*d="([^"]+)"[^>]*\/?>/);
+  // The original viewBox was 2000x1280. We draw into our own viewBox, but because
+  // we're hand-placing nodes, we scale the raw paths to fit our map area via nested SVG.
+
+  const topoOpacity = {off:0, subtle:0.14, rich:0.32}[state.topo];
+  const topoLines = {off:0, subtle:12, rich:28}[state.topo];
+
+  const continentSVG = CONTS.map(c => `
+    <text class="continent-label" x="${c.x}" y="${c.y}" font-size="${c.size}">${c.name}
+      <tspan class="continent-bonus" dx="14" font-size="${c.size*0.55}">${c.bonus}</tspan>
+    </text>
+  `).join('');
+
+  const edgeSVG = EDGES.map(([a,b]) => {
+    const A = T_MAP[a], B = T_MAP[b];
+    if(!A || !B) return '';
+    // flag sea connections (long distance)
+    const d = Math.hypot(A.cx-B.cx, A.cy-B.cy);
+    const cls = d > 260 ? 'node-link sea' : 'node-link';
+    return `<line class="${cls}" x1="${A.cx}" y1="${A.cy}" x2="${B.cx}" y2="${B.cy}" />`;
+  }).join('');
+
+  const nodeSVG = TERRITORIES.map(t => {
+    const color = OWNER_HEX[t.own];
+    const isSelected = t.id === 'EUS'; // hero selection
+    const unitKind = state.unit === 'mix' ? pickUnitFor(t.id) : state.unit;
+    const shape = shapePath(state.shape, 18);
+
+    // label position: offset below marker
+    const labelY = t.cy + 34;
+
+    return `
+      <g class="node-g ${isSelected ? 'selected':''}" transform="translate(${t.cx},${t.cy})">
+        <!-- soft faction aura -->
+        <circle r="26" fill="${color}" opacity="0.05"/>
+        <!-- hexagonal marker outline -->
+        <g class="marker-outer" stroke="${color}" fill="rgba(8,10,14,0.95)">${shape}</g>
+        <!-- unit silhouette (top half) -->
+        <g transform="translate(0,-4) scale(0.75)">${unitSVG(unitKind, color)}</g>
+        <!-- troop count (bottom half) -->
+        <g transform="translate(0,8.5)">
+          <line x1="-11" y1="-3" x2="11" y2="-3" stroke="${color}" stroke-width="0.5" opacity="0.5"/>
+          <text class="marker-count" fill="${color}" y="3">${t.n}</text>
+        </g>
+      </g>
+      <text class="node-label" x="${t.cx}" y="${labelY}">${t.name}</text>
+    `;
+  }).join('');
+
+  // topographic hatch overlay — random wavy lines following continents
+  let topo = '';
+  if(topoOpacity > 0){
+    for(let i=0;i<topoLines;i++){
+      const y = 80 + i*(780/topoLines);
+      const amp = 10 + (i%3)*6;
+      const pts = [];
+      for(let x=100;x<=1400;x+=40){
+        pts.push(`${x},${(y + Math.sin(x/120 + i) * amp).toFixed(1)}`);
+      }
+      topo += `<polyline points="${pts.join(' ')}" fill="none" stroke="rgba(120,140,170,${topoOpacity*0.5})" stroke-width="0.6"/>`;
+    }
+  }
+
+  wrap.innerHTML = `
+    <svg viewBox="0 0 ${VB_W} ${VB_H}" preserveAspectRatio="xMidYMid meet" class="map-svg">
+      <defs>
+        <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="0.4"/>
+        </filter>
+        <filter id="labelGlow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur in="SourceGraphic" stdDeviation="1.6" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <radialGradient id="ocean" cx="50%" cy="50%" r="60%">
+          <stop offset="0%" stop-color="#0d1118"/>
+          <stop offset="100%" stop-color="#06070a"/>
+        </radialGradient>
+      </defs>
+
+      <!-- latitude/longitude grid -->
+      <g opacity="0.25">
+        ${Array.from({length:7},(_,i)=>{
+          const y = 120 + i*120;
+          return `<line x1="80" y1="${y}" x2="1420" y2="${y}" stroke="rgba(120,140,170,0.06)" stroke-dasharray="2 6"/>`;
+        }).join('')}
+        ${Array.from({length:9},(_,i)=>{
+          const x = 100 + i*170;
+          return `<line x1="${x}" y1="60" x2="${x}" y2="900" stroke="rgba(120,140,170,0.06)" stroke-dasharray="2 6"/>`;
+        }).join('')}
+      </g>
+
+      <!-- real world map from uploaded SVG, scaled and positioned -->
+      <g transform="translate(40,60) scale(0.73, 0.73)">
+        <!-- ocean fill for landmass -->
+        <path d="${outlineMatch ? outlineMatch[1] : ''}" fill="#0e131a" stroke="rgba(150,170,200,0.22)" stroke-width="1.5"/>
+        <!-- inner boundaries -->
+        <path d="${boundariesMatch ? boundariesMatch[1] : ''}" fill="none" stroke="rgba(120,140,170,0.18)" stroke-width="0.6" stroke-linejoin="round"/>
+        <!-- contour hatching on the landmass, masked -->
+      </g>
+
+      <!-- topo hatch overlay -->
+      <g opacity="0.7" style="mix-blend-mode:screen">${topo}</g>
+
+      <!-- continent titles (behind nodes) -->
+      <g>${continentSVG}</g>
+
+      <!-- edges -->
+      <g>${edgeSVG}</g>
+
+      <!-- nodes -->
+      <g>${nodeSVG}</g>
+
+      <!-- scanning crosshair over selected territory -->
+      <g transform="translate(${T_MAP.EUS.cx},${T_MAP.EUS.cy})">
+        <circle r="34" fill="none" stroke="var(--hot)" stroke-width="0.6" opacity="0.6" stroke-dasharray="3 3"/>
+        <circle r="44" fill="none" stroke="var(--hot)" stroke-width="0.4" opacity="0.3"/>
+        <line x1="-50" y1="0" x2="-38" y2="0" stroke="var(--hot)" stroke-width="0.8"/>
+        <line x1="50" y1="0" x2="38" y2="0" stroke="var(--hot)" stroke-width="0.8"/>
+        <line x1="0" y1="-50" x2="0" y2="-38" stroke="var(--hot)" stroke-width="0.8"/>
+        <line x1="0" y1="50" x2="0" y2="38" stroke="var(--hot)" stroke-width="0.8"/>
+      </g>
+
+      <!-- callout for selected -->
+      <g transform="translate(${T_MAP.EUS.cx + 60},${T_MAP.EUS.cy - 30})" font-family="JetBrains Mono" font-size="9" fill="var(--hot)" letter-spacing="0.12em">
+        <line x1="-18" y1="10" x2="-6" y2="4" stroke="var(--hot)" stroke-width="0.6"/>
+        <text x="0" y="0" fill="var(--hot)">▸ EASTERN US</text>
+        <text x="0" y="11" fill="rgba(255,77,46,0.7)">OWN · 4 → DEPLOY +2</text>
+        <text x="0" y="22" fill="var(--ink-faint)">borders: ONT · QUE · WUS · CAM</text>
+      </g>
+
+    </svg>
+  `;
+}
+
+// ================== LIVE CLOCK ==================
+(function(){
+  let t = 58;
+  setInterval(()=>{
+    t = (t - 1 + 120) % 120;
+    const m = String(Math.floor(t/60)).padStart(2,'0');
+    const s = String(t%60).padStart(2,'0');
+    const el = document.getElementById('clock');
+    if(el) el.textContent = `${m} : ${s}`;
+  },1000);
+})();
+
+// ================== TWEAKS ==================
+function applyAccent(hex){
+  document.documentElement.style.setProperty('--hot', hex);
+  // approximate glow
+  const rgb = hex.replace('#','').match(/.{2}/g).map(h=>parseInt(h,16));
+  document.documentElement.style.setProperty('--hot-glow', `rgba(${rgb.join(',')},0.18)`);
+}
+
+function bindTweaks(){
+  document.getElementById('accent-sw').addEventListener('click',(e)=>{
+    const sw = e.target.closest('.sw'); if(!sw) return;
+    document.querySelectorAll('#accent-sw .sw').forEach(x=>x.classList.remove('on'));
+    sw.classList.add('on');
+    state.accent = sw.dataset.accent;
+    applyAccent(state.accent);
+    postEdit({accent: state.accent});
+  });
+  ['unit','shape','topo'].forEach(key=>{
+    const root = document.getElementById(key+'-sw');
+    root.addEventListener('click',(e)=>{
+      const opt = e.target.closest('.opt'); if(!opt) return;
+      root.querySelectorAll('.opt').forEach(x=>x.classList.remove('on'));
+      opt.classList.add('on');
+      state[key] = opt.dataset[key];
+      buildMap();
+      postEdit({[key]: state[key]});
+    });
+  });
+}
+
+// set initial tweak UI from defaults
+function syncTweakUI(){
+  document.querySelectorAll('#accent-sw .sw').forEach(x=>x.classList.toggle('on', x.dataset.accent === state.accent));
+  ['unit','shape','topo'].forEach(key=>{
+    document.querySelectorAll('#'+key+'-sw .opt').forEach(x=>x.classList.toggle('on', x.dataset[key] === state[key]));
+  });
+}
+
+// ================== EDIT MODE PROTOCOL ==================
+function postEdit(edits){
+  window.parent.postMessage({type:'__edit_mode_set_keys', edits}, '*');
+}
+window.addEventListener('message',(e)=>{
+  const d = e.data;
+  if(!d || typeof d !== 'object') return;
+  if(d.type === '__activate_edit_mode'){ document.getElementById('tweaks').classList.add('on'); }
+  if(d.type === '__deactivate_edit_mode'){ document.getElementById('tweaks').classList.remove('on'); }
+});
+window.parent.postMessage({type:'__edit_mode_available'}, '*');
+
+// ================== BOOT ==================
+applyAccent(state.accent);
+syncTweakUI();
+bindTweaks();
+buildMap();
+</script>
+</body>
+</html>

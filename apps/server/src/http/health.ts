@@ -18,7 +18,7 @@ healthRouter.get('/health', (c: Context) =>
   c.json({
     ok: true,
     service: 'riskrask-server',
-    version: process.env['GIT_SHA'] ?? 'dev',
+    version: process.env.GIT_SHA ?? 'dev',
   }),
 );
 

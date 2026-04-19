@@ -8,7 +8,7 @@
  *                        Pass user JWT to act on behalf of a user.
  */
 
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { type SupabaseClient, createClient } from '@supabase/supabase-js';
 
 // ---------------------------------------------------------------------------
 // Database type stubs — extend as tables are fully typed.
@@ -96,7 +96,7 @@ export function serviceClient(): TypedSupabaseClient {
  */
 export function anonClient(userJwt?: string): TypedSupabaseClient {
   const headers: Record<string, string> = {};
-  if (userJwt) headers['Authorization'] = `Bearer ${userJwt}`;
+  if (userJwt) headers.Authorization = `Bearer ${userJwt}`;
   return createClient<Database>(requireEnv('SUPABASE_URL'), requireEnv('SUPABASE_ANON_KEY'), {
     global: { headers },
   });
@@ -106,6 +106,6 @@ export function anonClient(userJwt?: string): TypedSupabaseClient {
 // Edge-function URL helper
 // ---------------------------------------------------------------------------
 export function edgeFunctionUrl(name: string): string {
-  const base = process.env['SUPABASE_FUNCTIONS_URL'] ?? `${requireEnv('SUPABASE_URL')}/functions/v1`;
+  const base = process.env.SUPABASE_FUNCTIONS_URL ?? `${requireEnv('SUPABASE_URL')}/functions/v1`;
   return `${base}/${name}`;
 }

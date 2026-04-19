@@ -40,19 +40,19 @@ export function migrateSave(raw: unknown): GameStateBlob {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let s = GameStateSchema.parse(raw) as Record<string, unknown>;
 
-  while ((s['schemaVersion'] as number) < CURRENT_SCHEMA_VERSION) {
-    const current = s['schemaVersion'] as number;
+  while ((s.schemaVersion as number) < CURRENT_SCHEMA_VERSION) {
+    const current = s.schemaVersion as number;
     const m = MIGRATIONS.find((m) => m.from === current);
     if (!m) {
       throw new Error(`no migration from schemaVersion ${current}`);
     }
     s = m.run(s);
-    s['schemaVersion'] = m.to;
+    s.schemaVersion = m.to;
   }
 
-  if ((s['schemaVersion'] as number) !== CURRENT_SCHEMA_VERSION) {
+  if ((s.schemaVersion as number) !== CURRENT_SCHEMA_VERSION) {
     throw new Error(
-      `migration ended at schemaVersion ${s['schemaVersion'] as number}, expected ${CURRENT_SCHEMA_VERSION}`,
+      `migration ended at schemaVersion ${s.schemaVersion as number}, expected ${CURRENT_SCHEMA_VERSION}`,
     );
   }
 
@@ -68,8 +68,7 @@ export function assertMigrationRegistryIsComplete(): void {
     // At v1 there are no migrations yet — that is correct.
     if (CURRENT_SCHEMA_VERSION !== 1) {
       throw new Error(
-        `MIGRATIONS registry is empty but CURRENT_SCHEMA_VERSION is ${CURRENT_SCHEMA_VERSION}. ` +
-          'Add a migration entry for every version bump.',
+        `MIGRATIONS registry is empty but CURRENT_SCHEMA_VERSION is ${CURRENT_SCHEMA_VERSION}. Add a migration entry for every version bump.`,
       );
     }
     return;
@@ -78,8 +77,7 @@ export function assertMigrationRegistryIsComplete(): void {
   const maxTo = Math.max(...MIGRATIONS.map((m) => m.to));
   if (maxTo !== CURRENT_SCHEMA_VERSION) {
     throw new Error(
-      `MIGRATIONS max target is ${maxTo} but CURRENT_SCHEMA_VERSION is ${CURRENT_SCHEMA_VERSION}. ` +
-        'Add a migration entry or revert the version bump.',
+      `MIGRATIONS max target is ${maxTo} but CURRENT_SCHEMA_VERSION is ${CURRENT_SCHEMA_VERSION}. Add a migration entry or revert the version bump.`,
     );
   }
 }

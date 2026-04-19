@@ -78,7 +78,9 @@ export async function loadSave(
 ): Promise<{ state: unknown; schemaVersion: number; row: SaveRow } | null> {
   const { data, error } = await client
     .from('saves')
-    .select('code, state_json, schema_version, owner_id, created_at, expires_at, last_loaded_at, load_count')
+    .select(
+      'code, state_json, schema_version, owner_id, created_at, expires_at, last_loaded_at, load_count',
+    )
     .eq('code', code)
     .maybeSingle();
 
@@ -98,7 +100,9 @@ export async function loadSave(
       load_count: row.load_count + 1,
     })
     .eq('code', code)
-    .then(() => {/* non-critical */});
+    .then(() => {
+      /* non-critical */
+    });
 
   const migratedState = migrateSave(row.state_json);
   return { state: migratedState, schemaVersion: row.schema_version, row };

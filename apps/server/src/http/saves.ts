@@ -14,12 +14,12 @@
  * TODO(track-f): wire in real Turnstile verification.
  */
 
+import { parseSaveCode } from '@riskrask/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { parseSaveCode } from '@riskrask/shared';
 import { verifySupabaseJwt } from '../auth/verify';
-import { deleteSave, SaveExpiredError, loadSave } from '../persistence/saves';
-import { serviceClient, edgeFunctionUrl } from '../supabase';
+import { SaveExpiredError, deleteSave, loadSave } from '../persistence/saves';
+import { edgeFunctionUrl, serviceClient } from '../supabase';
 
 const savesRouter = new Hono();
 
@@ -27,9 +27,7 @@ const savesRouter = new Hono();
 // Zod schemas
 // ---------------------------------------------------------------------------
 const CreateSaveBody = z.object({
-  state: z
-    .object({ schemaVersion: z.number().int().min(1) })
-    .passthrough(),
+  state: z.object({ schemaVersion: z.number().int().min(1) }).passthrough(),
   schemaVersion: z.number().int().min(1),
   ownerId: z.string().uuid().optional(),
 });
@@ -46,7 +44,7 @@ savesRouter.post('/', async (c) => {
   }
 
   // Optional Turnstile gate (TODO: enable via TURNSTILE_REQUIRED=1 env)
-  const turnstileRequired = process.env['TURNSTILE_REQUIRED'] === '1';
+  const turnstileRequired = process.env.TURNSTILE_REQUIRED === '1';
   if (turnstileRequired && !body.ownerId) {
     // TODO(track-f): verify X-Turnstile-Token header
     // const token = c.req.header('X-Turnstile-Token');
@@ -75,7 +73,10 @@ savesRouter.get('/:code', async (c) => {
   const raw = c.req.param('code');
   const code = parseSaveCode(raw);
   if (!code) {
-    return c.json({ ok: false, code: 'INVALID_CODE', detail: 'code must be 8 chars from the save alphabet' }, 400);
+    return c.json(
+      { ok: false, code: 'INVALID_CODE', detail: 'code must be 8 chars from the save alphabet' },
+      400,
+    );
   }
 
   const client = serviceClient();

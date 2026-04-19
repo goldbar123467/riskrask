@@ -24,7 +24,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const rawCode = (url.searchParams.get('code') ?? '').toUpperCase().replace(/[\s-]/g, '');
 
   if (!SAVE_CODE_RE.test(rawCode)) {
-    return json({ ok: false, code: 'INVALID_CODE', detail: 'code must be 8 chars from the save alphabet' }, 400);
+    return json(
+      { ok: false, code: 'INVALID_CODE', detail: 'code must be 8 chars from the save alphabet' },
+      400,
+    );
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -54,9 +57,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
   // Fire-and-forget load stats update (non-critical)
   client
     .from('saves')
-    .update({ last_loaded_at: new Date().toISOString(), load_count: (data as { load_count?: number }).load_count ?? 0 + 1 })
+    .update({
+      last_loaded_at: new Date().toISOString(),
+      load_count: (data as { load_count?: number }).load_count ?? 0 + 1,
+    })
     .eq('code', rawCode)
-    .then(() => {/* ignore */});
+    .then(() => {
+      /* ignore */
+    });
 
   return json({
     ok: true,

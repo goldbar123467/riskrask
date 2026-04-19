@@ -36,7 +36,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
   const anonClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: `Bearer ${jwt}` } },
   });
-  const { data: { user }, error: authError } = await anonClient.auth.getUser();
+  const {
+    data: { user },
+    error: authError,
+  } = await anonClient.auth.getUser();
   if (authError || !user) {
     return json({ ok: false, code: 'UNAUTHORIZED', detail: 'invalid JWT' }, 401);
   }
@@ -52,7 +55,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
   const code = data as string;
   if (!ROOM_CODE_RE.test(code)) {
-    return json({ ok: false, code: 'INTERNAL_ERROR', detail: 'generated code failed validation' }, 500);
+    return json(
+      { ok: false, code: 'INTERNAL_ERROR', detail: 'generated code failed validation' },
+      500,
+    );
   }
 
   return json({ ok: true, code });
