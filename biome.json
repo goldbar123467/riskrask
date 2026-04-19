@@ -26,6 +26,8 @@
   "files": {
     "ignore": [
       "archive/**",
+      "design/mockups/**",
+      ".claude/worktrees/**",
       "**/dist/**",
       "**/node_modules/**",
       "**/.vite/**",
