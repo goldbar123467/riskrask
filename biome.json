@@ -33,7 +33,10 @@
       "**/.vite/**",
       "**/coverage/**",
       "supabase/.branches/**",
-      "supabase/.temp/**"
+      "supabase/.temp/**",
+      "apps/web/test-results/**",
+      "apps/web/playwright-report/**",
+      "reports/**"
     ]
   }
 }

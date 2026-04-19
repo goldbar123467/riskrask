@@ -18,3 +18,7 @@ packages/*/dist/
 supabase/.branches/
 supabase/.temp/
 bun.lockb.bak
+
+apps/web/test-results/
+apps/web/playwright-report/
+reports/
