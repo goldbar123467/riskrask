@@ -1,6 +1,6 @@
-import type { Card, GameState, PlayerState, TerritoryName } from './types';
 import type { Rng } from './rng';
 import { nextInt } from './rng';
+import type { Card, GameState, PlayerState, TerritoryName } from './types';
 
 // ---------------------------------------------------------------------------
 // Trade value progression (v2: nextTradeValue)

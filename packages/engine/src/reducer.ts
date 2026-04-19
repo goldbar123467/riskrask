@@ -1,12 +1,12 @@
-import type { GameState, Action, Effect, PlayerId } from './types';
-import { EngineError } from './combat';
 import { TERR_ORDER } from './board';
-import { rollAttack, blitz } from './combat';
+import { drawCard, tradeCards, validSet } from './cards';
+import { EngineError } from './combat';
+import { blitz, rollAttack } from './combat';
 import { doFortify } from './fortify';
 import { calcReinforcements } from './reinforce';
-import { validSet, tradeCards, drawCard } from './cards';
-import { checkElimination, checkVictory, transferCardsOnElimination } from './victory';
 import { createRng } from './rng';
+import type { Action, Effect, GameState, PlayerId } from './types';
+import { checkElimination, checkVictory, transferCardsOnElimination } from './victory';
 
 export { EngineError };
 
@@ -156,9 +156,7 @@ function applyClaim(state: GameState, territory: string): ApplyResult {
     next = { ...next, phase: 'setup-reinforce', currentPlayerIdx: 0 };
   }
 
-  const effects: Effect[] = [
-    { kind: 'log', text: `${player.name} claims ${territory}.` },
-  ];
+  const effects: Effect[] = [{ kind: 'log', text: `${player.name} claims ${territory}.` }];
 
   return { next, effects };
 }
@@ -223,9 +221,7 @@ function applySetupReinforce(state: GameState, territory: string): ApplyResult {
     };
   }
 
-  const effects: Effect[] = [
-    { kind: 'log', text: `${player.name} reinforces ${territory}.` },
-  ];
+  const effects: Effect[] = [{ kind: 'log', text: `${player.name} reinforces ${territory}.` }];
 
   return { next, effects };
 }
@@ -286,9 +282,7 @@ function applyTradeCards(
   }
 
   const result = tradeCards(player, indices, state);
-  const newPlayers = state.players.map((p) =>
-    p.id === player.id ? result.player : p,
-  );
+  const newPlayers = state.players.map((p) => (p.id === player.id ? result.player : p));
 
   const effects: Effect[] = [
     {
@@ -308,20 +302,12 @@ function applyTradeCards(
   };
 }
 
-function applyAttack(
-  state: GameState,
-  from: string,
-  to: string,
-  isBlitz: boolean,
-): ApplyResult {
+function applyAttack(state: GameState, from: string, to: string, isBlitz: boolean): ApplyResult {
   if (state.phase !== 'attack') {
     throw new EngineError('WRONG_PHASE', `Cannot attack in phase: ${state.phase}`);
   }
   if (state.pendingMove) {
-    throw new EngineError(
-      'PENDING_MOVE',
-      'Must resolve move-after-capture before attacking again',
-    );
+    throw new EngineError('PENDING_MOVE', 'Must resolve move-after-capture before attacking again');
   }
 
   const rng = makeRng(state);
@@ -329,10 +315,9 @@ function applyAttack(
   if (isBlitz) {
     const result = blitz(state, from, to, rng);
     return { next: result.next, effects: result.effects };
-  } else {
-    const result = rollAttack(state, from, to, rng);
-    return { next: result.next, effects: result.effects };
   }
+  const result = rollAttack(state, from, to, rng);
+  return { next: result.next, effects: result.effects };
 }
 
 function applyMoveAfterCapture(state: GameState, count: number): ApplyResult {
@@ -443,12 +428,7 @@ function applyEndAttackPhase(state: GameState): ApplyResult {
   return { next, effects };
 }
 
-function applyFortify(
-  state: GameState,
-  from: string,
-  to: string,
-  count: number,
-): ApplyResult {
+function applyFortify(state: GameState, from: string, to: string, count: number): ApplyResult {
   if (state.phase !== 'fortify') {
     throw new EngineError('WRONG_PHASE', `Cannot fortify in phase: ${state.phase}`);
   }

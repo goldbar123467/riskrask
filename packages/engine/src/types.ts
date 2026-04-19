@@ -2,13 +2,7 @@ import type { PlayerId, TerritoryName } from '@riskrask/shared';
 
 export type { PlayerId, TerritoryName };
 
-export type Phase =
-  | 'setup-claim'
-  | 'setup-reinforce'
-  | 'reinforce'
-  | 'attack'
-  | 'fortify'
-  | 'done';
+export type Phase = 'setup-claim' | 'setup-reinforce' | 'reinforce' | 'attack' | 'fortify' | 'done';
 
 export type CardType = 'Infantry' | 'Cavalry' | 'Artillery' | 'Wild';
 
@@ -81,7 +75,11 @@ export type Action =
 
 export type Effect =
   | { readonly kind: 'dice-roll'; readonly atk: readonly number[]; readonly def: readonly number[] }
-  | { readonly kind: 'territory-captured'; readonly from: TerritoryName; readonly to: TerritoryName }
+  | {
+      readonly kind: 'territory-captured';
+      readonly from: TerritoryName;
+      readonly to: TerritoryName;
+    }
   | { readonly kind: 'player-eliminated'; readonly playerId: PlayerId }
   | { readonly kind: 'card-drawn'; readonly card: Card }
   | { readonly kind: 'game-over'; readonly winner: PlayerId }

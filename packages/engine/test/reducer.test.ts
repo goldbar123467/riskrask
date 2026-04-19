@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
+import { TERR_ORDER } from '../src/board';
+import { EngineError } from '../src/combat';
 import { apply } from '../src/reducer';
 import { createInitialState } from '../src/setup';
-import { EngineError } from '../src/combat';
-import { TERR_ORDER } from '../src/board';
 import type { GameState, PlayerState } from '../src/types';
 
 const PLAYERS = [
@@ -15,8 +15,8 @@ describe('claim-territory', () => {
   test('player can claim an unclaimed territory in setup-claim', () => {
     const s = createInitialState({ seed: 'reduce-test', players: PLAYERS });
     const { next } = apply(s, { type: 'claim-territory', territory: 'Alaska' });
-    expect(next.territories['Alaska']!.owner).toBe('0');
-    expect(next.territories['Alaska']!.armies).toBe(1);
+    expect(next.territories.Alaska!.owner).toBe('0');
+    expect(next.territories.Alaska!.armies).toBe(1);
   });
 
   test('advances turn after claim', () => {
@@ -28,7 +28,9 @@ describe('claim-territory', () => {
   test('throws when territory already claimed', () => {
     const s = createInitialState({ seed: 'reduce-test', players: PLAYERS });
     const { next } = apply(s, { type: 'claim-territory', territory: 'Alaska' });
-    expect(() => apply(next, { type: 'claim-territory', territory: 'Alaska' })).toThrow(EngineError);
+    expect(() => apply(next, { type: 'claim-territory', territory: 'Alaska' })).toThrow(
+      EngineError,
+    );
   });
 
   test('transitions to setup-reinforce after all 42 territories claimed', () => {
@@ -67,24 +69,22 @@ describe('reinforce', () => {
     for (const n of TERR_ORDER) {
       territories[n] = { ...territories[n]!, owner: '0', armies: 1 };
     }
-    const players = base.players.map((p) =>
-      p.id === '0' ? { ...p, reserves: 5 } : p,
-    );
+    const players = base.players.map((p) => (p.id === '0' ? { ...p, reserves: 5 } : p));
     const s: GameState = { ...base, phase: 'reinforce', territories, players };
     const { next } = apply(s, { type: 'reinforce', territory: 'Alaska', count: 3 });
-    expect(next.territories['Alaska']!.armies).toBe(4);
+    expect(next.territories.Alaska!.armies).toBe(4);
     expect(next.players[0]!.reserves).toBe(2);
   });
 
   test('throws when placing on unowned territory', () => {
     const base = createInitialState({ seed: 'rein-err', players: PLAYERS });
     const territories = { ...base.territories };
-    territories['Alaska'] = { ...territories['Alaska']!, owner: '1', armies: 1 };
-    const players = base.players.map((p) =>
-      p.id === '0' ? { ...p, reserves: 5 } : p,
-    );
+    territories.Alaska = { ...territories.Alaska!, owner: '1', armies: 1 };
+    const players = base.players.map((p) => (p.id === '0' ? { ...p, reserves: 5 } : p));
     const s: GameState = { ...base, phase: 'reinforce', territories, players };
-    expect(() => apply(s, { type: 'reinforce', territory: 'Alaska', count: 1 })).toThrow(EngineError);
+    expect(() => apply(s, { type: 'reinforce', territory: 'Alaska', count: 1 })).toThrow(
+      EngineError,
+    );
   });
 });
 
@@ -113,9 +113,7 @@ describe('trade-cards', () => {
       { type: 'Infantry' as const, territory: 'Brazil' as const },
       { type: 'Cavalry' as const, territory: 'China' as const },
     ];
-    const players: PlayerState[] = base.players.map((p) =>
-      p.id === '0' ? { ...p, cards } : p,
-    );
+    const players: PlayerState[] = base.players.map((p) => (p.id === '0' ? { ...p, cards } : p));
     const s: GameState = { ...base, phase: 'reinforce', players };
     expect(() => apply(s, { type: 'trade-cards', indices: [0, 1, 2] })).toThrow();
   });
@@ -142,7 +140,7 @@ describe('fortify', () => {
   test('valid fortify moves armies', () => {
     const base = createInitialState({ seed: 'fortify-r', players: PLAYERS });
     const territories = { ...base.territories };
-    territories['Alaska'] = { ...territories['Alaska']!, owner: '0', armies: 5 };
+    territories.Alaska = { ...territories.Alaska!, owner: '0', armies: 5 };
     territories['Northwest Territory'] = {
       ...territories['Northwest Territory']!,
       owner: '0',
@@ -155,7 +153,7 @@ describe('fortify', () => {
       to: 'Northwest Territory',
       count: 2,
     });
-    expect(next.territories['Alaska']!.armies).toBe(3);
+    expect(next.territories.Alaska!.armies).toBe(3);
     expect(next.territories['Northwest Territory']!.armies).toBe(3);
     expect(next.phase).toBe('reinforce'); // end turn after fortify
   });
@@ -184,8 +182,8 @@ describe('move-after-capture', () => {
   test('moves armies from pending source to target', () => {
     const base = createInitialState({ seed: 'mac', players: PLAYERS });
     const territories = { ...base.territories };
-    territories['Alaska'] = { ...territories['Alaska']!, owner: '0', armies: 4 };
-    territories['Kamchatka'] = { ...territories['Kamchatka']!, owner: '0', armies: 0 };
+    territories.Alaska = { ...territories.Alaska!, owner: '0', armies: 4 };
+    territories.Kamchatka = { ...territories.Kamchatka!, owner: '0', armies: 0 };
     const s: GameState = {
       ...base,
       phase: 'attack',
@@ -199,8 +197,8 @@ describe('move-after-capture', () => {
       },
     };
     const { next } = apply(s, { type: 'move-after-capture', count: 2 });
-    expect(next.territories['Alaska']!.armies).toBe(2);
-    expect(next.territories['Kamchatka']!.armies).toBe(2);
+    expect(next.territories.Alaska!.armies).toBe(2);
+    expect(next.territories.Kamchatka!.armies).toBe(2);
     expect(next.pendingMove).toBeUndefined();
   });
 });

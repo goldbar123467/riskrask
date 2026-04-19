@@ -1,7 +1,7 @@
-import { TERRITORIES, TERR_ORDER, STARTING_ARMIES, buildDeck } from './board';
-import type { GameState, PlayerState, TerritoryState, Card } from './types';
-import type { PlayerId } from './types';
+import { STARTING_ARMIES, TERRITORIES, TERR_ORDER, buildDeck } from './board';
 import { createRng, nextInt } from './rng';
+import type { Card, GameState, PlayerState, TerritoryState } from './types';
+import type { PlayerId } from './types';
 
 export interface PlayerConfig {
   readonly id: PlayerId;
@@ -58,7 +58,7 @@ export function createInitialState(config: GameConfig): GameState {
 
   // Build and shuffle deck using the seed
   const rawDeck = buildDeck();
-  const shuffledDeck = shuffleWith(rawDeck as Card[], seed + ':deck');
+  const shuffledDeck = shuffleWith(rawDeck as Card[], `${seed}:deck`);
 
   // Build player states
   const playerStates: PlayerState[] = players.map((p) => ({

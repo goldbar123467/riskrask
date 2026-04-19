@@ -13,16 +13,16 @@
  * 3000 actions. We track "games completed" as a best-effort metric and require
  * at least 10% to complete. The invariant checks apply to ALL 200 games.
  */
-import { describe, test, expect } from 'bun:test';
-import { apply, EngineError } from '../src/reducer';
-import { createInitialState } from '../src/setup';
-import { createRng, nextInt } from '../src/rng';
+import { describe, expect, test } from 'bun:test';
 import { TERR_ORDER } from '../src/board';
-import { ownedBy } from '../src/reinforce';
-import { canFortify } from '../src/fortify';
 import { findBestSet } from '../src/cards';
+import { canFortify } from '../src/fortify';
 import { hashState } from '../src/hash';
-import type { GameState, Action } from '../src/types';
+import { EngineError, apply } from '../src/reducer';
+import { ownedBy } from '../src/reinforce';
+import { createRng, nextInt } from '../src/rng';
+import { createInitialState } from '../src/setup';
+import type { Action, GameState } from '../src/types';
 
 const PLAYERS = [
   { id: '0' as const, name: 'P1', color: '#dc2626', isAI: true },
@@ -44,7 +44,8 @@ function assertInvariants(state: GameState): void {
   for (const p of state.players) {
     if (p.eliminated) {
       const owned = ownedBy(state, p.id);
-      if (owned.length > 0) throw new Error(`Eliminated player ${p.id} still owns: ${owned.join(', ')}`);
+      if (owned.length > 0)
+        throw new Error(`Eliminated player ${p.id} still owns: ${owned.join(', ')}`);
     }
   }
 }

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { checkElimination, checkVictory, transferCardsOnElimination } from '../src/victory';
 import { createInitialState } from '../src/setup';
 import type { GameState, PlayerState } from '../src/types';
+import { checkElimination, checkVictory, transferCardsOnElimination } from '../src/victory';
 
 const PLAYERS = [
   { id: '0' as const, name: 'Alice', color: '#dc2626', isAI: false },
@@ -27,7 +27,7 @@ describe('checkElimination', () => {
   test('player is not eliminated when they own territories', () => {
     const s = makeState();
     const territories = { ...s.territories };
-    territories['Alaska'] = { ...territories['Alaska']!, owner: '1', armies: 1 };
+    territories.Alaska = { ...territories.Alaska!, owner: '1', armies: 1 };
     const result = checkElimination({ ...s, territories }, '1');
     expect(result).toBe(false);
   });

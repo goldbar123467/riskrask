@@ -1,18 +1,16 @@
 import { CONTINENTS } from './board';
-import type { GameState, TerritoryName, PlayerId } from './types';
+import type { GameState, PlayerId, TerritoryName } from './types';
 
 /** Returns list of territory names owned by the given player */
 export function ownedBy(state: GameState, playerId: PlayerId): TerritoryName[] {
-  return Object.keys(state.territories).filter(
-    (n) => state.territories[n]?.owner === playerId,
-  );
+  return Object.keys(state.territories).filter((n) => state.territories[n]?.owner === playerId);
 }
 
 /** Returns continent IDs fully controlled by playerId */
 export function ownedContinents(state: GameState, playerId: PlayerId): string[] {
   return Object.keys(CONTINENTS).filter((cKey) => {
     const c = CONTINENTS[cKey];
-    return c !== undefined && c.members.every((name) => state.territories[name]?.owner === playerId);
+    return c?.members.every((name) => state.territories[name]?.owner === playerId);
   });
 }
 

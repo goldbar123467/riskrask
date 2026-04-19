@@ -1,7 +1,7 @@
-import type { GameState, TerritoryName, Effect, PendingMove } from './types';
+import { ADJACENCY } from './board';
 import type { Rng } from './rng';
 import { rollDie } from './rng';
-import { ADJACENCY } from './board';
+import type { Effect, GameState, PendingMove, TerritoryName } from './types';
 
 export class EngineError extends Error {
   constructor(
@@ -44,7 +44,8 @@ export function rollAttack(
   if (!src) throw new EngineError('INVALID_TERRITORY', `Unknown territory: ${srcName}`);
   if (!tgt) throw new EngineError('INVALID_TERRITORY', `Unknown territory: ${tgtName}`);
   if (src.owner !== cp.id) throw new EngineError('NOT_OWNER', `Player does not own ${srcName}`);
-  if (src.armies < 2) throw new EngineError('INSUFFICIENT_ARMIES', 'Source needs at least 2 armies to attack');
+  if (src.armies < 2)
+    throw new EngineError('INSUFFICIENT_ARMIES', 'Source needs at least 2 armies to attack');
 
   const adj = ADJACENCY[srcName] ?? [];
   if (!adj.includes(tgtName)) {

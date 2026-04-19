@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { createInitialState } from '../src/setup';
 import { BOARD_TERRITORY_COUNT, STARTING_ARMIES } from '../src/board';
+import { createInitialState } from '../src/setup';
 
 const PLAYERS_3 = [
   { id: '0' as const, name: 'Alice', color: '#dc2626', isAI: false },

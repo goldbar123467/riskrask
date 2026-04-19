@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { validSet, tradeValue, findBestSet } from '../src/cards';
+import { findBestSet, tradeValue, validSet } from '../src/cards';
 import type { Card } from '../src/types';
 
 const INF = (t?: string): Card => ({ type: 'Infantry', territory: t ?? 'Alaska' });
@@ -52,12 +52,7 @@ describe('findBestSet', () => {
   });
 
   test('prefers set with owned-territory matches', () => {
-    const cards: Card[] = [
-      INF('Alaska'),
-      CAV('Brazil'),
-      ART('China'),
-      INF('Ontario'),
-    ];
+    const cards: Card[] = [INF('Alaska'), CAV('Brazil'), ART('China'), INF('Ontario')];
     // one-of-each is valid; Alaska is owned
     const owned = new Set(['Alaska']);
     const result = findBestSet(cards, owned);

@@ -14,14 +14,14 @@ function makeState(): GameState {
   const territories = { ...s.territories };
   // Player 0 owns Alaska (5), Northwest Territory (3), Alberta (2)
   // Player 1 owns Kamchatka (3)
-  territories['Alaska'] = { ...territories['Alaska']!, owner: '0', armies: 5 };
+  territories.Alaska = { ...territories.Alaska!, owner: '0', armies: 5 };
   territories['Northwest Territory'] = {
     ...territories['Northwest Territory']!,
     owner: '0',
     armies: 3,
   };
-  territories['Alberta'] = { ...territories['Alberta']!, owner: '0', armies: 2 };
-  territories['Kamchatka'] = { ...territories['Kamchatka']!, owner: '1', armies: 3 };
+  territories.Alberta = { ...territories.Alberta!, owner: '0', armies: 2 };
+  territories.Kamchatka = { ...territories.Kamchatka!, owner: '1', armies: 3 };
   return { ...s, phase: 'fortify', territories };
 }
 
@@ -39,7 +39,7 @@ describe('canFortify', () => {
   test('invalid: src has only 1 army', () => {
     const s = makeState();
     const territories = { ...s.territories };
-    territories['Alaska'] = { ...territories['Alaska']!, armies: 1 };
+    territories.Alaska = { ...territories.Alaska!, armies: 1 };
     expect(canFortify({ ...s, territories }, 'Alaska', 'Northwest Territory', '0')).toBe(false);
   });
 
@@ -61,7 +61,7 @@ describe('doFortify', () => {
   test('moves armies from source to target', () => {
     const s = makeState();
     const result = doFortify(s, 'Alaska', 'Northwest Territory', 2);
-    expect(result.next.territories['Alaska']!.armies).toBe(3);
+    expect(result.next.territories.Alaska!.armies).toBe(3);
     expect(result.next.territories['Northwest Territory']!.armies).toBe(5);
   });
 

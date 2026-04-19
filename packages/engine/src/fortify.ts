@@ -1,6 +1,6 @@
 import { ADJACENCY } from './board';
 import { EngineError } from './combat';
-import type { GameState, TerritoryName, PlayerId, Effect } from './types';
+import type { Effect, GameState, PlayerId, TerritoryName } from './types';
 
 /**
  * BFS to determine if srcName and tgtName are connected through territories

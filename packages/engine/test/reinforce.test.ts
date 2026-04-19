@@ -57,9 +57,18 @@ describe('calcReinforcements', () => {
     const s = makeState();
     // 12 territories spread across continents without completing any
     const names = [
-      'Alaska', 'Northwest Territory', 'Greenland', 'Alberta', // NA partial (4)
-      'Iceland', 'Scandinavia', 'Great Britain', 'Northern Europe', // EU partial (4)
-      'North Africa', 'Egypt', 'East Africa', 'Congo', // AF partial (4)
+      'Alaska',
+      'Northwest Territory',
+      'Greenland',
+      'Alberta', // NA partial (4)
+      'Iceland',
+      'Scandinavia',
+      'Great Britain',
+      'Northern Europe', // EU partial (4)
+      'North Africa',
+      'Egypt',
+      'East Africa',
+      'Congo', // AF partial (4)
     ];
     const territories = { ...s.territories };
     for (const n of names) {

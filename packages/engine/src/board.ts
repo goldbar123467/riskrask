@@ -62,14 +62,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
     color: 'rgba(217, 119, 6, 0.08)',
     labelX: 430,
     labelY: 440,
-    members: [
-      'North Africa',
-      'Egypt',
-      'East Africa',
-      'Congo',
-      'South Africa',
-      'Madagascar',
-    ],
+    members: ['North Africa', 'Egypt', 'East Africa', 'Congo', 'South Africa', 'Madagascar'],
   },
   AS: {
     name: 'Asia',
@@ -238,14 +231,7 @@ export const TERRITORIES: Readonly<Record<TerritoryName, TerritoryDef>> = Object
     continent: 'EU',
     x: 490,
     y: 285,
-    adj: [
-      'Northern Europe',
-      'Ukraine',
-      'Western Europe',
-      'North Africa',
-      'Egypt',
-      'Middle East',
-    ],
+    adj: ['Northern Europe', 'Ukraine', 'Western Europe', 'North Africa', 'Egypt', 'Middle East'],
   },
   'Western Europe': {
     continent: 'EU',
@@ -259,14 +245,7 @@ export const TERRITORIES: Readonly<Record<TerritoryName, TerritoryDef>> = Object
     continent: 'AF',
     x: 465,
     y: 380,
-    adj: [
-      'Brazil',
-      'Western Europe',
-      'Southern Europe',
-      'Egypt',
-      'East Africa',
-      'Congo',
-    ],
+    adj: ['Brazil', 'Western Europe', 'Southern Europe', 'Egypt', 'East Africa', 'Congo'],
   },
   Egypt: {
     continent: 'AF',
@@ -278,14 +257,7 @@ export const TERRITORIES: Readonly<Record<TerritoryName, TerritoryDef>> = Object
     continent: 'AF',
     x: 565,
     y: 430,
-    adj: [
-      'Egypt',
-      'North Africa',
-      'Congo',
-      'South Africa',
-      'Madagascar',
-      'Middle East',
-    ],
+    adj: ['Egypt', 'North Africa', 'Congo', 'South Africa', 'Madagascar', 'Middle East'],
   },
   Congo: {
     continent: 'AF',
@@ -419,9 +391,9 @@ export const TERR_ORDER: readonly TerritoryName[] = Object.freeze(
 );
 
 /** Trans-pacific edge (rendered as dashed edge-exit line in UI) */
-export const EDGE_EXIT_PAIRS: readonly (readonly [TerritoryName, TerritoryName])[] = Object.freeze(
-  [['Alaska', 'Kamchatka'] as const],
-);
+export const EDGE_EXIT_PAIRS: readonly (readonly [TerritoryName, TerritoryName])[] = Object.freeze([
+  ['Alaska', 'Kamchatka'] as const,
+]);
 
 function buildAdjPairs(): readonly (readonly [TerritoryName, TerritoryName])[] {
   const edgeKey = new Set(EDGE_EXIT_PAIRS.map(([a, b]) => [a, b].sort().join('|')));
@@ -441,16 +413,15 @@ function buildAdjPairs(): readonly (readonly [TerritoryName, TerritoryName])[] {
   return Object.freeze(pairs);
 }
 
-export const ADJ_PAIRS: readonly (readonly [TerritoryName, TerritoryName])[] =
-  buildAdjPairs();
+export const ADJ_PAIRS: readonly (readonly [TerritoryName, TerritoryName])[] = buildAdjPairs();
 
 /** O(1) adjacency lookup */
-export const ADJACENCY: Readonly<Record<TerritoryName, readonly TerritoryName[]>> =
-  Object.freeze(
-    Object.fromEntries(
-      TERR_ORDER.map((name) => [name, TERRITORIES[name]?.adj ?? []]),
-    ) as Record<TerritoryName, readonly TerritoryName[]>,
-  );
+export const ADJACENCY: Readonly<Record<TerritoryName, readonly TerritoryName[]>> = Object.freeze(
+  Object.fromEntries(TERR_ORDER.map((name) => [name, TERRITORIES[name]?.adj ?? []])) as Record<
+    TerritoryName,
+    readonly TerritoryName[]
+  >,
+);
 
 // ---------------------------------------------------------------------------
 // Card deck

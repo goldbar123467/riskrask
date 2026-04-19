@@ -1,5 +1,5 @@
-import type { GameState, PlayerId, Effect } from './types';
 import { TERR_ORDER } from './board';
+import type { Effect, GameState, PlayerId } from './types';
 
 /**
  * Returns true if the player owns no territories.

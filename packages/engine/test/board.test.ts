@@ -1,10 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 import {
-  CONTINENTS,
-  TERRITORIES,
   ADJ_PAIRS,
-  STARTING_ARMIES,
   BOARD_TERRITORY_COUNT,
+  CONTINENTS,
+  STARTING_ARMIES,
+  TERRITORIES,
 } from '../src/board';
 
 describe('board constants', () => {
