@@ -94,8 +94,7 @@ function fmtArch(archId: ArchId): string {
 function renderArchRow(s: ArchStats): string {
   const winRate = pct(s.wins, s.games);
   const effRate = pct(s.wins + s.leaderTimeouts, s.games);
-  const avgWinLen =
-    s.wins > 0 ? fixed(s.totalTurnsInWonGames / s.wins) : '—';
+  const avgWinLen = s.wins > 0 ? fixed(s.totalTurnsInWonGames / s.wins) : '—';
   return `| ${s.archId} | ${s.games} | ${s.wins} | ${winRate} | ${effRate} | ${avgWinLen} |`;
 }
 
@@ -183,7 +182,13 @@ export function buildMarkdown(records: GameRecord[]): string {
   }
 
   // Game length buckets
-  const lengthBuckets: Record<string, number> = { '0-50': 0, '51-100': 0, '101-150': 0, '151-200': 0, '201+': 0 };
+  const lengthBuckets: Record<string, number> = {
+    '0-50': 0,
+    '51-100': 0,
+    '101-150': 0,
+    '151-200': 0,
+    '201+': 0,
+  };
   for (const r of records) {
     const t = r.turnsPlayed;
     if (t <= 50) lengthBuckets['0-50']!++;
@@ -230,10 +235,14 @@ export function buildMarkdown(records: GameRecord[]): string {
     '| Archetype | Games | Wins | Win rate | Effective rate<sup>†</sup> | Avg turns in won games |',
   );
   lines.push('|---|---|---|---|---|---|');
-  const sortedStats = [...statsByArch.values()].sort((a, b) => b.wins / Math.max(1, b.games) - a.wins / Math.max(1, a.games));
+  const sortedStats = [...statsByArch.values()].sort(
+    (a, b) => b.wins / Math.max(1, b.games) - a.wins / Math.max(1, a.games),
+  );
   for (const s of sortedStats) lines.push(renderArchRow(s));
   lines.push('');
-  lines.push('<sup>†</sup> Effective rate counts (victory) + (leader-at-timeout); stalemates typically dominate, so this is a weak proxy when victory rates are very low.');
+  lines.push(
+    '<sup>†</sup> Effective rate counts (victory) + (leader-at-timeout); stalemates typically dominate, so this is a weak proxy when victory rates are very low.',
+  );
   lines.push('');
 
   for (const pc of [3, 4, 5, 6]) {
@@ -370,7 +379,8 @@ if (isMain()) {
   const records = readJsonl(input);
   const stamp = (input.match(/balance-(\d{4}-\d{2}-\d{2})\.jsonl$/)?.[1] ??
     new Date().toISOString().slice(0, 10)) as string;
-  const out = process.env.BALANCE_MD_OUT ?? join(REPO_ROOT, 'docs', 'balance', `balance-${stamp}.md`);
+  const out =
+    process.env.BALANCE_MD_OUT ?? join(REPO_ROOT, 'docs', 'balance', `balance-${stamp}.md`);
   writeReport(records, out);
   console.log(`wrote ${out} (from ${input})`);
 }
