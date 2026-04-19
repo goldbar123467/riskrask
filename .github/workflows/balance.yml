@@ -1,0 +1,64 @@
+name: balance
+
+on:
+  schedule:
+    # Every Monday at 05:00 UTC (roughly 01:00 ET Monday morning).
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      games:
+        description: "Number of games to simulate"
+        required: false
+        default: "500"
+
+jobs:
+  simulate:
+    name: AI balance simulation
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Need write perms + full history so we can commit the markdown back.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.5"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run balance harness
+        env:
+          BALANCE_GAMES: ${{ github.event.inputs.games || '500' }}
+        run: bun --filter @riskrask/scripts balance
+
+      - name: Aggregate JSONL into markdown
+        run: bun --filter @riskrask/scripts balance:aggregate
+
+      - name: Upload raw + markdown artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: balance-${{ github.run_id }}
+          path: |
+            reports/balance-*.jsonl
+            docs/balance/balance-*.md
+          retention-days: 90
+
+      - name: Commit rolling report back to main
+        if: github.event_name == 'schedule'
+        run: |
+          git config user.name  "riskrask-balance-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/balance/balance-*.md
+          if git diff --cached --quiet; then
+            echo "no report changes — skipping commit"
+          else
+            git commit -m "balance(weekly): refresh report $(date -u +%F)"
+            git push origin HEAD:main
+          fi
