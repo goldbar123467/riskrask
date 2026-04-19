@@ -8,9 +8,14 @@
 FROM oven/bun:1.3.5 AS builder
 WORKDIR /repo
 
-# Copy lockfile + workspace manifests first for cache efficiency
+# Copy lockfile + ALL workspace manifests first for cache efficiency.
+# Bun resolves workspace deps against every manifest in `workspaces`, so we
+# must include even the ones we don't run (web/admin) or `--frozen-lockfile`
+# will reject the install with "lockfile had changes".
 COPY package.json bun.lock bunfig.toml tsconfig.base.json ./
 COPY apps/server/package.json apps/server/
+COPY apps/web/package.json apps/web/
+COPY apps/admin/package.json apps/admin/
 COPY packages/engine/package.json packages/engine/
 COPY packages/ai/package.json packages/ai/
 COPY packages/shared/package.json packages/shared/
@@ -18,7 +23,7 @@ COPY packages/shared/package.json packages/shared/
 # Install with frozen lockfile
 RUN bun install --frozen-lockfile
 
-# Copy source
+# Copy server + the packages it actually needs at runtime
 COPY apps/server apps/server
 COPY packages/engine packages/engine
 COPY packages/ai packages/ai
