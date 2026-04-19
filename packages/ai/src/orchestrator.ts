@@ -21,8 +21,8 @@ import { Band } from './band.js';
 import { Book } from './book.js';
 import { Persona, createPersonaState } from './persona.js';
 import type { PersonaState } from './persona.js';
-import { Rule } from './rule.js';
 import type { ScoredOption } from './persona.js';
+import { Rule } from './rule.js';
 
 const MAX_ATTACKS_PER_TURN = 8;
 
@@ -35,10 +35,7 @@ function ownedSet(state: GameState, playerId: PlayerId): ReadonlySet<TerritoryNa
 }
 
 /** Trade all eligible card sets before reinforcing. Returns [actions, nextState]. */
-function doTrades(
-  state: GameState,
-  playerId: PlayerId,
-): [Action[], GameState] {
+function doTrades(state: GameState, playerId: PlayerId): [Action[], GameState] {
   const actions: Action[] = [];
   let s = state;
   for (;;) {
@@ -198,13 +195,12 @@ function doFortify(
   const scores = Persona.scoreFortify(s, playerId);
   if (scores.length === 0) return [actions, s];
 
-  const options: ScoredOption<{ from: TerritoryName; to: TerritoryName; count: number }>[] =
-    scores
-      .filter((fc) => canFortify(s, fc.from, fc.to, playerId))
-      .map((fc) => ({
-        item: { from: fc.from, to: fc.to, count: fc.count },
-        score: fc.score,
-      }));
+  const options: ScoredOption<{ from: TerritoryName; to: TerritoryName; count: number }>[] = scores
+    .filter((fc) => canFortify(s, fc.from, fc.to, playerId))
+    .map((fc) => ({
+      item: { from: fc.from, to: fc.to, count: fc.count },
+      score: fc.score,
+    }));
 
   if (options.length === 0) return [actions, s];
 

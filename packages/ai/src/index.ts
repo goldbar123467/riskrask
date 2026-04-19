@@ -8,7 +8,13 @@ export const AI_SENTINEL = 'riskrask-ai' as const;
 export { Arch } from './arch.js';
 export type { ArchDef, ArchId, ArchWeights, RuleMods } from './arch.js';
 
-export { Persona, createPersonaState, scoreReinforce, scoreAttack, scoreFortifyOptions } from './persona.js';
+export {
+  Persona,
+  createPersonaState,
+  scoreReinforce,
+  scoreAttack,
+  scoreFortifyOptions,
+} from './persona.js';
 export type { PersonaState, RuntimeWeights, ScoredOption } from './persona.js';
 
 export { Voice, format as voiceFormat } from './voice.js';
@@ -20,7 +26,15 @@ export type { RepMatrix } from './rep.js';
 export { Grudge } from './grudge.js';
 export type { GrudgeMap, GrudgeEntry } from './grudge.js';
 
-export { Goal, GoalTypes, assignGoal, goalProgress, isGoalComplete, goalBonus, onCaptureGoalUpdate } from './goal.js';
+export {
+  Goal,
+  GoalTypes,
+  assignGoal,
+  goalProgress,
+  isGoalComplete,
+  goalBonus,
+  onCaptureGoalUpdate,
+} from './goal.js';
 export type { Goal as GoalDef, GoalType } from './goal.js';
 
 export { Plan, composePlan, evaluatePlan } from './plan.js';

@@ -25,7 +25,9 @@ describe('Rule', () => {
 
   test('canAttack returns true for dilettante always', () => {
     const state = buildMidgameState();
-    const owned = Object.keys(state.territories).filter((n) => state.territories[n]?.owner === 'p0');
+    const owned = Object.keys(state.territories).filter(
+      (n) => state.territories[n]?.owner === 'p0',
+    );
     if (owned.length === 0) return;
     expect(Rule.canAttack(state, Arch.get('dilettante'), owned[0]!)).toBe(true);
   });
@@ -34,9 +36,9 @@ describe('Rule', () => {
     const state = buildMidgameState();
     const arch = Arch.get('shogun')!;
     // Find a territory with < 4 armies owned by p0
-    const lowArmy = Object.entries(state.territories)
-      .find(([, t]) => t.owner === 'p0' && t.armies < 4)
-      ?.[0];
+    const lowArmy = Object.entries(state.territories).find(
+      ([, t]) => t.owner === 'p0' && t.armies < 4,
+    )?.[0];
     if (!lowArmy) return; // no suitable territory found
     expect(Rule.canAttack(state, arch, lowArmy)).toBe(false);
   });
@@ -44,7 +46,9 @@ describe('Rule', () => {
   test('canAttack returns false for hermit on turn 0', () => {
     const state = buildMidgameState(); // turn 0
     const arch = Arch.get('hermit')!;
-    const owned = Object.keys(state.territories).filter((n) => state.territories[n]?.owner === 'p0');
+    const owned = Object.keys(state.territories).filter(
+      (n) => state.territories[n]?.owner === 'p0',
+    );
     if (owned.length === 0) return;
     expect(Rule.canAttack(state, arch, owned[0]!)).toBe(false);
   });

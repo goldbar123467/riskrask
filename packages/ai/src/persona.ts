@@ -67,7 +67,11 @@ export function getTemperature(ps: PersonaState | null | undefined): number {
   return Math.max(0.1, ps.runtimeTemperature);
 }
 
-export function getMistakeRate(ps: PersonaState | null | undefined, arch: ArchDef | null, turn: number): number {
+export function getMistakeRate(
+  ps: PersonaState | null | undefined,
+  arch: ArchDef | null,
+  turn: number,
+): number {
   if (!ps || !arch) return 0;
   return Math.min(0.5, Math.max(0, arch.mistakeRate + arch.fatigueRate * ((turn || 1) - 1)));
 }
@@ -95,7 +99,7 @@ export function softmaxPick<T>(
   const maxScore = Math.max(...options.map((o) => o.score));
   const weights = options.map((o) => Math.exp((o.score - maxScore) / T));
   const sum = weights.reduce((a, b) => a + b, 0);
-  if (sum === 0 || !isFinite(sum)) {
+  if (sum === 0 || !Number.isFinite(sum)) {
     const sorted = options.slice().sort((a, b) => b.score - a.score);
     return sorted[0] ?? null;
   }
@@ -128,7 +132,10 @@ export function pick<T>(
   const roll = nextInt(rng, 1_000_000) / 1_000_000;
   if (roll < mr) {
     // Random from top-5 (mistake)
-    const top5 = options.slice().sort((a, b) => b.score - a.score).slice(0, 5);
+    const top5 = options
+      .slice()
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5);
     const idx = nextInt(rng, top5.length);
     return top5[idx] ?? null;
   }
@@ -139,11 +146,7 @@ export function pick<T>(
 // Scoring functions — mirrors v2 scoreReinforceTerritory / scoreAttack / aiFortify
 // ---------------------------------------------------------------------------
 
-function continentOwnedBy(
-  state: GameState,
-  continent: string,
-  playerId: PlayerId,
-): boolean {
+function continentOwnedBy(state: GameState, continent: string, playerId: PlayerId): boolean {
   const members = CONTINENTS[continent]?.members ?? [];
   return members.every((n) => state.territories[n]?.owner === playerId);
 }
@@ -158,7 +161,7 @@ export function scoreReinforce(
   if (!t) return 0;
   const adjEnemies = t.adj.filter((a) => state.territories[a]?.owner !== playerId);
   let score = 0;
-  score += 10 * adjEnemies.length * (getWeight(ps, 'reinforce', 'adjEnemies'));
+  score += 10 * adjEnemies.length * getWeight(ps, 'reinforce', 'adjEnemies');
   const maxEnemyArmies =
     adjEnemies.length > 0
       ? Math.max(...adjEnemies.map((a) => state.territories[a]?.armies ?? 0))
@@ -231,10 +234,7 @@ export interface FortifyScore {
  * Scores fortify options. Mirrors v2 aiFortify heuristic:
  * source = interior territory with highest armies, dest = adjacent friendly with highest enemy-army sum.
  */
-export function scoreFortifyOptions(
-  state: GameState,
-  playerId: PlayerId,
-): FortifyScore[] {
+export function scoreFortifyOptions(state: GameState, playerId: PlayerId): FortifyScore[] {
   const owned = ownedBy(state, playerId);
   // candidates = owned territories that have ≥2 armies and all adj are friendly (interior)
   const candidates = owned.filter((n) => {
@@ -254,7 +254,8 @@ export function scoreFortifyOptions(
       const adjT = state.territories[adj];
       if (!adjT) continue;
       const enemyTotal = adjT.adj.reduce(
-        (s, n) => s + (state.territories[n]?.owner !== playerId ? (state.territories[n]?.armies ?? 0) : 0),
+        (s, n) =>
+          s + (state.territories[n]?.owner !== playerId ? (state.territories[n]?.armies ?? 0) : 0),
         0,
       );
       const move = srcT.armies - 1;

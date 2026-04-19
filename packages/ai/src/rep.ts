@@ -19,11 +19,7 @@ function clamp(v: number): number {
   return Math.max(-1, Math.min(1, v));
 }
 
-function adjacentToAny(
-  state: GameState,
-  observerId: PlayerId,
-  targetId: PlayerId,
-): boolean {
+function adjacentToAny(state: GameState, observerId: PlayerId, targetId: PlayerId): boolean {
   for (const name of TERR_ORDER) {
     const t = state.territories[name];
     if (!t || t.owner !== observerId) continue;
@@ -49,11 +45,7 @@ export function initRepMatrix(state: GameState): RepMatrix {
 }
 
 /** Record an attack: attacker's rep toward defender drops; defender's toward attacker drops more. */
-export function onAttack(
-  matrix: RepMatrix,
-  attackerId: PlayerId,
-  defenderId: PlayerId,
-): RepMatrix {
+export function onAttack(matrix: RepMatrix, attackerId: PlayerId, defenderId: PlayerId): RepMatrix {
   const next = JSON.parse(JSON.stringify(matrix)) as RepMatrix;
   const cur = next[attackerId]?.[defenderId] ?? 0;
   if (!next[attackerId]) next[attackerId] = {};

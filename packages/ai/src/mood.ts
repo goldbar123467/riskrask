@@ -73,7 +73,7 @@ export function computeMood(arch: ArchDef, recentEvents: readonly string[]): str
 }
 
 export function moodIcon(mood: string): MoodIcon {
-  return MOOD_ICONS[mood] ?? MOOD_ICONS['neutral'] ?? { glyph: '·', color: '#94a3b8' };
+  return MOOD_ICONS[mood] ?? MOOD_ICONS.neutral ?? { glyph: '·', color: '#94a3b8' };
 }
 
 /** Push a new event onto the recent-events stack (max 3), return updated stack. */

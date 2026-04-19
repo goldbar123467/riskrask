@@ -13,12 +13,12 @@ describe('Stats', () => {
       { archId: 'fortress', won: false },
     ];
     const next = recordGame(stats, outcomes);
-    expect(next['napoleon']?.games).toBe(1);
-    expect(next['napoleon']?.wins).toBe(1);
-    expect(next['napoleon']?.losses).toBe(0);
-    expect(next['fortress']?.games).toBe(1);
-    expect(next['fortress']?.wins).toBe(0);
-    expect(next['fortress']?.losses).toBe(1);
+    expect(next.napoleon?.games).toBe(1);
+    expect(next.napoleon?.wins).toBe(1);
+    expect(next.napoleon?.losses).toBe(0);
+    expect(next.fortress?.games).toBe(1);
+    expect(next.fortress?.wins).toBe(0);
+    expect(next.fortress?.losses).toBe(1);
   });
 
   test('recordGame is pure — does not mutate input', () => {
@@ -54,8 +54,8 @@ describe('Stats', () => {
     for (let i = 0; i < 10; i++) {
       stats = recordGame(stats, [{ archId: 'napoleon', won: i % 2 === 0 }]);
     }
-    expect(stats['napoleon']?.games).toBe(10);
-    expect(stats['napoleon']?.wins).toBe(5);
-    expect(stats['napoleon']?.losses).toBe(5);
+    expect(stats.napoleon?.games).toBe(10);
+    expect(stats.napoleon?.wins).toBe(5);
+    expect(stats.napoleon?.losses).toBe(5);
   });
 });

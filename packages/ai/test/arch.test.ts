@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { Arch, ARCH_IDS } from '../src/arch.js';
+import { ARCH_IDS, Arch } from '../src/arch.js';
 
 describe('Arch catalog', () => {
   test('list() returns 9 archetypes', () => {

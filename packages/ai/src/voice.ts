@@ -29,7 +29,10 @@ export const VOICE_PACKS: Readonly<Record<string, VoicePack | null>> = Object.fr
       'Bonaparte stations {n} in {terr}.',
       'Troops stream into {terr}.',
     ],
-    attack: ['The Grand Armée strikes {target} from {source}!', '{target} stands before the Emperor.'],
+    attack: [
+      'The Grand Armée strikes {target} from {source}!',
+      '{target} stands before the Emperor.',
+    ],
     capture: ['{target} falls. The Empire expands.', 'Another prize for France. {target} is ours.'],
     fortify: [
       'The Emperor consolidates — {count} legionnaires shift to {target}.',
@@ -39,7 +42,10 @@ export const VOICE_PACKS: Readonly<Record<string, VoicePack | null>> = Object.fr
       'Spoils of war. +{value} reinforcements to the Emperor.',
       "Intelligence sold. +{value} to the Empire's coffers.",
     ],
-    eliminate: ['Another crown falls. {name} is no more.', 'The Emperor removes {name} from the map.'],
+    eliminate: [
+      'Another crown falls. {name} is no more.',
+      'The Emperor removes {name} from the map.',
+    ],
     intent_aggressive: [
       'The Emperor masses at {source}. {target} will fall.',
       "Bonaparte's eye is on {target}.",
@@ -81,7 +87,10 @@ export const VOICE_PACKS: Readonly<Record<string, VoicePack | null>> = Object.fr
     fortify: ['{count} skulk into {target}.'],
     trade: ['Spoils sorted. +{value}.'],
     eliminate: ['{name} bleeds out. The pack feasts.'],
-    intent_aggressive: ['The Jackal smells weakness. {target} tonight.', 'Weakest first — {target}.'],
+    intent_aggressive: [
+      'The Jackal smells weakness. {target} tonight.',
+      'Weakest first — {target}.',
+    ],
     intent_defensive: ['The Jackal watches. Waits. Bides.'],
     outcome_success: ['Fed well tonight.', 'Easier than expected. {target} gone.'],
     outcome_thwarted: ['The prey got away this time.'],
@@ -110,7 +119,10 @@ export const VOICE_PACKS: Readonly<Record<string, VoicePack | null>> = Object.fr
     fortify: ['The shepherd reshapes the flock — {count} to {target}.'],
     trade: ['The harvest comes in. +{value}.'],
     eliminate: ["{name}'s time was shorter than expected."],
-    intent_aggressive: ['The time is ripe. {target}.', '{source} moves today. Slowly, deliberately.'],
+    intent_aggressive: [
+      'The time is ripe. {target}.',
+      '{source} moves today. Slowly, deliberately.',
+    ],
     intent_defensive: ['Seasons come. Seasons go. {reinforceFocus} is tended.'],
     outcome_success: ['As foreseen. {target}.'],
     outcome_thwarted: ['Another season will do.'],
@@ -118,7 +130,10 @@ export const VOICE_PACKS: Readonly<Record<string, VoicePack | null>> = Object.fr
   },
   shogun: {
     deploy: ['The Shogun posts {n} to {terr}.', 'Honor reinforces {terr} — {n} samurai.'],
-    attack: ['Steel flashes. {source} attacks {target}.', 'The Shogun commits banners at {target}.'],
+    attack: [
+      'Steel flashes. {source} attacks {target}.',
+      'The Shogun commits banners at {target}.',
+    ],
     capture: ['{target} submits. Honor upheld.', '{target} bows.'],
     fortify: ['{count} retainers shift to {target}.'],
     trade: ['Tribute received. +{value}.'],

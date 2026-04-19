@@ -16,22 +16,53 @@ export interface BookDef {
 // TERR_DATA[name][0] === continent id in v2; here we map territory names to continents inline.
 const TERR_CONTINENT: Readonly<Record<string, string>> = {
   // North America
-  Alaska: 'NA', 'Northwest Territory': 'NA', Greenland: 'NA', Alberta: 'NA', Ontario: 'NA',
-  Quebec: 'NA', 'Western US': 'NA', 'Eastern US': 'NA', 'Central America': 'NA',
+  Alaska: 'NA',
+  'Northwest Territory': 'NA',
+  Greenland: 'NA',
+  Alberta: 'NA',
+  Ontario: 'NA',
+  Quebec: 'NA',
+  'Western US': 'NA',
+  'Eastern US': 'NA',
+  'Central America': 'NA',
   // South America
-  Venezuela: 'SA', Brazil: 'SA', Peru: 'SA', Argentina: 'SA',
+  Venezuela: 'SA',
+  Brazil: 'SA',
+  Peru: 'SA',
+  Argentina: 'SA',
   // Europe
-  Iceland: 'EU', 'Great Britain': 'EU', 'Northern Europe': 'EU', 'Scandinavia': 'EU',
-  Ukraine: 'EU', 'Western Europe': 'EU', 'Southern Europe': 'EU',
+  Iceland: 'EU',
+  'Great Britain': 'EU',
+  'Northern Europe': 'EU',
+  Scandinavia: 'EU',
+  Ukraine: 'EU',
+  'Western Europe': 'EU',
+  'Southern Europe': 'EU',
   // Africa
-  'North Africa': 'AF', Egypt: 'AF', 'East Africa': 'AF', Congo: 'AF',
-  'South Africa': 'AF', Madagascar: 'AF',
+  'North Africa': 'AF',
+  Egypt: 'AF',
+  'East Africa': 'AF',
+  Congo: 'AF',
+  'South Africa': 'AF',
+  Madagascar: 'AF',
   // Asia
-  Ural: 'AS', Siberia: 'AS', Yakutsk: 'AS', Kamchatka: 'AS', Irkutsk: 'AS',
-  Mongolia: 'AS', Japan: 'AS', China: 'AS', 'Middle East': 'AS', India: 'AS',
-  Siam: 'AS', Afghanistan: 'AS',
+  Ural: 'AS',
+  Siberia: 'AS',
+  Yakutsk: 'AS',
+  Kamchatka: 'AS',
+  Irkutsk: 'AS',
+  Mongolia: 'AS',
+  Japan: 'AS',
+  China: 'AS',
+  'Middle East': 'AS',
+  India: 'AS',
+  Siam: 'AS',
+  Afghanistan: 'AS',
   // Australia
-  Indonesia: 'AU', 'New Guinea': 'AU', 'Western Australia': 'AU', 'Eastern Australia': 'AU',
+  Indonesia: 'AU',
+  'New Guinea': 'AU',
+  'Western Australia': 'AU',
+  'Eastern Australia': 'AU',
 };
 
 function contOf(name: string): string {
@@ -48,7 +79,11 @@ const BOOKS: Readonly<Record<string, BookDef>> = Object.freeze({
       return 10;
     },
     reinforceFocus: [
-      'Southern Europe', 'Ukraine', 'Northern Europe', 'Western Europe', 'North Africa',
+      'Southern Europe',
+      'Ukraine',
+      'Northern Europe',
+      'Western Europe',
+      'North Africa',
     ],
     earlyAttackPriority: ['Ukraine', 'Scandinavia', 'Middle East'],
     booksExpireAfterTurn: 3,
@@ -61,9 +96,7 @@ const BOOKS: Readonly<Record<string, BookDef>> = Object.freeze({
       if (c === 'AF') return 50;
       return 20;
     },
-    reinforceFocus: [
-      'Indonesia', 'Siam', 'Central America', 'Venezuela', 'North Africa',
-    ],
+    reinforceFocus: ['Indonesia', 'Siam', 'Central America', 'Venezuela', 'North Africa'],
     earlyAttackPriority: [],
     booksExpireAfterTurn: 4,
   },
@@ -87,9 +120,7 @@ const BOOKS: Readonly<Record<string, BookDef>> = Object.freeze({
       if (c === 'SA') return 60;
       return 10;
     },
-    reinforceFocus: [
-      'Indonesia', 'Eastern Australia', 'Western Australia', 'New Guinea',
-    ],
+    reinforceFocus: ['Indonesia', 'Eastern Australia', 'Western Australia', 'New Guinea'],
     earlyAttackPriority: [],
     booksExpireAfterTurn: 5,
   },

@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createRng } from '@riskrask/engine';
 import { Arch } from '../src/arch.js';
 import { Persona, createPersonaState, softmaxPick } from '../src/persona.js';
-import { buildMidgameState, P0 } from './helpers.js';
+import { P0, buildMidgameState } from './helpers.js';
 
 describe('Persona', () => {
   test('scoreReinforce returns a number for each owned territory', () => {
@@ -15,7 +15,7 @@ describe('Persona', () => {
     for (const name of owned) {
       const score = Persona.scoreReinforce(state, name, P0, ps);
       expect(typeof score).toBe('number');
-      expect(isFinite(score)).toBe(true);
+      expect(Number.isFinite(score)).toBe(true);
     }
   });
 

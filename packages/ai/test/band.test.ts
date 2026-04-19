@@ -1,8 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { Arch } from '../src/arch.js';
-import { createPersonaState } from '../src/persona.js';
 import { Band } from '../src/band.js';
-import { buildMidgameState, P0, P1 } from './helpers.js';
+import { createPersonaState } from '../src/persona.js';
+import { P0, P1, buildMidgameState } from './helpers.js';
 
 describe('Band', () => {
   test('standing returns value in [-1, 1]', () => {
@@ -16,9 +16,7 @@ describe('Band', () => {
     const state = buildMidgameState();
     const modState = {
       ...state,
-      players: state.players.map((p, i) =>
-        i === 0 ? { ...p, eliminated: true } : p
-      ),
+      players: state.players.map((p, i) => (i === 0 ? { ...p, eliminated: true } : p)),
     };
     expect(Band.standing(modState, P0)).toBe(-1);
   });

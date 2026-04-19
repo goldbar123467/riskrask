@@ -7,14 +7,16 @@ import type { ArchDef } from './arch.js';
 import type { PersonaState } from './persona.js';
 
 // Expected loss table ported verbatim from v2
-const EXPECTED_LOSS: Readonly<Record<string, { atkLoss: number; defLoss: number }>> = Object.freeze({
-  '1,1': { atkLoss: 0.583, defLoss: 0.417 },
-  '2,1': { atkLoss: 0.421, defLoss: 0.579 },
-  '3,1': { atkLoss: 0.340, defLoss: 0.660 },
-  '1,2': { atkLoss: 0.745, defLoss: 0.255 },
-  '2,2': { atkLoss: 0.896, defLoss: 1.104 },
-  '3,2': { atkLoss: 0.742, defLoss: 1.258 },
-});
+const EXPECTED_LOSS: Readonly<Record<string, { atkLoss: number; defLoss: number }>> = Object.freeze(
+  {
+    '1,1': { atkLoss: 0.583, defLoss: 0.417 },
+    '2,1': { atkLoss: 0.421, defLoss: 0.579 },
+    '3,1': { atkLoss: 0.34, defLoss: 0.66 },
+    '1,2': { atkLoss: 0.745, defLoss: 0.255 },
+    '2,2': { atkLoss: 0.896, defLoss: 1.104 },
+    '3,2': { atkLoss: 0.742, defLoss: 1.258 },
+  },
+);
 
 export function expectedLoss(
   atkDiceCount: number,
@@ -56,11 +58,7 @@ export function updateRegret(
   );
 
   const baseT = arch.temperature;
-  const newAccum = clampNum(
-    (ps.regretTempAccum) + 0.04 * -combined,
-    -baseT * 0.5,
-    baseT * 0.6,
-  );
+  const newAccum = clampNum(ps.regretTempAccum + 0.04 * -combined, -baseT * 0.5, baseT * 0.6);
 
   return {
     ...ps,

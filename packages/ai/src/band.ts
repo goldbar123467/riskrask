@@ -20,16 +20,14 @@ export function standing(state: GameState, playerId: PlayerId): number {
   const avgT = totalT / alive.length;
 
   const myA = TERR_ORDER.reduce(
-    (s, n) => s + (state.territories[n]?.owner === playerId ? (state.territories[n]?.armies ?? 0) : 0),
+    (s, n) =>
+      s + (state.territories[n]?.owner === playerId ? (state.territories[n]?.armies ?? 0) : 0),
     0,
   );
   const totalA = TERR_ORDER.reduce((s, n) => s + (state.territories[n]?.armies ?? 0), 0);
   const avgA = totalA / alive.length;
 
-  const myC = ownedContinents(state, playerId).reduce(
-    (s, c) => s + (CONTINENTS[c]?.bonus ?? 0),
-    0,
-  );
+  const myC = ownedContinents(state, playerId).reduce((s, c) => s + (CONTINENTS[c]?.bonus ?? 0), 0);
   const totalC = Object.keys(CONTINENTS).reduce((s, c) => s + (CONTINENTS[c]?.bonus ?? 0), 0);
   const avgC = totalC / alive.length;
 

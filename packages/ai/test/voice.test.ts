@@ -1,13 +1,21 @@
 import { describe, expect, test } from 'bun:test';
 import { createRng } from '@riskrask/engine';
 import { ARCH_IDS } from '../src/arch.js';
-import { Voice, VOICE_PACKS } from '../src/voice.js';
+import { VOICE_PACKS, Voice } from '../src/voice.js';
 import type { VoiceEvent } from '../src/voice.js';
 
 const EXPECTED_EVENTS: VoiceEvent[] = [
-  'deploy', 'attack', 'capture', 'fortify', 'trade', 'eliminate',
-  'intent_aggressive', 'intent_defensive',
-  'outcome_success', 'outcome_thwarted', 'outcome_disaster',
+  'deploy',
+  'attack',
+  'capture',
+  'fortify',
+  'trade',
+  'eliminate',
+  'intent_aggressive',
+  'intent_defensive',
+  'outcome_success',
+  'outcome_thwarted',
+  'outcome_disaster',
 ];
 
 describe('Voice', () => {

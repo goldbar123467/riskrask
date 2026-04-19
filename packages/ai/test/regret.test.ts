@@ -8,7 +8,7 @@ describe('Regret', () => {
     const cases: [number, number, number, number][] = [
       [1, 1, 0.583, 0.417],
       [2, 1, 0.421, 0.579],
-      [3, 1, 0.340, 0.660],
+      [3, 1, 0.34, 0.66],
       [1, 2, 0.745, 0.255],
       [2, 2, 0.896, 1.104],
       [3, 2, 0.742, 1.258],
@@ -42,7 +42,9 @@ describe('Regret', () => {
     let ps = createPersonaState(arch);
     ps = updateRegret(ps, arch, 3, 2, 3.0, 0.0);
     ps = resetRegret(ps, arch);
-    expect(ps.runtimeWeights.attack.hopelessPenalty).toBeCloseTo(arch.weights.attack.hopelessPenalty);
+    expect(ps.runtimeWeights.attack.hopelessPenalty).toBeCloseTo(
+      arch.weights.attack.hopelessPenalty,
+    );
     expect(ps.regretTempAccum).toBe(0);
   });
 

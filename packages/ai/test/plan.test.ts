@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { Arch } from '../src/arch.js';
 import { createPersonaState } from '../src/persona.js';
 import { Plan } from '../src/plan.js';
-import { buildMidgameState, P0 } from './helpers.js';
+import { P0, buildMidgameState } from './helpers.js';
 
 describe('Plan', () => {
   test('composePlan returns a TurnPlan', () => {

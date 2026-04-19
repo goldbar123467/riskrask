@@ -37,7 +37,11 @@ export function recordGrudge(
   return next;
 }
 
-export function getGrudgeSeverity(map: GrudgeMap, playerId: PlayerId, attackerId: PlayerId): number {
+export function getGrudgeSeverity(
+  map: GrudgeMap,
+  playerId: PlayerId,
+  attackerId: PlayerId,
+): number {
   return map[playerId]?.[attackerId]?.severity ?? 0;
 }
 

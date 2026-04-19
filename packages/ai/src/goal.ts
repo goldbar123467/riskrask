@@ -107,10 +107,7 @@ export function goalProgress(
     case GoalTypes.SURVIVE_WITH: {
       const t = state.turn;
       const owned = ownedBy(state, playerId).length;
-      return (
-        Math.min(1, t / goal.params.turn) *
-        Math.min(1, owned / goal.params.minTerritories)
-      );
+      return Math.min(1, t / goal.params.turn) * Math.min(1, owned / goal.params.minTerritories);
     }
     case GoalTypes.BREAK_BONUSES:
       return Math.min(1, goalProgressCount / goal.params.count);
@@ -126,10 +123,16 @@ export function isGoalComplete(
   goalProgressCount: number,
 ): boolean {
   if (goal.type === GoalTypes.HOLD_CONTINENT) {
-    return goalProgress(state, playerId, goal, goalProgressCount) >= 1 && state.turn <= goal.params.byTurn;
+    return (
+      goalProgress(state, playerId, goal, goalProgressCount) >= 1 &&
+      state.turn <= goal.params.byTurn
+    );
   }
   if (goal.type === GoalTypes.SURVIVE_WITH) {
-    return state.turn >= goal.params.turn && ownedBy(state, playerId).length >= goal.params.minTerritories;
+    return (
+      state.turn >= goal.params.turn &&
+      ownedBy(state, playerId).length >= goal.params.minTerritories
+    );
   }
   return goalProgress(state, playerId, goal, goalProgressCount) >= 1;
 }
@@ -164,7 +167,10 @@ export function goalBonus(
       const tgtCont = tgt.continent;
       const contMembers = CONTINENTS[tgtCont]?.members ?? [];
       const defenderId = tgt.owner;
-      if (defenderId != null && contMembers.every((n) => state.territories[n]?.owner === defenderId)) {
+      if (
+        defenderId != null &&
+        contMembers.every((n) => state.territories[n]?.owner === defenderId)
+      ) {
         return 30 * goalWeight;
       }
     }

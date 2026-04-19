@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { Rep } from '../src/rep.js';
-import { buildMidgameState, P0, P1 } from './helpers.js';
+import { P0, P1, buildMidgameState } from './helpers.js';
 
 describe('Rep', () => {
   test('initRepMatrix creates entries for all player pairs', () => {
@@ -48,7 +48,7 @@ describe('Rep', () => {
     const before = matrix[P0]?.[P1] ?? 0;
     const after = Rep.tick(state, matrix);
     // Values negative → decay toward 0 (increase)
-    expect((after[P0]?.[P1] ?? 0)).toBeGreaterThan(before);
+    expect(after[P0]?.[P1] ?? 0).toBeGreaterThan(before);
   });
 
   test('rep values stay in [-1, 1]', () => {

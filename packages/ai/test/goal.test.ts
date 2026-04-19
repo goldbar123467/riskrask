@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { createRng } from '@riskrask/engine';
 import { Arch } from '../src/arch.js';
 import { Goal, GoalTypes, assignGoal, goalBonus, goalProgress } from '../src/goal.js';
-import { buildMidgameState, P0 } from './helpers.js';
+import { P0, buildMidgameState } from './helpers.js';
 
 describe('Goal', () => {
   test('assignGoal returns a goal with correct type for holdContinent bias', () => {
@@ -37,9 +37,7 @@ describe('Goal', () => {
     // Mark P1 as eliminated
     const modState = {
       ...state,
-      players: state.players.map((p, i) =>
-        i === 1 ? { ...p, eliminated: true } : p
-      ),
+      players: state.players.map((p, i) => (i === 1 ? { ...p, eliminated: true } : p)),
     };
     const goal = { type: 'eliminate-first' as const, params: {} };
     expect(goalProgress(modState, P0, goal, 0)).toBe(1);

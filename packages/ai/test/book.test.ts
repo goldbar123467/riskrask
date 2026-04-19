@@ -22,7 +22,7 @@ describe('Book', () => {
     const asScore = Book.claimScore('europe-blitz', 'China');
     // EU territories score 100 (capped at 50), non-EU territories score lower
     expect(Book.claimScore('europe-blitz', 'Southern Europe')).toBeGreaterThan(
-      Book.claimScore('europe-blitz', 'China')
+      Book.claimScore('europe-blitz', 'China'),
     );
   });
 
@@ -56,7 +56,13 @@ describe('Book', () => {
   });
 
   test('claimScore is capped at 50', () => {
-    for (const id of ['europe-blitz', 'continent-fortress', 'asian-pivot', 'isolation', 'patient-build']) {
+    for (const id of [
+      'europe-blitz',
+      'continent-fortress',
+      'asian-pivot',
+      'isolation',
+      'patient-build',
+    ]) {
       for (const terr of ['Ukraine', 'Indonesia', 'China', 'Alaska']) {
         const s = Book.claimScore(id, terr);
         expect(s).toBeLessThanOrEqual(50);

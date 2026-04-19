@@ -3,7 +3,7 @@ import { apply, createRng, hashState, ownedBy } from '@riskrask/engine';
 import type { GameState } from '@riskrask/engine';
 import { ARCH_IDS } from '../src/arch.js';
 import { takeTurn } from '../src/orchestrator.js';
-import { buildMidgameState, currentPlayerId, P0 } from './helpers.js';
+import { P0, buildMidgameState, currentPlayerId } from './helpers.js';
 
 // ---------------------------------------------------------------------------
 // Helper: run one AI turn and return resulting state
@@ -185,7 +185,9 @@ describe('seeded AI vs AI games', () => {
       for (const action of actions) {
         try {
           state = apply(state, action).next;
-        } catch { break; }
+        } catch {
+          break;
+        }
       }
       hashes.push(hashState(state));
     }
