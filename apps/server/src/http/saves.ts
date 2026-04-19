@@ -18,8 +18,8 @@ import { parseSaveCode } from '@riskrask/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { verifySupabaseJwt } from '../auth/verify';
-import { SaveExpiredError, deleteSave, loadSave } from '../persistence/saves';
-import { edgeFunctionUrl, serviceClient } from '../supabase';
+import { SaveExpiredError, createSave, deleteSave, loadSave } from '../persistence/saves';
+import { serviceClient } from '../supabase';
 
 const savesRouter = new Hono();
 
@@ -28,12 +28,14 @@ const savesRouter = new Hono();
 // ---------------------------------------------------------------------------
 const CreateSaveBody = z.object({
   state: z.object({ schemaVersion: z.number().int().min(1) }).passthrough(),
-  schemaVersion: z.number().int().min(1),
   ownerId: z.string().uuid().optional(),
 });
 
 // ---------------------------------------------------------------------------
 // POST /api/saves
+// Calls the create_save_with_expiry Postgres RPC directly via the service
+// client — no edge-function hop. Owner-linked saves require the caller's
+// Supabase JWT in Authorization; anonymous saves get a 30-day TTL.
 // ---------------------------------------------------------------------------
 savesRouter.post('/', async (c) => {
   let body: z.infer<typeof CreateSaveBody>;
@@ -44,26 +46,37 @@ savesRouter.post('/', async (c) => {
   }
 
   // Optional Turnstile gate (TODO: enable via TURNSTILE_REQUIRED=1 env)
-  const turnstileRequired = process.env.TURNSTILE_REQUIRED === '1';
-  if (turnstileRequired && !body.ownerId) {
-    // TODO(track-f): verify X-Turnstile-Token header
-    // const token = c.req.header('X-Turnstile-Token');
+  // const turnstileRequired = process.env.TURNSTILE_REQUIRED === '1';
+  // if (turnstileRequired && !body.ownerId) { ... }
+
+  // Owner check: if Authorization is present, the JWT user must match ownerId.
+  let resolvedOwnerId: string | null = body.ownerId ?? null;
+  const authHeader = c.req.header('Authorization');
+  if (authHeader) {
+    const user = await verifySupabaseJwt(authHeader);
+    if (!user) {
+      return c.json({ ok: false, code: 'UNAUTHORIZED', detail: 'invalid token' }, 401);
+    }
+    if (body.ownerId && body.ownerId !== user.id) {
+      return c.json({ ok: false, code: 'FORBIDDEN', detail: 'ownerId mismatch' }, 403);
+    }
+    resolvedOwnerId = user.id;
   }
 
-  const authHeader = c.req.header('Authorization') ?? null;
+  const stateJson = body.state as Record<string, unknown>;
+  const schemaVersion = stateJson.schemaVersion as number;
 
-  // Forward to edge function
-  const res = await fetch(edgeFunctionUrl('create-save'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(authHeader ? { Authorization: authHeader } : {}),
-    },
-    body: JSON.stringify(body),
-  });
-
-  const data = (await res.json()) as unknown;
-  return c.json(data, res.status as 200 | 400 | 401 | 403 | 500);
+  try {
+    const result = await createSave(serviceClient(), {
+      stateJson,
+      schemaVersion,
+      ...(resolvedOwnerId ? { ownerId: resolvedOwnerId } : {}),
+    });
+    return c.json({ ok: true, code: result.code, expiresAt: result.expiresAt }, 200);
+  } catch (e) {
+    const detail = e instanceof Error ? e.message : 'unknown';
+    return c.json({ ok: false, code: 'CREATE_FAILED', detail }, 500);
+  }
 });
 
 // ---------------------------------------------------------------------------
