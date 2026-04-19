@@ -1,0 +1,38 @@
+# Reverse proxy in front of the Bun + Hono server.
+# Replace api.example.com with the real DNS once Phase 3 is done.
+
+{
+	# email used for ACME / Let's Encrypt notifications (only used if not behind CF Origin cert)
+	email kitchen@imsaindy.org
+}
+
+api.riskrask.com {
+	encode gzip zstd
+
+	# WebSocket and HTTP both proxy through the same upstream
+	reverse_proxy server:8787 {
+		header_up Host {host}
+		header_up X-Real-IP {remote}
+		header_up X-Forwarded-For {remote}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# Standard hardening
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	log {
+		output stdout
+		format json
+		level INFO
+	}
+}
+
+# Default catch-all (so accidental hits to the box's IP don't leak the api host)
+:80, :443 {
+	respond "riskrask" 200
+}
