@@ -6,7 +6,7 @@
 	email kitchen@imsaindy.org
 }
 
-api.riskrask.com {
+api.upsidedownatlas.com {
 	encode gzip zstd
 
 	# WebSocket and HTTP both proxy through the same upstream

@@ -148,7 +148,7 @@ Keep each file ≤300 lines. Split further if a component's internals exceed tha
 - [ ] `ForcedTradeModal`: shown when `state.pendingForcedTrade` is set. Presents three-of-a-kind / one-of-each options; player picks one.
 - [ ] `MoveModal`: armies slider `[diceRolled, src.armies-1]`.
 - [ ] `VictoryModal`: winner name, shareable code (from Save API), Rematch button (re-enters setup with same players).
-- [ ] `SaveCodeModal`: `POST /api/saves`, shows `XXXX-XXXX` with copy button + `riskrask.com/?save=XXXXXXXX`.
+- [ ] `SaveCodeModal`: `POST /api/saves`, shows `XXXX-XXXX` with copy button + `upsidedownatlas.com/?save=XXXXXXXX`.
 
 ### Task 9: URL save loading
 

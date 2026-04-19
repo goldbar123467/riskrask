@@ -44,8 +44,8 @@ All decisions are final and made autonomously.
 | Realtime | Supabase Realtime Postgres CDC for canonical room state; Supabase Broadcast for ephemeral events (dice animations, chat, cursor presence) | Matches the spec. Uses what's already in the Supabase stack. |
 | Auth | Supabase Auth, email+password (email is optional — we use a synthetic `{username}@riskrask.local` email when the user opts out, and store the real username in `profiles`) | Satisfies the "username+password, optional email" requirement without writing a custom auth system. |
 | Bot protection | Cloudflare Turnstile on signup and room creation | User requested. |
-| Admin auth | Cloudflare Access on `admin.riskrask.com` | User requested. Separate from player login. |
-| CDN / static hosting | Cloudflare Pages for `www.riskrask.com` and `admin.riskrask.com` | User requested. |
+| Admin auth | Cloudflare Access on `admin.upsidedownatlas.com` | User requested. Separate from player login. |
+| CDN / static hosting | Cloudflare Pages for `www.upsidedownatlas.com` and `admin.upsidedownatlas.com` | User requested. |
 | Worker edge | Cloudflare Workers for rate limits (signup, room create, reconnect) + save-code URL shortener | User requested. |
 | Game server hosting | Bun on Fly.io (one region primary + regions added as needed). Not Cloudflare — WebSocket Durable Objects were considered but rejected: we want one long-lived Bun process per room with in-memory state, reconciled to Postgres on each committed turn. Fly.io gives us that cheaply and supports WebSockets. | The existing v2 engine is mutable per-tick; reshaping it for DOs is more work than renting a small VM. |
 | Test runner | Bun's built-in test runner for `packages/engine`, `packages/ai`, and `apps/server`; Vitest for `apps/web` and `apps/admin` (Vitest is the Vite-native choice and has better React Testing Library integration). | Mixed-runner is intentional — use each where it's strongest. |
@@ -453,7 +453,7 @@ end $$;
 
 ### 9.3 URL loading
 
-`https://riskrask.com/?save=XXXXXXXX` auto-loads on mount: decode → fetch via edge function → migrate → hand to engine. No auth required; anonymous saves are public-by-code. Account-linked saves require the owner's JWT (returned-to-owner UI shows the code only to the owner).
+`https://upsidedownatlas.com/?save=XXXXXXXX` auto-loads on mount: decode → fetch via edge function → migrate → hand to engine. No auth required; anonymous saves are public-by-code. Account-linked saves require the owner's JWT (returned-to-owner UI shows the code only to the owner).
 
 ### 9.4 TTL sweep
 
@@ -470,7 +470,7 @@ A Supabase scheduled function runs nightly: `DELETE FROM saves WHERE expires_at 
 
 ## 11. Admin panel
 
-- Deployed separately at `admin.riskrask.com` from `apps/admin`.
+- Deployed separately at `admin.upsidedownatlas.com` from `apps/admin`.
 - Cloudflare Access enforces SSO (Google/GitHub/email-OTP as configured in CF). There is no password form.
 - The admin app talks to the same Bun server but hits `/admin/*` routes gated by CF Access (the server verifies the `Cf-Access-Jwt-Assertion` header against CF's JWKS).
 - Views:
@@ -502,7 +502,7 @@ A Supabase scheduled function runs nightly: `DELETE FROM saves WHERE expires_at 
 
 ## 15. Release plan
 
-Staging Supabase project + Fly.io staging app + `staging.riskrask.com`. Prod is a separate Supabase project + Fly.io prod app + `riskrask.com`. Database migrations are applied to staging first, run against CI'd golden saves, then promoted.
+Staging Supabase project + Fly.io staging app + `staging.upsidedownatlas.com`. Prod is a separate Supabase project + Fly.io prod app + `upsidedownatlas.com`. Database migrations are applied to staging first, run against CI'd golden saves, then promoted.
 
 ## 16. Out of scope (v3)
 

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** Use superpowers:executing-plans.
 
-**Goal:** Admin dashboard at `admin.riskrask.com` gated by Cloudflare Access. Read-only over most data + targeted write actions (ban/unban, rename, force-end-room).
+**Goal:** Admin dashboard at `admin.upsidedownatlas.com` gated by Cloudflare Access. Read-only over most data + targeted write actions (ban/unban, rename, force-end-room).
 
 **Worktree:** `.claude/worktrees/track-g-admin`.
 
@@ -53,7 +53,7 @@
 
 ### Task 5: Cloudflare Access config
 
-- [ ] Document in `infra/cloudflare/access.md`: create Zero Trust application for `admin.riskrask.com`, add rules for the admin email list, set JWT audience tag, record audience tag in server env.
+- [ ] Document in `infra/cloudflare/access.md`: create Zero Trust application for `admin.upsidedownatlas.com`, add rules for the admin email list, set JWT audience tag, record audience tag in server env.
 
 ### Task 6: Commit
 

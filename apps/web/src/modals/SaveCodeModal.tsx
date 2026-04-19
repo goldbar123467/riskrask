@@ -30,7 +30,7 @@ export function SaveCodeModal({ state, onClose }: SaveCodeModalProps) {
 
   const formatted = code ? `${code.substring(0, 4)}-${code.substring(4, 8)}` : null;
 
-  const url = code ? `https://riskrask.com/?save=${code}` : null;
+  const url = code ? `https://upsidedownatlas.com/?save=${code}` : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
