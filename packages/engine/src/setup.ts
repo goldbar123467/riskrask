@@ -4,10 +4,16 @@ import type { Card, GameState, PlayerState, TerritoryState } from './types';
 import type { PlayerId } from './types';
 
 export interface PlayerConfig {
-  readonly id: PlayerId;
+  /** Caller passes a plain string; engine brands it internally. */
+  readonly id: string;
   readonly name: string;
   readonly color: string;
   readonly isAI: boolean;
+}
+
+/** Identity helper kept for API stability — PlayerId is a string alias. */
+export function playerId(s: string): PlayerId {
+  return s;
 }
 
 export interface GameConfig {
@@ -60,9 +66,9 @@ export function createInitialState(config: GameConfig): GameState {
   const rawDeck = buildDeck();
   const shuffledDeck = shuffleWith(rawDeck as Card[], `${seed}:deck`);
 
-  // Build player states
+  // Build player states (brand id at the boundary)
   const playerStates: PlayerState[] = players.map((p) => ({
-    id: p.id,
+    id: playerId(p.id),
     name: p.name,
     color: p.color,
     isAI: p.isAI,

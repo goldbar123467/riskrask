@@ -6,7 +6,7 @@ export { apply, EngineError } from './reducer';
 export type { ApplyResult } from './reducer';
 
 // Initial state factory
-export { createInitialState } from './setup';
+export { createInitialState, playerId } from './setup';
 export type { GameConfig, PlayerConfig } from './setup';
 
 // RNG

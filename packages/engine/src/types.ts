@@ -101,7 +101,7 @@ export interface GameState {
   readonly tradeCount: number; // # of sets traded globally (for progressive values)
   readonly log: readonly LogEntry[];
   readonly conqueredThisTurn: boolean;
-  readonly pendingMove?: PendingMove;
-  readonly pendingForcedTrade?: ForcedTrade;
-  readonly winner?: PlayerId;
+  readonly pendingMove?: PendingMove | undefined;
+  readonly pendingForcedTrade?: ForcedTrade | undefined;
+  readonly winner?: PlayerId | undefined;
 }

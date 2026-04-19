@@ -36,7 +36,7 @@ describe('createInitialState', () => {
   test('each player starts with STARTING_ARMIES reserves', () => {
     const s = createInitialState({ seed: 'test', players: PLAYERS_3 });
     const expected = STARTING_ARMIES[3];
-    expect(expected).toBeDefined();
+    if (expected === undefined) throw new Error('STARTING_ARMIES[3] undefined');
     for (const p of s.players) {
       expect(p.reserves).toBe(expected);
     }
