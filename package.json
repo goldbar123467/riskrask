@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Risk — Cold War Edition. TypeScript monorepo.",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": ["apps/*", "packages/*", "scripts"],
   "scripts": {
     "dev": "echo 'run bun --filter <name> dev (web|server|admin)'",
     "dev:web": "bun --filter @riskrask/web dev",

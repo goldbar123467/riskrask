@@ -1,0 +1,20 @@
+{
+  "name": "@riskrask/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "balance": "bun run balance-harness.ts",
+    "balance:aggregate": "bun run balance-aggregate.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@riskrask/ai": "workspace:*",
+    "@riskrask/engine": "workspace:*",
+    "@riskrask/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.6.3"
+  }
+}

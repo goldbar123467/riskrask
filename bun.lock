@@ -121,6 +121,19 @@
         "typescript": "^5.6.3",
       },
     },
+    "scripts": {
+      "name": "@riskrask/scripts",
+      "version": "0.1.0",
+      "dependencies": {
+        "@riskrask/ai": "workspace:*",
+        "@riskrask/engine": "workspace:*",
+        "@riskrask/shared": "workspace:*",
+      },
+      "devDependencies": {
+        "@types/bun": "latest",
+        "typescript": "^5.6.3",
+      },
+    },
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
@@ -268,6 +281,8 @@
     "@riskrask/ai": ["@riskrask/ai@workspace:packages/ai"],
 
     "@riskrask/engine": ["@riskrask/engine@workspace:packages/engine"],
+
+    "@riskrask/scripts": ["@riskrask/scripts@workspace:scripts"],
 
     "@riskrask/server": ["@riskrask/server@workspace:apps/server"],
 
