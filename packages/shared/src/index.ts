@@ -4,4 +4,5 @@ export const ROOM_CODE_RE = /^[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{6}$/;
 export const CURRENT_SCHEMA_VERSION = 1 as const;
 
 export * from './saveCode';
+export * from './saves';
 export * from './types';
