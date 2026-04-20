@@ -26,6 +26,16 @@ export function apply(state: GameState, action: Action): ApplyResult {
 }
 
 function dispatch(state: GameState, action: Action): ApplyResult {
+  // Classic rule: while a forced-trade is pending, only `trade-cards` (and
+  // `concede`) may be dispatched. This enforces the 5+ cards start-of-turn
+  // rule (§4.1.3) and the 6+ cards on-elimination rule (§4.2.7).
+  if (state.pendingForcedTrade && action.type !== 'trade-cards' && action.type !== 'concede') {
+    throw new EngineError(
+      'FORCED_TRADE_PENDING',
+      `Must resolve forced card trade (${state.pendingForcedTrade.reason}) first`,
+    );
+  }
+
   switch (action.type) {
     case 'claim-territory':
       return applyClaim(state, action.territory);
@@ -100,12 +110,20 @@ function advanceTurn(state: GameState): GameState {
   const nextPlayer = state.players[next]!;
   const reserves = calcReinforcements(state, nextPlayer.id);
 
+  // Classic rule §4.1.3: if the incoming player holds ≥ 5 cards, they must
+  // trade at least one set at the start of their turn before any other action.
+  const forcedTrade =
+    nextPlayer.cards.length >= 5
+      ? { playerId: nextPlayer.id, reason: 'five-card-limit' as const }
+      : undefined;
+
   return {
     ...state,
     currentPlayerIdx: next,
     turn,
     phase: 'reinforce',
     conqueredThisTurn: false,
+    pendingForcedTrade: forcedTrade,
     players: state.players.map((p, i) =>
       i === next ? { ...p, reserves: p.reserves + reserves } : p,
     ),
@@ -284,21 +302,36 @@ function applyTradeCards(
   const result = tradeCards(player, indices, state);
   const newPlayers = state.players.map((p) => (p.id === player.id ? result.player : p));
 
-  const effects: Effect[] = [
-    {
-      kind: 'log',
-      text: `${player.name} trades cards for ${result.armiesGained} armies.`,
-    },
-  ];
+  // Classic rule: if one of the traded cards matches a territory the player
+  // owns, place 2 extra armies directly on that territory (capped at +2 per
+  // trade regardless of how many cards match).
+  const newTerritories = { ...state.territories };
+  if (result.territoryBonus) {
+    const terr = newTerritories[result.territoryBonus];
+    if (terr && terr.owner === player.id) {
+      newTerritories[result.territoryBonus] = { ...terr, armies: terr.armies + 2 };
+    }
+  }
+
+  const logText = result.territoryBonus
+    ? `${player.name} trades cards for ${result.armiesGained} armies, +2 on ${result.territoryBonus}.`
+    : `${player.name} trades cards for ${result.armiesGained} armies.`;
+
+  // Clear any pending forced trade if the post-trade hand is now under the
+  // 5-card threshold. Larger hands from elimination cascades may need
+  // multiple trades; the reducer is invoked repeatedly by the gate.
+  const clearForced = state.pendingForcedTrade && result.player.cards.length < 5;
 
   return {
     next: {
       ...state,
       players: newPlayers,
+      territories: newTerritories,
       discard: result.discard,
       tradeCount: state.tradeCount + 1,
+      ...(clearForced ? { pendingForcedTrade: undefined } : {}),
     },
-    effects,
+    effects: [{ kind: 'log', text: logText }],
   };
 }
 
@@ -356,17 +389,22 @@ function applyMoveAfterCapture(state: GameState, count: number): ApplyResult {
     pendingMove: undefined,
   };
 
-  // Check all players for elimination (look at who lost their last territory)
+  // Check all players for elimination (look at who lost their last territory).
+  // transferCardsOnElimination folds the eliminated player's cards into the
+  // attacker's hand AND sets `pendingForcedTrade` if the attacker now holds
+  // ≥ 5 cards. Preserve its updated players array when flipping the
+  // eliminated flag — otherwise the card transfer gets clobbered.
   for (const p of next.players) {
     if (p.eliminated) continue;
     if (p.id === player.id) continue;
     if (checkElimination(next, p.id)) {
+      const afterTransfer = transferCardsOnElimination(next, player.id, p.id);
       next = {
-        ...transferCardsOnElimination(next, player.id, p.id),
-        players: next.players.map((pl) => (pl.id === p.id ? { ...pl, eliminated: true } : pl)),
+        ...afterTransfer,
+        players: afterTransfer.players.map((pl) =>
+          pl.id === p.id ? { ...pl, eliminated: true } : pl,
+        ),
       };
-      const effects2: Effect[] = [{ kind: 'player-eliminated', playerId: p.id }];
-      void effects2; // merged below
     }
   }
 

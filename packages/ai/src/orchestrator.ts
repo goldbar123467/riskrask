@@ -34,6 +34,40 @@ function ownedSet(state: GameState, playerId: PlayerId): ReadonlySet<TerritoryNa
   return new Set(ownedBy(state, playerId));
 }
 
+/**
+ * Drain any `pendingForcedTrade` for `playerId` by trading the best available
+ * set until the gate clears. Called at every phase boundary (reinforce end,
+ * attack start, attack end, fortify start). Returns [actions, nextState].
+ *
+ * Any 5+ card hand always contains at least one valid set by pigeonhole
+ * (3 types × at most 2 each + wilds covers it), so the loop is guaranteed to
+ * make progress unless the hand is already < 3.
+ */
+function resolveForcedTrades(
+  state: GameState,
+  playerId: PlayerId,
+): [Action[], GameState] {
+  const actions: Action[] = [];
+  let s = state;
+  for (let i = 0; i < 10; i++) {
+    if (!s.pendingForcedTrade) break;
+    if (s.pendingForcedTrade.playerId !== playerId) break;
+    const cp = s.players.find((p) => p.id === playerId);
+    if (!cp || cp.cards.length < 3) break;
+    const best = findBestSet(cp.cards, ownedSet(s, playerId));
+    if (!best) break;
+    // Trade-cards is only accepted in reinforce/attack phases. If we're stuck
+    // in fortify with a forced gate, there is no way to satisfy it — leave
+    // the state untouched and let the caller surface the bug.
+    if (s.phase !== 'reinforce' && s.phase !== 'attack') break;
+    const action: Action = { type: 'trade-cards', indices: best };
+    const result = apply(s, action);
+    actions.push(action);
+    s = result.next;
+  }
+  return [actions, s];
+}
+
 /** Trade all eligible card sets before reinforcing. Returns [actions, nextState]. */
 function doTrades(state: GameState, playerId: PlayerId): [Action[], GameState] {
   const actions: Action[] = [];
@@ -114,6 +148,17 @@ function doAttack(
       const result = apply(s, action);
       actions.push(action);
       s = result.next;
+      continue;
+    }
+
+    // Resolve elimination-triggered forced trade before further attacks.
+    // Classic rule: eliminating an opponent with ≥ 6 cards requires an
+    // immediate trade-down before continuing.
+    if (s.pendingForcedTrade && s.pendingForcedTrade.playerId === playerId) {
+      const [tradeActions, afterTrade] = resolveForcedTrades(s, playerId);
+      if (tradeActions.length === 0) break;
+      actions.push(...tradeActions);
+      s = afterTrade;
       continue;
     }
 
@@ -253,6 +298,14 @@ export function takeTurn(
   const actions: Action[] = [];
   let s = state;
 
+  // 0. Resolve any start-of-turn forced trade (5-card limit) first. The engine
+  // gates every other action until this clears.
+  {
+    const [forced, afterForced] = resolveForcedTrades(s, playerId);
+    actions.push(...forced);
+    s = afterForced;
+  }
+
   // 1. Trade cards (valid in reinforce or attack phase)
   if (s.phase === 'reinforce' || s.phase === 'attack') {
     const [tradeActions, afterTrade] = doTrades(s, playerId);
@@ -282,8 +335,16 @@ export function takeTurn(
 
   if (s.winner) return actions;
 
-  // End attack phase
+  // End attack phase — drain any leftover forced-trade gate first.
   if (s.phase === 'attack') {
+    const [forced, afterForced] = resolveForcedTrades(s, playerId);
+    actions.push(...forced);
+    s = afterForced;
+    if (s.pendingForcedTrade) {
+      // Shouldn't happen: the drain runs to fixed point. If it does, bail out
+      // cleanly so the caller doesn't hit the engine gate.
+      return actions;
+    }
     const endAtk: Action = { type: 'end-attack-phase' };
     const result = apply(s, endAtk);
     actions.push(endAtk);

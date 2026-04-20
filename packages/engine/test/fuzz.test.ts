@@ -88,6 +88,12 @@ function pickAction(state: GameState, rng: ReturnType<typeof createRng>): Action
     }
 
     case 'attack': {
+      // Post-elimination forced trade must be resolved before any other action
+      if (state.pendingForcedTrade) {
+        const best = findBestSet(cp.cards, new Set(ownedBy(state, cp.id)));
+        if (best) return { type: 'trade-cards', indices: best };
+        return { type: 'end-attack-phase' }; // will throw; loop will exit on action-cap
+      }
       if (state.pendingMove) {
         const { min, max } = state.pendingMove;
         return { type: 'move-after-capture', count: min + nextInt(rng, max - min + 1) };

@@ -117,6 +117,75 @@ describe('trade-cards', () => {
     const s: GameState = { ...base, phase: 'reinforce', players };
     expect(() => apply(s, { type: 'trade-cards', indices: [0, 1, 2] })).toThrow();
   });
+
+  test('territory bonus is placed on the matched territory, not the reserves', () => {
+    const base = createInitialState({ seed: 'trade-bonus', players: PLAYERS });
+    const territories = { ...base.territories };
+    territories.Alaska = { ...territories.Alaska!, owner: '0', armies: 1 };
+    const cards = [
+      { type: 'Infantry' as const, territory: 'Alaska' as const },
+      { type: 'Cavalry' as const, territory: 'Brazil' as const },
+      { type: 'Artillery' as const, territory: 'China' as const },
+    ];
+    const players: PlayerState[] = base.players.map((p) =>
+      p.id === '0' ? { ...p, cards, reserves: 0 } : p,
+    );
+    const s: GameState = { ...base, phase: 'reinforce', territories, players };
+    const { next } = apply(s, { type: 'trade-cards', indices: [0, 1, 2] });
+    // First trade = 4 armies to reserves, +2 onto Alaska (owned, pictured in set).
+    expect(next.players[0]!.reserves).toBe(4);
+    expect(next.territories.Alaska!.armies).toBe(3);
+  });
+
+  test('no territory bonus if none of the cards match an owned territory', () => {
+    const base = createInitialState({ seed: 'trade-no-bonus', players: PLAYERS });
+    const cards = [
+      { type: 'Infantry' as const, territory: 'Alaska' as const },
+      { type: 'Cavalry' as const, territory: 'Brazil' as const },
+      { type: 'Artillery' as const, territory: 'China' as const },
+    ];
+    const players: PlayerState[] = base.players.map((p) =>
+      p.id === '0' ? { ...p, cards, reserves: 0 } : p,
+    );
+    const s: GameState = { ...base, phase: 'reinforce', players };
+    const { next } = apply(s, { type: 'trade-cards', indices: [0, 1, 2] });
+    expect(next.players[0]!.reserves).toBe(4);
+    // Alaska armies unchanged (player doesn't own it)
+    expect(next.territories.Alaska!.armies).toBe(0);
+  });
+});
+
+describe('forced card trade (five-card limit)', () => {
+  test('incoming turn with 5+ cards blocks non-trade actions', () => {
+    const base = createInitialState({ seed: 'forced-5', players: PLAYERS });
+    const territories = { ...base.territories };
+    // give player 1 one territory so reinforcement math is non-degenerate
+    territories.Brazil = { ...territories.Brazil!, owner: '1', armies: 1 };
+    const fiveCards = [
+      { type: 'Infantry' as const, territory: 'Alaska' as const },
+      { type: 'Cavalry' as const, territory: 'Brazil' as const },
+      { type: 'Artillery' as const, territory: 'China' as const },
+      { type: 'Infantry' as const, territory: 'Ural' as const },
+      { type: 'Infantry' as const, territory: 'India' as const },
+    ];
+    const players: PlayerState[] = base.players.map((p, i) => ({
+      ...p,
+      cards: i === 1 ? fiveCards : [],
+    }));
+    // Current player 0 is in fortify; end-turn will advance to player 1.
+    const s: GameState = { ...base, phase: 'fortify', territories, players };
+    const { next } = apply(s, { type: 'end-turn' });
+    expect(next.currentPlayerIdx).toBe(1);
+    expect(next.pendingForcedTrade).toBeDefined();
+    expect(next.pendingForcedTrade!.reason).toBe('five-card-limit');
+    // Non-trade action should throw
+    expect(() => apply(next, { type: 'reinforce', territory: 'Brazil', count: 1 })).toThrow(
+      EngineError,
+    );
+    // After a valid trade, the flag clears.
+    const { next: afterTrade } = apply(next, { type: 'trade-cards', indices: [0, 1, 2] });
+    expect(afterTrade.pendingForcedTrade).toBeUndefined();
+  });
 });
 
 describe('end-attack-phase', () => {
