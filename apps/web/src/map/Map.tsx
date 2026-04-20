@@ -4,7 +4,6 @@ import { AdjacencyLines } from './AdjacencyLines';
 import { ContinentLabel } from './ContinentLabel';
 import { Node } from './Node';
 import { SelectedOverlay } from './SelectedOverlay';
-import { WorldLayer } from './WorldLayer';
 
 interface MapProps {
   state: GameState;
@@ -28,7 +27,7 @@ function ownerColor(
 }
 
 /**
- * SVG root (viewBox 0 0 1000 640): world.svg + lat/long grid + continents + edges + nodes.
+ * SVG root (viewBox 0 0 1000 640): lat/long grid + continents + edges + nodes.
  * Uses territory positions from the engine's TERRITORIES constant.
  * Selection is managed by the parent (Play.tsx) and passed down.
  */
@@ -103,9 +102,6 @@ export function GameMap({ state, humanPlayerId, selected, target, onSelect, onHo
           />
         ))}
       </g>
-
-      {/* World landmass */}
-      <WorldLayer />
 
       {/* Continent background fills */}
       {Object.entries(CONTINENTS).map(([key, cont]) => (
