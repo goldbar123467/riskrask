@@ -5,7 +5,12 @@ import { roomsRouter } from './http/rooms';
 import { savesRouter } from './http/saves';
 import { websocket, wsRouter } from './ws';
 
-const app = new Hono();
+/**
+ * The Hono app is exported named so integration tests can mount it under
+ * `Bun.serve({ fetch: app.fetch, websocket })` on a random port — the default
+ * export carries the Bun.serve config and cannot be remounted twice.
+ */
+export const app = new Hono();
 
 // ---------------------------------------------------------------------------
 // CORS — allow web + admin origins from env list
@@ -38,4 +43,5 @@ const port = Number(process.env.PORT ?? 8787);
 
 console.log(`riskrask-server listening on :${port}`);
 
+export { websocket };
 export default { port, fetch: app.fetch, websocket };
