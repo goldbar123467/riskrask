@@ -23,6 +23,47 @@
   }
 }
 
+/* Dice tumble: scale + rotate + vertical bounce, finishing with a settle bump. */
+@keyframes die-tumble {
+  0% {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+  15% {
+    transform: translateY(-6px) rotate(-45deg) scale(1.05);
+  }
+  30% {
+    transform: translateY(-10px) rotate(120deg) scale(1.12);
+  }
+  45% {
+    transform: translateY(-7px) rotate(260deg) scale(1.08);
+  }
+  60% {
+    transform: translateY(-3px) rotate(380deg) scale(1.04);
+  }
+  75% {
+    transform: translateY(0) rotate(450deg) scale(0.95);
+  }
+  85% {
+    transform: translateY(0) rotate(460deg) scale(1.1);
+  }
+  100% {
+    transform: translateY(0) rotate(0) scale(1);
+  }
+}
+
+/* Pulsing glow once the die has settled on its value. */
+@keyframes die-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 0 var(--die-glow, rgba(255, 255, 255, 0.2)), inset 0 0 6px 0
+      var(--die-glow, rgba(255, 255, 255, 0.15));
+  }
+  50% {
+    box-shadow: 0 0 12px 2px var(--die-glow, rgba(255, 255, 255, 0.5)), inset 0 0 10px 0
+      var(--die-glow, rgba(255, 255, 255, 0.3));
+  }
+}
+
 @layer base {
   * {
     box-sizing: border-box;

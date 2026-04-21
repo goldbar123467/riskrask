@@ -66,6 +66,13 @@ export function Stage({
         maxScale={4}
         centerOnInit
         limitToBounds={false}
+        /* Disable double-click-to-zoom — in Deploy, players tap territories
+           fast and the default zoom-in was fighting clicks for control. */
+        doubleClick={{ disabled: true }}
+        /* Drop the post-release fling so a quick click never carries the map
+           into a drift after it. */
+        panning={{ velocityDisabled: true }}
+        wheel={{ step: 0.15 }}
         onTransformed={(_ref, stateObj) => {
           if (typeof stateObj.scale === 'number') setScale(stateObj.scale);
         }}
