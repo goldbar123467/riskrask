@@ -1,6 +1,6 @@
 # RiskRask — Gamebuild Progress Report
 
-_Orchestrator: Mara Volkov (persona.json). Branch: `claude/game-fix-agent-dOc1I`. Started: 2026-04-21._
+_Orchestrator: Mara Volkov (persona.json). Branch: `claude/game-fix-agent-8TMjc`. Started: 2026-04-21._
 
 ## Mission
 
@@ -93,4 +93,47 @@ committed its on-disk output. It re-verified the shipped fix:
 - Minor backlog item flagged (not fixed, per surgical-edit guardrail):
   `handleAttackSingle` in `apps/web/src/routes/Play.tsx:164-167` leaves
   `target` set after a single attack. Logged to `todo.md`.
+
+---
+
+# Sprint 2 — Multiplayer beachhead + polish (branch `claude/game-fix-agent-8TMjc`)
+
+_Resumed 2026-04-21 after solo fix-it sprint landed. New mission: stand up
+Track F (multiplayer server + client shell) and clear the backlog polish items
+without regressing solo play._
+
+## Loop 0 — Diagnostics (orchestrator, no sub-agent)
+
+| Check                            | Result                                                   |
+| -------------------------------- | -------------------------------------------------------- |
+| `bun install`                    | 548 packages (3.2s)                                      |
+| `bun run typecheck`              | **PASS** — 7/7 workspaces                                |
+| `bun run test`                   | **PASS** — 273 tests across all workspaces               |
+| `bun run lint`                   | **FAIL** — 4 errors (vercel.json fmt, solo-playthrough template literal, Play.tsx exhaustive-deps, format stragglers) |
+| `bun run scripts/smoke.ts`       | **PASS** — 982 actions · 0 errors · winner turn 13       |
+
+### State of the multiplayer stack entering this sprint
+
+- **DB schema present** (migrations `0005-0015`): `rooms`, `room_seats`,
+  `turn_events`, `room_messages`, `reserved_usernames`, RLS, RPCs
+  (`rpc_create_room`, `rpc_join_room`, `rpc_chat_message`, launch trigger,
+  nightly cron, realtime broadcast triggers).
+- **Server surface missing**: `apps/server/src/index.ts` mounts only
+  `/health` + `/api/saves`. No `/api/auth`, no `/api/rooms`, no WS upgrade,
+  no `Room` object, no timer, no AI fallback.
+- **Web client stub**: `apps/web/src/net/ws.ts` is a no-op placeholder. No
+  `useRoomDispatcher`, no `Lobby.tsx`, no `packages/shared/src/protocol.ts`.
+- **Track-F plan file**: `docs/superpowers/plans/2026-04-19-track-f-multiplayer.md`
+  is the contract. Tasks 1-11 are all open.
+
+## Loop 1 — Audit (parallel sub-agents, in flight)
+
+Dispatching two Explore sub-agents in parallel:
+
+- **1A (very thorough)**: multiplayer gap audit — map the exact files that
+  need creating, the exact RPCs/schema already available, and the shape of
+  the protocol types the client and server must share.
+- **1B (medium)**: polish punch-list — dice pip rendering location, intel
+  feed dedupe hook, map-node tooltip surface, `handleAttackSingle` target
+  cleanup, lint error list with file:line.
 
