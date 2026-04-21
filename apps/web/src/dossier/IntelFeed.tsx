@@ -1,14 +1,18 @@
 import type { GameState } from '@riskrask/engine';
+import { useGame } from '../game/useGame';
 
 interface IntelFeedProps {
   state: GameState;
 }
 
 /**
- * Last 4 log entries, newest first. Long lines truncate with ellipsis.
+ * Last 4 log entries, newest first. Long lines truncate with ellipsis. Reads
+ * the UI-side rolling log (populated from engine effects); `state.log` itself
+ * is unused since the engine keeps events in its effect channel, not state.
  */
-export function IntelFeed({ state }: IntelFeedProps) {
-  const entries = [...state.log].reverse().slice(0, 4);
+export function IntelFeed({ state: _state }: IntelFeedProps) {
+  const log = useGame((s) => s.log);
+  const entries = [...log].reverse().slice(0, 4);
 
   return (
     <div className="flex flex-col gap-0 border-b border-line" aria-label="intel-feed">
