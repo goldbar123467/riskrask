@@ -15,11 +15,13 @@
 
 import type { Action } from '@riskrask/engine';
 import { ClientMsgSchema, type ServerMsg } from '@riskrask/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Hono } from 'hono';
 import { createBunWebSocket } from 'hono/bun';
 import { verifySupabaseJwt } from '../auth/verify';
-import { RoomError } from '../rooms/Room';
+import { type Room, RoomError } from '../rooms/Room';
 import { registry } from '../rooms/registry';
+import { anonClient } from '../supabase';
 
 const { upgradeWebSocket, websocket } = createBunWebSocket();
 
@@ -43,6 +45,15 @@ wsRouter.get(
     const token = c.req.query('token') ?? '';
     const seatRaw = c.req.query('seat') ?? '';
     const seatIdx = Number(seatRaw);
+
+    // `?lastSeq=N` lets a reconnecting client ask the server to fast-forward
+    // from a known-good seq instead of full-hydrating. Validated below.
+    const lastSeqRaw = c.req.query('lastSeq');
+    const lastSeqParsed = lastSeqRaw !== undefined ? Number(lastSeqRaw) : undefined;
+    const lastSeq =
+      lastSeqParsed !== undefined && Number.isInteger(lastSeqParsed) && lastSeqParsed >= 0
+        ? lastSeqParsed
+        : undefined;
 
     const session: SessionState = {
       roomId,
@@ -91,21 +102,7 @@ wsRouter.get(
         room.attach(seatIdx, (msg) => attached.send(JSON.stringify(msg)));
         session.attached = true;
 
-        sendJson(ws, {
-          type: 'welcome',
-          gameId: room.gameId,
-          seatIdx,
-          state: room.getState(),
-          seats: room.getSeats().map((s) => ({
-            seatIdx: s.seatIdx,
-            userId: s.userId,
-            isAi: s.isAi,
-            archId: s.archId,
-            connected: s.connected,
-          })),
-          hash: room.getHash(),
-          seq: room.getSeq(),
-        });
+        sendWelcomeWithDelta((m) => sendJson(ws, m), room, seatIdx, lastSeq);
       },
 
       async onMessage(evt, ws) {
@@ -135,9 +132,24 @@ wsRouter.get(
             return;
           case 'heartbeat':
             return;
-          case 'chat':
-            // Chat persistence is deferred to Task 8; broadcast locally so
-            // connected players still see messages in-session.
+          case 'chat': {
+            // Persist first (source of truth), then broadcast to connected
+            // clients. If the RPC errors, we surface the failure to the
+            // caller and skip the broadcast so they can retry without
+            // desyncing the room history.
+            const persistErr = await persistChat(
+              anonClient(token) as unknown as SupabaseClient,
+              session.roomId,
+              msg.data.text,
+            );
+            if (persistErr) {
+              sendJson(ws, {
+                type: 'error',
+                code: 'CHAT_PERSIST_FAILED',
+                detail: persistErr,
+              });
+              return;
+            }
             room.broadcast({
               type: 'chat',
               userId: session.userId,
@@ -145,6 +157,7 @@ wsRouter.get(
               ts: Date.now(),
             });
             return;
+          }
           case 'intent': {
             const action = msg.data.action as Action;
             try {
@@ -193,6 +206,87 @@ function sendJson(
   msg: ServerMsg,
 ): void {
   ws.send(JSON.stringify(msg));
+}
+
+/**
+ * Emit the welcome frame, followed by any `applied` frames above `lastSeq`
+ * if the caller provided one and the in-memory event log covers the gap.
+ *
+ * Exported for unit tests — the live WS handler passes a closure over
+ * `ws.send` as `send`; tests pass an array-push recorder.
+ */
+export function sendWelcomeWithDelta(
+  send: (msg: ServerMsg) => void,
+  room: Room,
+  seatIdx: number,
+  lastSeq: number | undefined,
+): void {
+  send({
+    type: 'welcome',
+    gameId: room.gameId,
+    seatIdx,
+    state: room.getState(),
+    seats: room.getSeats().map((s) => ({
+      seatIdx: s.seatIdx,
+      userId: s.userId,
+      isAi: s.isAi,
+      archId: s.archId,
+      connected: s.connected,
+    })),
+    hash: room.getHash(),
+    seq: room.getSeq(),
+  });
+
+  if (lastSeq === undefined || lastSeq === 0) return;
+
+  const log = room.getEventLog();
+  const currentSeq = room.getSeq();
+  // If the log doesn't cover the full range (lastSeq+1 .. currentSeq), the
+  // welcome already carries the canonical state — the client treats this as
+  // a fresh hydrate. Log a warn so ops can spot aggressive replay after a
+  // server restart (event log is in-memory only).
+  if (lastSeq < currentSeq && (log.length === 0 || log[0]!.seq > lastSeq + 1)) {
+    console.warn('[ws] delta replay unavailable, fell back to full welcome', {
+      roomId: room.roomId,
+      lastSeq,
+      currentSeq,
+      logStart: log[0]?.seq ?? null,
+    });
+    return;
+  }
+
+  for (const entry of log) {
+    if (entry.seq <= lastSeq) continue;
+    send({
+      type: 'applied',
+      seq: entry.seq,
+      action: entry.action,
+      nextHash: entry.hash,
+      effects: entry.effects,
+    });
+  }
+}
+
+/**
+ * Call `send_chat` RPC with the user-scoped anon client. Returns `null` on
+ * success, or the error message on failure. Exported for tests that want
+ * to drive the persistence flow without standing up a WebSocket.
+ */
+export async function persistChat(
+  client: SupabaseClient,
+  roomId: string,
+  text: string,
+): Promise<string | null> {
+  try {
+    const { error } = await client.rpc('send_chat', {
+      p_room_id: roomId,
+      p_text: text,
+    });
+    if (error) return error.message;
+    return null;
+  } catch (err) {
+    return err instanceof Error ? err.message : 'unknown';
+  }
 }
 
 export { websocket };

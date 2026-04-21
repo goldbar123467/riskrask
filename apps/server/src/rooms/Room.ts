@@ -45,6 +45,13 @@ export interface RoomEventLogEntry {
   readonly actorId: string | null;
   readonly action: Action;
   readonly hash: string;
+  /**
+   * Effects produced by this action. Carried on the log so a late-joining
+   * client can be fed `applied` frames with the same effects the original
+   * broadcast had. Not persisted by `turn_events` (that table only stores
+   * hash chain + action); see `turn-log.ts`.
+   */
+  readonly effects: readonly Effect[];
 }
 
 export class RoomError extends Error {
@@ -203,6 +210,7 @@ export class Room {
       actorId,
       action,
       hash: this.hash,
+      effects: result.effects,
     };
     this.eventLog.push(entry);
 
