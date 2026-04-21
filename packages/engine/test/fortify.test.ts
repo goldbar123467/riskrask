@@ -25,7 +25,7 @@ function makeState(): GameState {
   return { ...s, phase: 'fortify', territories };
 }
 
-describe('canFortify', () => {
+describe('canFortify (default = adjacent)', () => {
   test('valid: adjacent, both owned, src > 1', () => {
     const s = makeState();
     expect(canFortify(s, 'Alaska', 'Northwest Territory', '0')).toBe(true);
@@ -54,6 +54,83 @@ describe('canFortify', () => {
     const s = makeState();
     // Neither Brazil nor Argentina is owned by player 0 in this test
     expect(canFortify(s, 'Brazil', 'Argentina', '0')).toBe(false);
+  });
+
+  test('invalid: src equals tgt', () => {
+    const s = makeState();
+    expect(canFortify(s, 'Alaska', 'Alaska', '0')).toBe(false);
+  });
+
+  test('default is adjacent when state.fortifyRule is undefined', () => {
+    // Alaska owns→ NT owns→ Ontario owns: a 3-hop chain where Alaska and
+    // Ontario are NOT directly adjacent. Should be rejected under default
+    // even when fortifyRule is explicitly absent (legacy saves).
+    const base = makeState();
+    const territories = {
+      ...base.territories,
+      Ontario: { ...base.territories.Ontario!, owner: '0' as const, armies: 2 },
+    };
+    const { fortifyRule: _dropped, ...rest } = base;
+    const s: GameState = { ...rest, territories };
+    expect(s.fortifyRule).toBeUndefined();
+    expect(canFortify(s, 'Alaska', 'Ontario', '0')).toBe(false);
+  });
+});
+
+describe('canFortify (fortifyRule = connected)', () => {
+  test('valid: non-adjacent, reachable through owned chain', () => {
+    // Alaska ─ NT ─ Ontario: Alaska and Ontario are not directly adjacent,
+    // but the chain is all owned by player 0.
+    const base = makeState();
+    const territories = {
+      ...base.territories,
+      Ontario: { ...base.territories.Ontario!, owner: '0' as const, armies: 2 },
+    };
+    const s: GameState = { ...base, fortifyRule: 'connected', territories };
+    expect(canFortify(s, 'Alaska', 'Ontario', '0')).toBe(true);
+  });
+
+  test('invalid: chain is broken by a non-owned territory', () => {
+    // Player 0 holds only Alaska and Greenland; every land bridge between
+    // them (NT, Alberta) is held by player 1, so no owned chain exists.
+    const base = makeState();
+    const territories = {
+      ...base.territories,
+      'Northwest Territory': {
+        ...base.territories['Northwest Territory']!,
+        owner: '1' as const,
+      },
+      Alberta: { ...base.territories.Alberta!, owner: '1' as const },
+      Greenland: { ...base.territories.Greenland!, owner: '0' as const, armies: 2 },
+    };
+    const s: GameState = { ...base, fortifyRule: 'connected', territories };
+    expect(canFortify(s, 'Alaska', 'Greenland', '0')).toBe(false);
+  });
+
+  test('invalid: src has only 1 army even if chain exists', () => {
+    const base = makeState();
+    const territories = {
+      ...base.territories,
+      Alaska: { ...base.territories.Alaska!, armies: 1 },
+    };
+    const s: GameState = { ...base, fortifyRule: 'connected', territories };
+    expect(canFortify(s, 'Alaska', 'Alberta', '0')).toBe(false);
+  });
+});
+
+describe('createInitialState fortifyRule', () => {
+  test('defaults to adjacent when omitted', () => {
+    const s = createInitialState({ seed: 'fr-default', players: PLAYERS });
+    expect(s.fortifyRule).toBe('adjacent');
+  });
+
+  test('honours explicit connected', () => {
+    const s = createInitialState({
+      seed: 'fr-connected',
+      players: PLAYERS,
+      fortifyRule: 'connected',
+    });
+    expect(s.fortifyRule).toBe('connected');
   });
 });
 

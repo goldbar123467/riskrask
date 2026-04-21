@@ -7,7 +7,7 @@ import {
   buildDeck,
 } from './board';
 import { createRng, nextInt } from './rng';
-import type { Card, GameState, PlayerState, TerritoryState } from './types';
+import type { Card, FortifyRule, GameState, PlayerState, TerritoryState } from './types';
 import type { PlayerId } from './types';
 
 export interface PlayerConfig {
@@ -26,6 +26,12 @@ export function playerId(s: string): PlayerId {
 export interface GameConfig {
   readonly seed: string;
   readonly players: readonly PlayerConfig[];
+  /**
+   * Fortify movement rule (§4.3). Defaults to 'adjacent' (classic Hasbro
+   * 2008+). Pass 'connected' for the house rule that lets troops travel along
+   * any unbroken chain of owned territories.
+   */
+  readonly fortifyRule?: FortifyRule;
 }
 
 /** Fisher-Yates shuffle using the engine RNG (mutates rng cursor) */
@@ -52,7 +58,7 @@ function shuffleWith<T>(arr: readonly T[], seed: string): T[] {
  * takes no turns during play; `advanceTurn` and victory-checks skip it.
  */
 export function createInitialState(config: GameConfig): GameState {
-  const { seed, players: inputPlayers } = config;
+  const { seed, players: inputPlayers, fortifyRule = 'adjacent' } = config;
   const humanCount = inputPlayers.length;
   const startingReserves = STARTING_ARMIES[humanCount];
   if (startingReserves === undefined) {
@@ -125,5 +131,6 @@ export function createInitialState(config: GameConfig): GameState {
     tradeCount: 0,
     log: [],
     conqueredThisTurn: false,
+    fortifyRule,
   };
 }

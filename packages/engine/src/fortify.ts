@@ -42,15 +42,19 @@ export function connectedThroughOwned(
 }
 
 /**
- * Returns true if a fortify move is legal under classic Risk rules:
- * - Both territories owned by playerId
- * - Directly adjacent (land border or sea-lane)
- * - src.armies > 1
+ * Returns true if a fortify move is legal. Common preconditions:
+ *  - Both territories owned by playerId
+ *  - src.armies > 1 (§4.3 — leave at least one behind)
+ *  - src !== tgt
  *
- * Classic Hasbro rule (§4.3): "Move as many armies as you like from one of
- * your territories into one adjacent territory you also own." The
- * connected-through-owned BFS helper is retained for potential future opt-in
- * but is not the default.
+ * Then the reach check is dispatched on `state.fortifyRule` (§4.3):
+ *  - 'adjacent' (default, classic Hasbro 2008+) — src and tgt must share a
+ *    direct land border or printed sea-lane.
+ *  - 'connected' (house rule / Free Move) — there exists an unbroken chain of
+ *    playerId-owned territories from src to tgt.
+ *
+ * Saves predating the flag have no `state.fortifyRule`; those fall back to
+ * 'adjacent' so loaded games keep the current classic behaviour.
  */
 export function canFortify(
   state: GameState,
@@ -58,11 +62,17 @@ export function canFortify(
   tgtName: TerritoryName,
   playerId: PlayerId,
 ): boolean {
+  if (srcName === tgtName) return false;
   const src = state.territories[srcName];
   const tgt = state.territories[tgtName];
   if (!src || !tgt) return false;
   if (src.owner !== playerId || tgt.owner !== playerId) return false;
   if (src.armies <= 1) return false;
+
+  const rule = state.fortifyRule ?? 'adjacent';
+  if (rule === 'connected') {
+    return connectedThroughOwned(state, srcName, tgtName, playerId);
+  }
   return (ADJACENCY[srcName] ?? []).includes(tgtName);
 }
 
