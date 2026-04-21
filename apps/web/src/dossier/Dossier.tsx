@@ -16,7 +16,9 @@ interface DossierProps {
   target: TerritoryName | null;
   attackDice: readonly number[];
   defenseDice: readonly number[];
-  onDeployConfirm: () => void;
+  deployCount: number;
+  onDeployCountChange: (count: number) => void;
+  onDeployConfirm: (count: number) => void;
   onDeployCancel: () => void;
   onTrade: (indices: [number, number, number]) => void;
   onSkipDraft: () => void;
@@ -40,6 +42,8 @@ export function Dossier({
   target,
   attackDice,
   defenseDice,
+  deployCount,
+  onDeployCountChange,
   onDeployConfirm,
   onDeployCancel,
   onTrade,
@@ -83,6 +87,8 @@ export function Dossier({
               state={state}
               humanPlayerId={humanPlayerId}
               selected={selected}
+              count={deployCount}
+              onCountChange={onDeployCountChange}
               onConfirm={onDeployConfirm}
               onCancel={onDeployCancel}
             />

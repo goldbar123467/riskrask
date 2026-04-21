@@ -39,6 +39,9 @@ export function Play() {
   const [attackDice, setAttackDice] = useState<readonly number[]>([]);
   const [defenseDice, setDefenseDice] = useState<readonly number[]>([]);
   const [draftSkipped, setDraftSkipped] = useState(false);
+  // Count selected by the Deploy panel slider — lifted so the Space hotkey
+  // honours the same amount.
+  const [deployCount, setDeployCount] = useState(1);
 
   // Human player is always index 0 in solo mode
   const humanPlayerId = state?.players[0]?.id ?? 'human';
@@ -149,12 +152,16 @@ export function Play() {
     }
   }
 
-  function handleDeployConfirm() {
+  function handleDeployConfirm(count?: number) {
     if (!state || !selected) return;
     const player = state.players.find((p) => p.id === humanPlayerId);
     if (!player || player.reserves <= 0) return;
-    safeDispatch({ type: 'reinforce', territory: selected, count: player.reserves });
-    setSelected(null);
+    const requested = count ?? deployCount;
+    const amount = Math.min(Math.max(1, requested), player.reserves);
+    safeDispatch({ type: 'reinforce', territory: selected, count: amount });
+    // Keep the territory selected when reserves remain so the player can
+    // keep clicking Confirm (or Space) to place more without re-selecting.
+    if (player.reserves - amount <= 0) setSelected(null);
   }
 
   function handleDeployCancel() {
@@ -262,6 +269,7 @@ export function Play() {
 
   const phase = uiPhase(state, humanPlayerId, draftSkipped);
   const cp = state.players[state.currentPlayerIdx];
+  const isHumanTurn = cp?.id === humanPlayerId;
 
   return (
     <>
@@ -297,6 +305,8 @@ export function Play() {
             target={target}
             attackDice={attackDice}
             defenseDice={defenseDice}
+            deployCount={deployCount}
+            onDeployCountChange={setDeployCount}
             onDeployConfirm={handleDeployConfirm}
             onDeployCancel={handleDeployCancel}
             onTrade={handleTrade}
@@ -321,7 +331,7 @@ export function Play() {
       />
 
       {/* Modals */}
-      {state.pendingMove && (
+      {state.pendingMove && isHumanTurn && (
         <MoveModal
           pendingMove={state.pendingMove}
           onConfirm={handleMoveConfirm}

@@ -7,7 +7,7 @@ interface DicePanelProps {
 
 /**
  * 3×2 dice grid: attacker above (red), defender below (grey).
- * 600ms shake animation, then static for 1.2s.
+ * Tumble on roll, then a settled glow pulse on the resulting value.
  */
 export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
   const [shaking, setShaking] = useState(false);
@@ -19,7 +19,7 @@ export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
     if (key !== prevRef.current && (attackDice.length > 0 || defenseDice.length > 0)) {
       prevRef.current = key;
       setShaking(true);
-      const t = setTimeout(() => setShaking(false), 600);
+      const t = setTimeout(() => setShaking(false), 900);
       return () => clearTimeout(t);
     }
   }, [key, attackDice.length, defenseDice.length]);
@@ -33,14 +33,15 @@ export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
         {/* Attacker row */}
         <div className="flex items-center gap-1.5">
           <span className="w-14 font-mono text-[8px] text-danger">ATK</span>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {[0, 1, 2].map((i) => (
               <Die
                 key={i}
                 value={attackDice[i]}
                 color="var(--danger)"
+                glow="rgba(239, 68, 68, 0.65)"
                 shake={shaking}
-                delay={i * 50}
+                delay={i * 80}
               />
             ))}
           </div>
@@ -48,14 +49,15 @@ export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
         {/* Defender row */}
         <div className="flex items-center gap-1.5">
           <span className="w-14 font-mono text-[8px] text-ink-dim">DEF</span>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {[0, 1].map((i) => (
               <Die
                 key={i}
                 value={defenseDice[i]}
                 color="var(--ink-dim)"
+                glow="rgba(200, 215, 235, 0.55)"
                 shake={shaking}
-                delay={i * 50 + 30}
+                delay={i * 80 + 40}
               />
             ))}
           </div>
@@ -68,25 +70,39 @@ export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
 function Die({
   value,
   color,
+  glow,
   shake,
   delay,
 }: {
   value: number | undefined;
   color: string;
+  glow: string;
   shake: boolean;
   delay: number;
 }) {
+  const hasValue = value !== undefined;
+  // While rolling: tumble. Once settled: slow glow pulse on the face.
+  const animation = hasValue
+    ? shake
+      ? `die-tumble 900ms cubic-bezier(0.22, 1, 0.36, 1) ${delay}ms both`
+      : 'die-glow 2200ms ease-in-out infinite'
+    : 'none';
   return (
     <div
-      className="flex h-7 w-7 items-center justify-center border font-display text-sm font-semibold transition-all"
+      className="flex h-8 w-8 items-center justify-center border font-display text-sm font-semibold"
       style={{
-        borderColor: value !== undefined ? color : 'var(--line)',
-        color: value !== undefined ? color : 'var(--ink-ghost)',
-        background: value !== undefined ? `${color}11` : 'transparent',
-        animation: shake && value !== undefined ? `shake 600ms ease-out ${delay}ms` : 'none',
+        borderColor: hasValue ? color : 'var(--line)',
+        color: hasValue ? color : 'var(--ink-ghost)',
+        background: hasValue
+          ? `radial-gradient(circle at 30% 25%, ${glow} 0%, transparent 70%), ${color}1f`
+          : 'transparent',
+        animation,
+        ['--die-glow' as string]: glow,
+        willChange: 'transform',
+        transformOrigin: '50% 60%',
       }}
     >
-      {value !== undefined ? <DiePips value={value} color={color} /> : <span>—</span>}
+      {hasValue ? <DiePips value={value} color={color} /> : <span>—</span>}
     </div>
   );
 }
