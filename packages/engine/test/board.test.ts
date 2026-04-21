@@ -29,7 +29,7 @@ describe('board constants', () => {
       ).toBe(true);
     }
   });
-  test('starting armies table covers 3–6 players', () => {
-    expect(STARTING_ARMIES).toEqual({ 3: 35, 4: 30, 5: 25, 6: 20 });
+  test('starting armies table covers 2–6 players (2P is the Neutral variant)', () => {
+    expect(STARTING_ARMIES).toEqual({ 2: 40, 3: 35, 4: 30, 5: 25, 6: 20 });
   });
 });

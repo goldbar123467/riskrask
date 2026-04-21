@@ -28,6 +28,13 @@ export interface PlayerState {
   readonly reserves: number; // armies still to place (setup + main reinforce)
   readonly cards: readonly Card[];
   readonly eliminated: boolean;
+  /**
+   * Two-player Neutral variant (§3.5): the Neutral "player" owns territories
+   * and absorbs attacks, but never takes turns, never reinforces, never
+   * attacks, and never receives Risk cards. Defaults to false; only the 2P
+   * setup path injects a single `isNeutral: true` entry.
+   */
+  readonly isNeutral?: boolean;
 }
 
 export interface LogEntry {

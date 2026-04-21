@@ -17,7 +17,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
   NA: {
     name: 'North America',
     bonus: 5,
-    color: 'rgba(220, 38, 38, 0.08)',
+    color: 'rgba(220, 38, 38, 0.14)',
     labelX: 175,
     labelY: 40,
     members: [
@@ -35,7 +35,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
   SA: {
     name: 'South America',
     bonus: 2,
-    color: 'rgba(5, 150, 105, 0.08)',
+    color: 'rgba(5, 150, 105, 0.14)',
     labelX: 225,
     labelY: 448,
     members: ['Venezuela', 'Brazil', 'Peru', 'Argentina'],
@@ -43,7 +43,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
   EU: {
     name: 'Europe',
     bonus: 5,
-    color: 'rgba(37, 99, 235, 0.08)',
+    color: 'rgba(37, 99, 235, 0.14)',
     labelX: 495,
     labelY: 95,
     members: [
@@ -59,7 +59,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
   AF: {
     name: 'Africa',
     bonus: 3,
-    color: 'rgba(217, 119, 6, 0.08)',
+    color: 'rgba(217, 119, 6, 0.14)',
     labelX: 430,
     labelY: 440,
     members: ['North Africa', 'Egypt', 'East Africa', 'Congo', 'South Africa', 'Madagascar'],
@@ -67,7 +67,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
   AS: {
     name: 'Asia',
     bonus: 7,
-    color: 'rgba(124, 58, 237, 0.08)',
+    color: 'rgba(124, 58, 237, 0.14)',
     labelX: 775,
     labelY: 90,
     members: [
@@ -88,7 +88,7 @@ export const CONTINENTS: Readonly<Record<string, ContinentDef>> = Object.freeze(
   AU: {
     name: 'Australia',
     bonus: 2,
-    color: 'rgba(236, 72, 153, 0.08)',
+    color: 'rgba(236, 72, 153, 0.14)',
     labelX: 865,
     labelY: 410,
     members: ['Indonesia', 'New Guinea', 'Western Australia', 'Eastern Australia'],
@@ -459,8 +459,16 @@ export const PALETTE = Object.freeze([
 ]);
 
 export const STARTING_ARMIES: Readonly<Record<number, number>> = Object.freeze({
+  // Two-player Neutral variant: each human + the Neutral each start with 40.
+  // Engine counts "players" including Neutral, so 2 humans => 3 players.
+  // The 2-entry is kept so UI code that queries by the human count still works.
+  2: 40,
   3: 35,
   4: 30,
   5: 25,
   6: 20,
 });
+
+/** Neutral-player color used by the two-player variant (§3.5). */
+export const NEUTRAL_COLOR = '#64748b';
+export const NEUTRAL_ID = '__neutral__';

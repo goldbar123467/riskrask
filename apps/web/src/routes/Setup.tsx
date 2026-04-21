@@ -25,6 +25,8 @@ export function Setup() {
   const loadState = useGame((s) => s.loadState);
 
   const [playerCount, setPlayerCount] = useState(3);
+  // In the classic Neutral variant the engine synthesises a 3rd "Neutral"
+  // participant; the UI still only collects 1 opponent for a 2-player game.
   const [hostName, setHostName] = useState('Commander');
   const [hostColorIdx, setHostColorIdx] = useState(0);
   const [seed, setSeed] = useState(randomSeed);
@@ -76,8 +78,13 @@ export function Setup() {
       <div className="w-full max-w-md space-y-6">
         {/* Player count */}
         <Section title="Players">
+          {playerCount === 2 && (
+            <p className="font-mono text-[10px] uppercase tracking-widest text-ink-ghost">
+              2P · Neutral variant (beta) — a third Neutral army is added automatically.
+            </p>
+          )}
           <div className="flex gap-2">
-            {[3, 4, 5, 6].map((n) => (
+            {[2, 3, 4, 5, 6].map((n) => (
               <button
                 key={n}
                 type="button"
@@ -87,6 +94,7 @@ export function Setup() {
                     ? 'border-hot bg-hot/10 text-hot'
                     : 'border-line text-ink-faint hover:border-line-2 hover:text-ink-dim'
                 }`}
+                title={n === 2 ? 'Two-player Neutral variant (beta)' : undefined}
               >
                 {n}
               </button>

@@ -28,6 +28,8 @@ export {
   CARD_TYPES,
   PALETTE,
   BOARD_TERRITORY_COUNT,
+  NEUTRAL_ID,
+  NEUTRAL_COLOR,
   buildDeck,
 } from './board';
 export type { ContinentDef, TerritoryDef, CardTemplate, BaseCardType } from './board';

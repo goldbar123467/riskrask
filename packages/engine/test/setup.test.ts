@@ -1,11 +1,16 @@
 import { describe, expect, test } from 'bun:test';
-import { BOARD_TERRITORY_COUNT, STARTING_ARMIES } from '../src/board';
+import { BOARD_TERRITORY_COUNT, NEUTRAL_ID, STARTING_ARMIES } from '../src/board';
 import { createInitialState } from '../src/setup';
 
 const PLAYERS_3 = [
   { id: '0' as const, name: 'Alice', color: '#dc2626', isAI: false },
   { id: '1' as const, name: 'Bob', color: '#2563eb', isAI: false },
   { id: '2' as const, name: 'Carol', color: '#059669', isAI: false },
+];
+
+const PLAYERS_2 = [
+  { id: '0' as const, name: 'Alice', color: '#dc2626', isAI: false },
+  { id: '1' as const, name: 'Bob', color: '#2563eb', isAI: true },
 ];
 
 describe('createInitialState', () => {
@@ -56,5 +61,53 @@ describe('createInitialState', () => {
   test('schemaVersion is 1', () => {
     const s = createInitialState({ seed: 'test', players: PLAYERS_3 });
     expect(s.schemaVersion).toBe(1);
+  });
+});
+
+describe('createInitialState — two-player Neutral variant (§3.5)', () => {
+  test('2 humans become 3 players with a synthesised Neutral', () => {
+    const s = createInitialState({ seed: '2p', players: PLAYERS_2 });
+    expect(s.players).toHaveLength(3);
+    const neutral = s.players.find((p) => p.isNeutral);
+    expect(neutral?.id).toBe(NEUTRAL_ID);
+    expect(neutral?.name).toBe('Neutral');
+  });
+
+  test('each participant (including Neutral) starts with 40 reserves', () => {
+    const s = createInitialState({ seed: '2p', players: PLAYERS_2 });
+    expect(STARTING_ARMIES[2]).toBe(40);
+    for (const p of s.players) {
+      expect(p.reserves).toBe(40);
+    }
+  });
+
+  test('wild cards are removed from the deck in the 2-player variant', () => {
+    const s = createInitialState({ seed: '2p', players: PLAYERS_2 });
+    expect(s.deck.length + s.discard.length).toBe(BOARD_TERRITORY_COUNT);
+    for (const card of s.deck) {
+      expect(card.type).not.toBe('Wild');
+    }
+  });
+
+  test('Neutral has isNeutral: true; humans do not', () => {
+    const s = createInitialState({ seed: '2p', players: PLAYERS_2 });
+    expect(s.players[0]?.isNeutral).toBeUndefined();
+    expect(s.players[1]?.isNeutral).toBeUndefined();
+    expect(s.players[2]?.isNeutral).toBe(true);
+  });
+
+  test('throws for unsupported player count (1)', () => {
+    expect(() =>
+      createInitialState({
+        seed: 'solo',
+        players: [{ id: '0', name: 'Solo', color: '#dc2626', isAI: false }],
+      }),
+    ).toThrow();
+  });
+
+  test('3-player game leaves wild cards in the deck (baseline invariant)', () => {
+    const s = createInitialState({ seed: 'three', players: PLAYERS_3 });
+    const wilds = s.deck.filter((c) => c.type === 'Wild').length;
+    expect(wilds).toBe(2);
   });
 });

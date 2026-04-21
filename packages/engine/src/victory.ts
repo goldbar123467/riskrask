@@ -9,13 +9,17 @@ export function checkElimination(state: GameState, playerId: PlayerId): boolean 
 }
 
 /**
- * Returns the winner's PlayerId if only one non-eliminated player remains,
- * or if one player owns all 42 territories. Otherwise returns null.
+ * Returns the winner's PlayerId if only one non-eliminated contender remains,
+ * or if one player owns all 42 territories. Neutral (§3.5) is never a winner
+ * and is excluded when counting contenders, so a human wins by eliminating
+ * all other humans even while Neutral still holds territory.
+ *
+ * Returns null if no victory yet.
  */
 export function checkVictory(state: GameState): PlayerId | null {
-  const active = state.players.filter((p) => !p.eliminated);
-  if (active.length === 1) {
-    return active[0]!.id;
+  const contenders = state.players.filter((p) => !p.eliminated && !p.isNeutral);
+  if (contenders.length === 1) {
+    return contenders[0]!.id;
   }
 
   // Check if any player owns all territories

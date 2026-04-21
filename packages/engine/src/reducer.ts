@@ -94,14 +94,17 @@ function advanceState(initialState: number, steps: number): number {
 }
 
 /**
- * Advance to next non-eliminated player and increment turn counter if needed.
+ * Advance to next non-eliminated, non-Neutral player and increment turn
+ * counter if needed. Neutral (§3.5) is always skipped — it never reinforces,
+ * attacks, or draws cards.
  */
 function advanceTurn(state: GameState): GameState {
   const n = state.players.length;
   let next = state.currentPlayerIdx;
   for (let step = 1; step <= n; step++) {
     const idx = (state.currentPlayerIdx + step) % n;
-    if (!state.players[idx]?.eliminated) {
+    const p = state.players[idx];
+    if (p && !p.eliminated && !p.isNeutral) {
       next = idx;
       break;
     }

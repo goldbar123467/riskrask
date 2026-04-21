@@ -58,6 +58,20 @@ describe('checkVictory', () => {
     const result = checkVictory({ ...s, territories });
     expect(result).toBe('0');
   });
+
+  test('two-player variant: Neutral is ignored when counting contenders', () => {
+    const PLAYERS_2 = [
+      { id: '0' as const, name: 'Alice', color: '#dc2626', isAI: false },
+      { id: '1' as const, name: 'Bob', color: '#2563eb', isAI: true },
+    ];
+    const s = createInitialState({ seed: '2p-victory', players: PLAYERS_2 });
+    // Alice alone active; Bob eliminated; Neutral alive (not eliminated).
+    const players: PlayerState[] = s.players.map((p) => {
+      if (p.id === '1') return { ...p, eliminated: true };
+      return p;
+    });
+    expect(checkVictory({ ...s, players })).toBe('0');
+  });
 });
 
 describe('transferCardsOnElimination', () => {

@@ -236,6 +236,25 @@ describe('end-turn', () => {
     expect(next.currentPlayerIdx).toBe(1);
     expect(next.phase).toBe('reinforce');
   });
+
+  test('two-player variant: end-turn skips Neutral seat', () => {
+    const base = createInitialState({
+      seed: '2p-end-turn',
+      players: [
+        { id: '0', name: 'Alice', color: '#dc2626', isAI: false },
+        { id: '1', name: 'Bob', color: '#2563eb', isAI: true },
+      ],
+    });
+    // Player 0 ends turn — should go to player 1 (Bob), not index 2 (Neutral).
+    const { next: afterAlice } = apply({ ...base, phase: 'fortify' }, { type: 'end-turn' });
+    expect(afterAlice.currentPlayerIdx).toBe(1);
+    expect(afterAlice.players[1]?.id).toBe('1');
+
+    // Player 1 ends turn — should wrap to player 0 (Alice), skipping Neutral.
+    const { next: afterBob } = apply({ ...afterAlice, phase: 'fortify' }, { type: 'end-turn' });
+    expect(afterBob.currentPlayerIdx).toBe(0);
+    expect(afterBob.players[afterBob.currentPlayerIdx]?.isNeutral).toBeUndefined();
+  });
 });
 
 describe('concede', () => {
