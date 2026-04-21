@@ -1,6 +1,6 @@
 # Riskrask — Resume Point
 
-_Last updated 2026-04-21 after the two-player Neutral variant + P2 sweep._
+_Last updated 2026-04-21 after the fortify-rule flag landed._
 
 ## Context in one paragraph
 
@@ -8,6 +8,13 @@ The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade 
 
 ## Just done (2026-04-21)
 
+- **Engine: fortify rule flag (P0 #4)**
+  - New `FortifyRule = 'adjacent' | 'connected'` type exported from `@riskrask/engine`.
+  - `GameConfig.fortifyRule?` (default `'adjacent'`) is threaded into `createInitialState`, persisted on `GameState.fortifyRule`, and read by `canFortify`. Missing field on legacy saves falls back to `'adjacent'` — the classic Hasbro 2008+ rule that has been in force since commit `ae4e7dc`.
+  - `canFortify` now rejects `src === tgt` explicitly (was previously a silent no-op via the adjacency lookup).
+  - `connectedThroughOwned` is now the reach check under `'connected'`; otherwise strict adjacency via `ADJACENCY[src].includes(tgt)`.
+  - Tests: `packages/engine/test/fortify.test.ts` gains two blocks — one exercising the `'connected'` path through Alaska → NT → Ontario and a broken-chain case, another asserting `createInitialState` defaults to `'adjacent'` and honours `'connected'` when passed.
+  - Touchpoints: `packages/engine/src/fortify.ts:55`, `packages/engine/src/setup.ts:29`, `packages/engine/src/types.ts` (new `FortifyRule` + `GameState.fortifyRule`).
 - **Engine: two-player Neutral variant (§3.5)**
   - `STARTING_ARMIES[2] = 40`; `createInitialState` synthesises a 3rd `isNeutral: true` seat when `players.length === 2` and strips the 2 wild cards from the deck.
   - `advanceTurn` skips Neutral, so Neutral never reinforces / attacks / earns cards in the main game.
@@ -42,7 +49,7 @@ The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade 
 1. **Card territory bonus** — _done_ (see `apps/web`/engine commit `ae4e7dc`).
 2. **Forced card trade at 5 cards** — _done_ (commit `ae4e7dc`).
 3. **Mid-attack forced trade on elimination** — _done_ (commit `ae4e7dc`).
-4. **Fortify rule** — still BFS-through-owned. No engine change yet. Decide: keep BFS (house rule) or flip `canFortify` to strict adjacency, _then_ add a `GameConfig.fortifyRule` flag. Touchpoint: `packages/engine/src/fortify.ts:9-42`.
+4. **Fortify rule** — _done 2026-04-21_. `canFortify` already flipped to strict adjacency in `ae4e7dc`; this commit adds the `GameConfig.fortifyRule` flag (`'adjacent'` default, `'connected'` opt-in) and wires it through `GameState`.
 5. **Two-player Neutral variant** — _done 2026-04-21_.
 
 ## P1 — AI is the main reason games stalemate
@@ -60,7 +67,7 @@ The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade 
 
 ## Suggested first commit after this one
 
-Pick **P0 #4** (fortify rule). It's a one-line flip in `canFortify` with a config flag, and closes the last classic-rule gap before the balance rerun.
+Re-run `scripts/balance-harness.ts` and write `docs/balance/balance-2026-04-21.md`. With the AI now wired via `@riskrask/ai.takeTurn` (ae4e7dc) and the classic fortify rule flag locked in, the baseline from `balance-2026-04-20.md` is stale — P1 #7 (stalemate suppression) depends on fresh data before any "press bonus" is considered.
 
 ## Files to read first when you resume
 

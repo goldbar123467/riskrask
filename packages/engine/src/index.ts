@@ -56,6 +56,7 @@ export { checkElimination, checkVictory, transferCardsOnElimination } from './vi
 export type {
   Phase,
   CardType,
+  FortifyRule,
   Card,
   TerritoryState,
   PlayerState,

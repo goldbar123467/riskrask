@@ -6,6 +6,15 @@ export type Phase = 'setup-claim' | 'setup-reinforce' | 'reinforce' | 'attack' |
 
 export type CardType = 'Infantry' | 'Cavalry' | 'Artillery' | 'Wild';
 
+/**
+ * Fortify movement rule (§4.3):
+ *  - 'adjacent' — classic Hasbro 2008+: move between two directly adjacent
+ *    owned territories.
+ *  - 'connected' — house rule (a.k.a. Free Move / 1993): move between any two
+ *    of your territories linked by an unbroken chain of your own territories.
+ */
+export type FortifyRule = 'adjacent' | 'connected';
+
 export interface Card {
   readonly territory: TerritoryName | null; // null for wilds
   readonly type: CardType;
@@ -111,4 +120,9 @@ export interface GameState {
   readonly pendingMove?: PendingMove | undefined;
   readonly pendingForcedTrade?: ForcedTrade | undefined;
   readonly winner?: PlayerId | undefined;
+  /**
+   * Fortify rule (§4.3). Optional to keep old saves loadable; a missing value
+   * is treated as 'adjacent' by `canFortify`.
+   */
+  readonly fortifyRule?: FortifyRule;
 }
