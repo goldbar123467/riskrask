@@ -126,14 +126,143 @@ without regressing solo play._
 - **Track-F plan file**: `docs/superpowers/plans/2026-04-19-track-f-multiplayer.md`
   is the contract. Tasks 1-11 are all open.
 
-## Loop 1 — Audit (parallel sub-agents, in flight)
+## Loop 1 — Audit (parallel sub-agents, complete)
 
-Dispatching two Explore sub-agents in parallel:
+### 1A — Multiplayer gap audit (Explore, very thorough)
 
-- **1A (very thorough)**: multiplayer gap audit — map the exact files that
-  need creating, the exact RPCs/schema already available, and the shape of
-  the protocol types the client and server must share.
-- **1B (medium)**: polish punch-list — dice pip rendering location, intel
-  feed dedupe hook, map-node tooltip surface, `handleAttackSingle` target
-  cleanup, lint error list with file:line.
+DB surface is more complete than the Track-F plan assumes:
+
+- `games` table (migration `0007`) isolates per-game state; `turn_events.game_id`
+  FK scopes event history per rematch cycle.
+- `rooms.current_state` was dropped in `0005`; game state lives in `games.state`
+  (JSONB). Server must read/write `games.state`, not `rooms.current_state`.
+- RPCs available: `create_room`, `join_room`, `leave_room`, `set_ready`,
+  `add_ai_seat`, `launch_game`, `send_chat`.
+- RLS helpers: `is_room_member`, `is_room_host`, `was_room_member`.
+- Realtime broadcast triggers wired to topics `room:{id}`, `game:{id}` (`0010`).
+- `rooms-auto-code` trigger auto-fills 6-char room codes matching
+  `ROOM_CODE_RE`.
+- **Missing**: `tick` edge function (cron `0014` already schedules a 5s HTTP POST
+  to `/functions/v1/tick`, but the edge function itself is external). Track F
+  v1 uses an in-process `setInterval(1000)` inside `RoomRegistry` as a stopgap.
+
+Server files to create (topologically ordered), shared protocol shape as zod
+discriminated unions keyed by `type`, web client files (net/ws.ts, Lobby.tsx,
+useRoomDispatcher.ts) and 5 target test suites all mapped. Risks called out:
+Bun WebSocket upgrade via `hono/bun createBunWebSocket`, RNG seeding from
+`roomCode`, service-role vs. anon client split, forced-trade gate must be
+honoured in AI fallback too.
+
+### 1B — Polish punch-list (Explore, medium)
+
+Eight items with file:line anchors:
+
+1. `Play.tsx:164` — `handleAttackSingle` leaves `target` set (single-line fix).
+2. `DicePanel.tsx:68` — `Die` component renders numerals; switch to SVG pips.
+3. `useGame.ts:38` — `appendLog` caps total 200 but a blitz chain spams the
+   intel feed within one turn; need per-turn cap.
+4. `Node.tsx:42-123` — no `<title>` tooltip on map hexes.
+5. `vercel.json` — biome format nit (single-object array collapse).
+6. `solo-playthrough.test.ts:176` — template literal without interpolation.
+7. `Play.tsx:55` — `useExhaustiveDependencies` over-specifies deps.
+8. Additional `solo-playthrough.test.ts` multi-line throws that `biome
+   check --write` collapses.
+
+## Loop 2 — Fix (parallel Opus 4.7 implementers, complete)
+
+### 2A — Multiplayer server foundation
+
+Created 12 new files (~1600 lines), modified 2:
+
+| File                                         | Lines | Purpose                                                   |
+| -------------------------------------------- | ----- | --------------------------------------------------------- |
+| `packages/shared/src/protocol.ts`            | 138   | zod `ClientMsgSchema` / `ServerMsgSchema`                 |
+| `packages/shared/test/protocol.test.ts`      | 120   | 14 round-trip + rejection tests                           |
+| `apps/server/src/rooms/hash.ts`              | 13    | Re-export engine `hashState`                              |
+| `apps/server/src/rooms/timer.ts`             | 62    | 90s + 15s bank phase timer                                |
+| `apps/server/src/rooms/seat.ts`              | 19    | `Seat` interface                                          |
+| `apps/server/src/rooms/Room.ts`              | 301   | Authoritative room: applyIntent, attach, broadcast, tick  |
+| `apps/server/src/rooms/registry.ts`          | 101   | Singleton + 1 Hz setInterval tick (v1)                    |
+| `apps/server/src/ai/fallback.ts`             | 72    | `runFallbackTurn` with forced-trade loop                  |
+| `apps/server/src/persistence/turn-log.ts`    | 48    | Idempotent `turn_events` upsert                           |
+| `apps/server/src/http/rooms.ts`              | 317   | REST: create/join/leave/launch/ready/ai-seat/list/get     |
+| `apps/server/src/ws/index.ts`                | 198   | Bun WS upgrade (`hono/bun createBunWebSocket`)            |
+| `apps/server/test/rooms-http.test.ts`        | 131   | JWT/body/query validation paths                           |
+| `apps/server/test/room-turn-loop.test.ts`    | 207   | Paired-socket turn loop drive                             |
+| `apps/server/test/ai-fallback.test.ts`       | 127   | Seat AFK → AI takeover flow                               |
+| `packages/shared/src/index.ts`               | +1    | Re-export `./protocol`                                    |
+| `apps/server/src/index.ts`                   | +5    | Mount `/api/rooms` + ws router, export `websocket`        |
+
+Design decisions:
+
+- **Determinism**: Room RNG is seeded from `roomCode` (`Rng` via engine's
+  existing `createRng`). All server-side dice and AI decisions reproduce
+  exactly on reload.
+- **Persistence resilience**: `Room.applyIntent` wraps `writeTurnEvent` in
+  try/catch and logs-and-swallows DB failures — a dropped Supabase connection
+  cannot crash the game loop.
+- **AI fallback**: re-enters `takeTurn` while `pendingForcedTrade` is set, so
+  the classic elimination-trade gate (riskrules.md §4.2.7) is honoured for
+  server-side AI too.
+- **WS auth**: JWT via `?token=` + `?seat=` on the upgrade URL (Authorization
+  header not reliably available pre-upgrade); verified against `room_seats`
+  ownership before attach.
+- **Chat**: broadcast in-session only; persistence to `room_messages` via
+  `send_chat` RPC deferred (backlog).
+
+### 2B — Web polish sweep
+
+10 files touched, +247/-25 lines:
+
+- `DicePanel.tsx` renders classic 3×3 SVG pip grid (`DiePips` helper emitting
+  `<circle>` per pip); pre-roll em-dash preserved. +3 tests.
+- `useGame.ts` `appendLog` introduces `PER_TURN_CAP=6`: once a turn accrues 6
+  entries, older same-turn entries are evicted in favour of newer ones.
+  Global 200-entry cap preserved. +2 tests.
+- `Node.tsx` + `Map.tsx` add `<title>` first child of each hex `<g>` with
+  `"${name}: ${armies} armies · ${continent} · adjacent to ${neighbours}"`.
+  `Map.tsx` builds a frozen reverse-lookup from `CONTINENTS.members`. +1 test.
+- `Play.tsx`: `setTarget(null)` after single-attack dispatch (parity with
+  blitz); `useEffect` deps collapsed to derived `phaseTurnKey` string.
+- `vercel.json` + `solo-playthrough.test.ts` — biome format clean.
+
+## Loop 3 — QA (orchestrator, complete)
+
+| Check                                  | Result                                                                 |
+| -------------------------------------- | ---------------------------------------------------------------------- |
+| `bun run typecheck`                    | **PASS** — 7/7 workspaces                                              |
+| `bun run test`                         | **PASS** — **310 tests** (shared 34 · engine 92 · ai 113 · server 50 · admin 1 · web 20) |
+| `bun run lint`                         | **PASS** — 0 errors (11 new-file format nits resolved via `biome check --write` during QA) |
+| `bun run scripts/smoke.ts`             | **PASS** — 982 actions · 0 engine errors · winner turn 13              |
+
+Test delta: 273 → 310 (+37 new tests: +14 shared protocol, +14 server, +6 web, +3 DicePanel).
+
+## Loop 4 — Ship
+
+- Scoped commits on branch `claude/game-fix-agent-8TMjc`:
+  1. `docs(orchestrator):` — kick off sprint 2 (persona / todo / report point
+     at new branch, Loop 0 baseline).
+  2. `web:` — polish sweep (10 files, +247/-25).
+  3. `mp(server):` — multiplayer server foundation (14 new files, 2 modified).
+  4. `docs(orchestrator):` — loops 1-4 report updates.
+- Pushed to `origin/claude/game-fix-agent-8TMjc`.
+
+### What shipped
+
+- **Multiplayer server is up**: Hono REST for room lifecycle, Bun WebSocket
+  upgrade wired, authoritative `Room` object with deterministic RNG,
+  server-enforced phase timer with 15 s bank, AI fallback on AFK, idempotent
+  `turn_events` persistence, room registry with 1 Hz tick. All behind 50
+  passing Bun tests.
+- **Polish pass is in**: dice pips, map tooltips, intel feed cap, attack
+  target cleanup, lint green across the monorepo.
+
+### What's next (backlog in `todo.md`)
+
+- Web client multiplayer wiring (real `ws.ts`, `useRoomDispatcher`, `Lobby.tsx`,
+  `Play.tsx` dispatcher swap) — the shared protocol contract is now the seam.
+- Chat persistence via `send_chat` RPC.
+- `Database.Functions` type stubs for room RPCs.
+- Tick edge function for multi-instance deployment.
+- Playwright 2-human + AI-fallback scenario.
 
