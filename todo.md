@@ -43,6 +43,7 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done · `[!]` blocked
 
 ## Backlog (not in scope this sprint)
 
+- [ ] `handleAttackSingle` in `apps/web/src/routes/Play.tsx:164-167` doesn't clear `target` after a single attack (only blitz does at :173) — minor UX nit flagged by implementer sub-agent
 - [ ] Dice face visual (pips, not numerals)
 - [ ] Intel feed dedupe (cap N per turn)
 - [ ] Map node tooltips (armies / continent / adjacency)

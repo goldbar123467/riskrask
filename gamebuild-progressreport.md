@@ -75,11 +75,22 @@ Surgical 4-file patch, `+39/-14` lines:
 
 Diff stat: 4 files, +39/-14 lines. No package or engine code touched.
 
-## Loop 4 — Ship (this commit)
+## Loop 4 — Ship (complete)
 
 - Three scoped commits on branch `claude/game-fix-agent-dOc1I`:
-  1. `docs: add fix-it orchestrator (persona, todo, progress report)`
-  2. `test(web): solo playthrough integration test for store + AI wiring`
-  3. `fix(web): unblock solo Risk — Draft trap, Deploy gate, dispatcher safety-valve`
-- Push to `origin/claude/game-fix-agent-dOc1I`.
+  1. `c85b382` — `docs: add fix-it orchestrator (persona, todo, progress report)`
+  2. `7dd158e` — `test(web): solo playthrough integration test for store + AI wiring`
+  3. `1c5a391` — `fix(web): unblock solo Risk — Draft trap, Deploy gate, dispatcher safety-valve`
+- Pushed to `origin/claude/game-fix-agent-dOc1I`.
+
+## Loop 5 — Post-ship verification (implementer agent)
+
+Implementer sub-agent's async report arrived after orchestrator had already
+committed its on-disk output. It re-verified the shipped fix:
+
+- typecheck 7/7 · web 14/14 · engine 92/92 · ai 113/113 · server 36/36 · admin 1/1 · shared 17/17 → **273 tests green**.
+- `scripts/smoke.ts` still completes cleanly (13 turns · 982 actions · 0 errors).
+- Minor backlog item flagged (not fixed, per surgical-edit guardrail):
+  `handleAttackSingle` in `apps/web/src/routes/Play.tsx:164-167` leaves
+  `target` set after a single attack. Logged to `todo.md`.
 
