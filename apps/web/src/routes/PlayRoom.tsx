@@ -1,7 +1,30 @@
-import type { Action, Effect, TerritoryName } from '@riskrask/engine';
-import { createInitialState } from '@riskrask/engine';
+/**
+ * Multiplayer play route.
+ *
+ * Mounted by `Play` when the route is `/play/:roomId`. Solo behaviour lives in
+ * `PlaySolo`; this component is the seam where `useRoomDispatcher` drives
+ * server-authoritative play.
+ *
+ * Flow on mount:
+ *  1. Read JWT from `useAuth`. If absent, redirect to `/lobby/${roomId}` so
+ *     the paste-a-token panel has somewhere to land.
+ *  2. `GET /api/rooms/:id` → resolve our seat index from the seats list. If we
+ *     aren't seated, redirect back to the lobby (user landed on this URL
+ *     without joining).
+ *  3. Mount `useRoomDispatcher` with the resolved seat. It opens the WS,
+ *     hydrates the zustand store from `welcome`, and re-runs the reducer on
+ *     every `applied` frame.
+ *
+ * Click handlers never mutate local state directly — they send an `intent`
+ * frame; the server validates and echoes back `applied`, which the dispatcher
+ * funnels through the local reducer. This is the optimistic pattern's
+ * pessimistic sibling: one round-trip per click in v1; optimistic echo is
+ * v1.1.
+ */
+
+import type { Action, TerritoryName } from '@riskrask/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Brand } from '../console/Brand';
 import { Rail } from '../console/Rail';
 import { ResponsiveShell } from '../console/ResponsiveShell';
@@ -10,35 +33,100 @@ import { Topbar } from '../console/Topbar';
 import { Dossier } from '../dossier/Dossier';
 import { uiPhase } from '../game/phase';
 import { useGame } from '../game/useGame';
-import { useSoloDispatcher } from '../game/useSoloDispatcher';
+import { useRoomDispatcher } from '../game/useRoomDispatcher';
 import { useHotkeys } from '../hooks/useHotkey';
 import { ForcedTradeModal } from '../modals/ForcedTradeModal';
 import { MoveModal } from '../modals/MoveModal';
 import { VictoryModal } from '../modals/VictoryModal';
+import { getRoom } from '../net/api';
+import { useAuth } from '../net/auth';
 import { Stage } from '../stage/Stage';
-import { PlayRoom } from './PlayRoom';
 
-/**
- * Play route — solo when mounted at `/play`, multiplayer when mounted at
- * `/play/:roomId`. `PlayRoom` owns the server-authoritative flow; this file
- * keeps the solo body untouched so the solo-playthrough regression test is
- * unaffected.
- */
-export function Play() {
-  const { roomId } = useParams<{ roomId?: string }>();
-  if (roomId) return <PlayRoom roomId={roomId} />;
-  return <PlaySolo />;
+interface PlayRoomProps {
+  roomId: string;
 }
 
-function PlaySolo() {
+type Resolution =
+  | { kind: 'loading' }
+  | { kind: 'redirect'; to: string }
+  | { kind: 'ready'; seatIdx: number; humanPlayerId: string };
+
+export function PlayRoom({ roomId }: PlayRoomProps) {
   const navigate = useNavigate();
+  const { token, userId } = useAuth();
+
+  const [resolution, setResolution] = useState<Resolution>({ kind: 'loading' });
+
+  useEffect(() => {
+    if (!token || !userId) {
+      setResolution({ kind: 'redirect', to: `/lobby/${roomId}` });
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const res = await getRoom(roomId, token);
+      if (cancelled) return;
+      if (!res.ok) {
+        setResolution({ kind: 'redirect', to: `/lobby/${roomId}` });
+        return;
+      }
+      const seats = res.data.room.seats ?? [];
+      const mine = seats.find((s) => s.userId === userId);
+      if (!mine) {
+        setResolution({ kind: 'redirect', to: `/lobby/${roomId}` });
+        return;
+      }
+      setResolution({ kind: 'ready', seatIdx: mine.seatIdx, humanPlayerId: userId });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [roomId, token, userId]);
+
+  useEffect(() => {
+    if (resolution.kind === 'redirect') {
+      void navigate(resolution.to, { replace: true });
+    }
+  }, [resolution, navigate]);
+
+  if (resolution.kind !== 'ready' || !token) {
+    return null;
+  }
+
+  return (
+    <PlayRoomInner
+      roomId={roomId}
+      seatIdx={resolution.seatIdx}
+      humanPlayerId={resolution.humanPlayerId}
+      token={token}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Inner — hooks that depend on resolved seatIdx live here so they mount once
+// and unmount cleanly when the caller redirects.
+// ---------------------------------------------------------------------------
+
+interface InnerProps {
+  roomId: string;
+  seatIdx: number;
+  humanPlayerId: string;
+  token: string;
+}
+
+function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
   const state = useGame((s) => s.state);
   const selected = useGame((s) => s.selected);
   const hoverTarget = useGame((s) => s.hoverTarget);
-  const dispatch = useGame((s) => s.dispatch);
   const setSelected = useGame((s) => s.setSelected);
   const setHover = useGame((s) => s.setHover);
-  const loadState = useGame((s) => s.loadState);
+
+  const { connState, sendIntent, lastError } = useRoomDispatcher({
+    roomId,
+    seatIdx,
+    token,
+  });
 
   const [target, setTarget] = useState<TerritoryName | null>(null);
   const [activeRailItem, setActiveRailItem] = useState<
@@ -46,29 +134,13 @@ function PlaySolo() {
   >('map');
   const [attackDice, setAttackDice] = useState<readonly number[]>([]);
   const [defenseDice, setDefenseDice] = useState<readonly number[]>([]);
-  const [draftSkipped, setDraftSkipped] = useState(false);
 
-  // Human player is always index 0 in solo mode
-  const humanPlayerId = state?.players[0]?.id ?? 'human';
+  // Server controls phase progression, so the draft-skipped escape hatch from
+  // solo doesn't apply here. `uiPhase` is called with `draftSkipped=false`.
+  const phase = state ? uiPhase(state, humanPlayerId, false) : 'Setup';
 
-  // Run AI turns
-  useSoloDispatcher(humanPlayerId);
-
-  // Redirect if no state loaded
-  useEffect(() => {
-    if (!state) void navigate('/');
-  }, [state, navigate]);
-
-  // Reset the "draft skipped" escape hatch whenever the engine phase or turn advances.
-  // Encoded into a single stable key so the effect fires exactly once per
-  // phase-or-turn transition.
-  const phaseTurnKey = state ? `${state.phase}:${state.turn}` : 'idle';
-  // biome-ignore lint/correctness/useExhaustiveDependencies: phaseTurnKey is the single intended trigger; the string identity tracks phase+turn transitions.
-  useEffect(() => {
-    setDraftSkipped(false);
-  }, [phaseTurnKey]);
-
-  // Consume dice-roll effects
+  // Consume dice-roll effects pushed by the dispatcher when it re-runs the
+  // reducer on `applied`. Same effect queue as solo — no divergence.
   const effectsQueue = useGame((s) => s.effectsQueue);
   const shiftEffect = useGame((s) => s.shiftEffect);
   const effectsRef = useRef(effectsQueue);
@@ -96,22 +168,20 @@ function PlaySolo() {
 
       if (state.phase === 'setup-claim') {
         if (terr.owner === null) {
-          const effects = dispatch({ type: 'claim-territory', territory: name });
-          void effects;
+          sendIntent({ type: 'claim-territory', territory: name });
         }
         return;
       }
 
       if (state.phase === 'setup-reinforce') {
         if (terr.owner === humanPlayerId) {
-          dispatch({ type: 'setup-reinforce', territory: name });
+          sendIntent({ type: 'setup-reinforce', territory: name });
         }
         return;
       }
 
       if (state.phase === 'attack') {
         if (selected && terr.owner !== humanPlayerId && terr.owner !== null) {
-          // Check adjacency
           const srcTerr = state.territories[selected];
           if (srcTerr?.adj.includes(name)) {
             setTarget(name);
@@ -146,22 +216,18 @@ function PlaySolo() {
         }
       }
     },
-    [state, humanPlayerId, selected, dispatch, setSelected],
+    [state, humanPlayerId, selected, sendIntent, setSelected],
   );
 
-  function safeDispatch(action: Action): Effect[] {
-    try {
-      return dispatch(action);
-    } catch {
-      return [];
-    }
+  function emit(action: Action): void {
+    sendIntent(action);
   }
 
   function handleDeployConfirm() {
     if (!state || !selected) return;
     const player = state.players.find((p) => p.id === humanPlayerId);
     if (!player || player.reserves <= 0) return;
-    safeDispatch({ type: 'reinforce', territory: selected, count: player.reserves });
+    emit({ type: 'reinforce', territory: selected, count: player.reserves });
     setSelected(null);
   }
 
@@ -170,24 +236,23 @@ function PlaySolo() {
   }
 
   function handleTrade(indices: [number, number, number]) {
-    safeDispatch({ type: 'trade-cards', indices });
+    emit({ type: 'trade-cards', indices });
   }
 
   function handleAttackSingle() {
     if (!state || !selected || !target) return;
-    safeDispatch({ type: 'attack', from: selected, to: target });
+    emit({ type: 'attack', from: selected, to: target });
     setTarget(null);
   }
 
   function handleAttackBlitz() {
     if (!state || !selected || !target) return;
-    const effects = safeDispatch({ type: 'attack-blitz', from: selected, to: target });
-    void effects;
+    emit({ type: 'attack-blitz', from: selected, to: target });
     setTarget(null);
   }
 
   function handleEndAttack() {
-    safeDispatch({ type: 'end-attack-phase' });
+    emit({ type: 'end-attack-phase' });
     setSelected(null);
     setTarget(null);
   }
@@ -199,54 +264,27 @@ function PlaySolo() {
 
   function handleFortifyConfirm(count: number) {
     if (!state || !selected || !target) return;
-    safeDispatch({ type: 'fortify', from: selected, to: target, count });
+    emit({ type: 'fortify', from: selected, to: target, count });
     setSelected(null);
     setTarget(null);
   }
 
   function handleFortifySkip() {
-    safeDispatch({ type: 'end-turn' });
+    emit({ type: 'end-turn' });
     setSelected(null);
     setTarget(null);
   }
 
   function handleMoveConfirm(count: number) {
-    safeDispatch({ type: 'move-after-capture', count });
+    emit({ type: 'move-after-capture', count });
   }
 
   function handleMoveCancel() {
-    // Move after capture is mandatory — confirm with minimum
     if (!state?.pendingMove) return;
-    safeDispatch({ type: 'move-after-capture', count: state.pendingMove.min });
+    emit({ type: 'move-after-capture', count: state.pendingMove.min });
   }
 
-  function handleRematch() {
-    if (!state) return;
-    // Spin up a fresh game with the same roster but a new seed so the board
-    // layout diverges from the previous match. Neutral seats synthesised by
-    // createInitialState are skipped here — they're re-injected on rebuild.
-    const humanPlayers = state.players
-      .filter((p) => !p.isNeutral)
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        color: p.color,
-        isAI: p.isAI,
-      }));
-    const nextSeed = Math.random().toString(36).slice(2, 10);
-    const fresh = createInitialState({
-      seed: nextSeed,
-      players: humanPlayers,
-      ...(state.fortifyRule ? { fortifyRule: state.fortifyRule } : {}),
-    });
-    loadState(fresh);
-    setSelected(null);
-    setTarget(null);
-    setAttackDice([]);
-    setDefenseDice([]);
-  }
-
-  // Hotkeys — defined after handlers so they can reference them
+  // Hotkeys — parity with solo so players don't retrain their hands.
   useHotkeys(
     // biome-ignore lint/correctness/useExhaustiveDependencies: handlers are inline; stable via state/selected/target
     useMemo(
@@ -261,14 +299,28 @@ function PlaySolo() {
           setTarget(null);
         },
       }),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
       [state, selected, target],
     ),
   );
 
-  if (!state) return null;
+  if (!state) {
+    return (
+      <main className="flex h-full min-h-screen flex-col items-center justify-center gap-3 bg-bg-0">
+        <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-ghost">
+          {connState === 'connecting' || connState === 'reconnecting'
+            ? 'Connecting…'
+            : 'Awaiting welcome…'}
+        </p>
+        {lastError && (
+          <p className="font-mono text-[9px] text-danger">
+            {lastError.code}
+            {lastError.detail ? `: ${lastError.detail}` : ''}
+          </p>
+        )}
+      </main>
+    );
+  }
 
-  const phase = uiPhase(state, humanPlayerId, draftSkipped);
   const cp = state.players[state.currentPlayerIdx];
 
   return (
@@ -277,7 +329,7 @@ function PlaySolo() {
         brand={<Brand />}
         topbar={
           <Topbar
-            session="SOLO"
+            session={`ROOM · #${seatIdx}`}
             turn={String(state.turn + 1)}
             phase={phase}
             clock="—"
@@ -308,8 +360,10 @@ function PlaySolo() {
             onDeployConfirm={handleDeployConfirm}
             onDeployCancel={handleDeployCancel}
             onTrade={handleTrade}
-            onSkipDraft={() => setDraftSkipped(true)}
-            draftSkipped={draftSkipped}
+            onSkipDraft={() => {
+              /* draft-skip is a solo-only escape hatch; server drives MP phases */
+            }}
+            draftSkipped={false}
             onAttackSingle={handleAttackSingle}
             onAttackBlitz={handleAttackBlitz}
             onEndAttack={handleEndAttack}
@@ -320,7 +374,7 @@ function PlaySolo() {
         }
         statusbar={
           <Statusbar
-            link="stable"
+            link={connState === 'open' ? 'stable' : connState === 'closed' ? 'down' : 'lagging'}
             tickLabel={`T-${String(state.turn + 1).padStart(3, '0')}`}
             latencyMs={0}
             windowLabel={cp ? cp.name : '—'}
@@ -328,7 +382,6 @@ function PlaySolo() {
         }
       />
 
-      {/* Modals */}
       {state.pendingMove && (
         <MoveModal
           pendingMove={state.pendingMove}
@@ -343,13 +396,20 @@ function PlaySolo() {
           forcedTrade={state.pendingForcedTrade}
           onTrade={handleTrade}
           onCancel={() => {
-            /* forced trade cannot be skipped — do nothing */
+            /* forced trade cannot be skipped */
           }}
         />
       )}
 
       {state.phase === 'done' && state.winner && (
-        <VictoryModal state={state} onRematch={handleRematch} />
+        <VictoryModal
+          state={state}
+          onRematch={() => {
+            /* host-triggered relaunch is the MP rematch path; button is hidden */
+          }}
+          mode="room"
+          roomId={roomId}
+        />
       )}
     </>
   );
