@@ -72,3 +72,27 @@ Gate 3  (D merged, full pipeline)
 - Tick edge function (`pg_cron`) — deferred to multi-instance deployment sprint.
 - Playwright 2-browser scenario — stubbed with `.fixme()` pending JWT helper.
 - Auth signup route with Turnstile — still open from original Track F Task 1.
+
+## Deferred for a future sprint
+
+### Real browser coverage for the 2-humans multiplayer scenario
+
+**Blocker**: `apps/server/src/auth/verify.ts` calls `client.auth.getUser()`
+against Supabase Auth, so any Playwright flow hits the real issuer and 401s
+without a signed JWT. We cannot mint one client-side without leaking the anon
+key, and we cannot fake one server-side without an issuer-matching helper.
+
+**Unblock**: add `apps/server/src/auth/test-jwt.ts` that signs a JWT with the
+same `iss` / `aud` as the live Supabase project, gated on
+`process.env.NODE_ENV !== 'production'`. The helper should:
+
+- Expose `mintTestJwt({ userId, email })` that returns a Bearer token.
+- Register that issuer's JWKS alongside the Supabase one in `verify.ts` so
+  `getUser()` (or a `verifyLocalJwt` sibling) accepts it only when the env
+  flag is set.
+- Be consumed by `apps/web/e2e/mp-two-humans.spec.ts` (currently
+  `.fixme()`) via a Playwright test fixture that seeds `localStorage` with
+  the minted token before navigating.
+
+Tracked in `apps/web/e2e/mp-two-humans.spec.ts` and the server-side analogue
+`apps/server/test/mp-two-humans.test.ts`.
