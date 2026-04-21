@@ -86,7 +86,82 @@ function Die({
         animation: shake && value !== undefined ? `shake 600ms ease-out ${delay}ms` : 'none',
       }}
     >
-      {value ?? '—'}
+      {value !== undefined ? <DiePips value={value} color={color} /> : <span>—</span>}
     </div>
+  );
+}
+
+// Classic 3x3 die-face pip layout. Returns the list of pip centres (0..2 on each axis)
+// for the given face value (1..6).
+function pipsFor(value: number): ReadonlyArray<readonly [number, number]> {
+  switch (value) {
+    case 1:
+      return [[1, 1]];
+    case 2:
+      return [
+        [0, 0],
+        [2, 2],
+      ];
+    case 3:
+      return [
+        [0, 0],
+        [1, 1],
+        [2, 2],
+      ];
+    case 4:
+      return [
+        [0, 0],
+        [2, 0],
+        [0, 2],
+        [2, 2],
+      ];
+    case 5:
+      return [
+        [0, 0],
+        [2, 0],
+        [1, 1],
+        [0, 2],
+        [2, 2],
+      ];
+    case 6:
+      return [
+        [0, 0],
+        [2, 0],
+        [0, 1],
+        [2, 1],
+        [0, 2],
+        [2, 2],
+      ];
+    default:
+      return [];
+  }
+}
+
+function DiePips({ value, color }: { value: number; color: string }) {
+  const pips = pipsFor(value);
+  // Pip coords are on a 3x3 grid; map to SVG positions in a 24x24 viewBox with
+  // 6px inset so pips never touch the border.
+  const inset = 6;
+  const step = (24 - inset * 2) / 2;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="20"
+      height="20"
+      aria-label={`die-${value}`}
+      role="img"
+      focusable="false"
+    >
+      {pips.map(([cx, cy], idx) => (
+        <circle
+          // biome-ignore lint/suspicious/noArrayIndexKey: pip order is stable per value
+          key={idx}
+          cx={inset + cx * step}
+          cy={inset + cy * step}
+          r={2}
+          fill={color}
+        />
+      ))}
+    </svg>
   );
 }

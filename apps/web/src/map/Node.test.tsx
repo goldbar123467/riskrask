@@ -62,4 +62,39 @@ describe('Map node click interactions', () => {
       expect(onSelect).toHaveBeenCalledWith('Alaska');
     }
   });
+
+  it('renders an SVG <title> tooltip with territory, army count, and adjacency', () => {
+    const state = makeState();
+    render(
+      <svg aria-label="tooltip-map" role="img">
+        <title>Tooltip Map</title>
+        <GameMap
+          state={state}
+          humanPlayerId="p1"
+          selected={null}
+          target={null}
+          onSelect={vi.fn()}
+          onHover={vi.fn()}
+        />
+      </svg>,
+    );
+
+    const alaska = document.querySelector('[data-territory="Alaska"]');
+    expect(alaska).not.toBeNull();
+    const title = alaska?.querySelector('title');
+    expect(title).not.toBeNull();
+    const text = title?.textContent ?? '';
+    // Territory name present
+    expect(text).toContain('Alaska');
+    // Army count present
+    const alaskaTerr = state.territories.Alaska;
+    expect(alaskaTerr).toBeDefined();
+    expect(text).toContain(String(alaskaTerr?.armies ?? 0));
+    // At least one real Alaska neighbour (classic board: Kamchatka, Alberta, Northwest Territory)
+    const hasNeighbour =
+      text.includes('Kamchatka') ||
+      text.includes('Alberta') ||
+      text.includes('Northwest Territory');
+    expect(hasNeighbour).toBe(true);
+  });
 });

@@ -52,9 +52,13 @@ export function Play() {
   }, [state, navigate]);
 
   // Reset the "draft skipped" escape hatch whenever the engine phase or turn advances.
+  // Encoded into a single stable key so the effect fires exactly once per
+  // phase-or-turn transition.
+  const phaseTurnKey = state ? `${state.phase}:${state.turn}` : 'idle';
+  // biome-ignore lint/correctness/useExhaustiveDependencies: phaseTurnKey is the single intended trigger; the string identity tracks phase+turn transitions.
   useEffect(() => {
     setDraftSkipped(false);
-  }, [state?.phase, state?.turn]);
+  }, [phaseTurnKey]);
 
   // Consume dice-roll effects
   const effectsQueue = useGame((s) => s.effectsQueue);
@@ -164,6 +168,7 @@ export function Play() {
   function handleAttackSingle() {
     if (!state || !selected || !target) return;
     safeDispatch({ type: 'attack', from: selected, to: target });
+    setTarget(null);
   }
 
   function handleAttackBlitz() {

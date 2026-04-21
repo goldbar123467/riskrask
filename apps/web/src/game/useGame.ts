@@ -9,6 +9,13 @@ export interface LogLine {
 
 /** Upper bound on the rolling intel-feed log. The UI only reads the newest 4. */
 const LOG_CAP = 200;
+/**
+ * Per-turn cap on log entries. A blitz chain can produce 10+ capture events in
+ * a single turn; without this cap the intel feed gets swamped and older turns
+ * scroll off screen instantly. When exceeded, the oldest entries for that same
+ * turn are dropped in favour of the newest.
+ */
+export const PER_TURN_CAP = 6;
 
 interface GameStore {
   state: GameState | null;
@@ -35,7 +42,7 @@ interface GameStore {
   shiftEffect: () => void;
 }
 
-function appendLog(prev: LogLine[], effects: readonly Effect[], turn: number): LogLine[] {
+export function appendLog(prev: LogLine[], effects: readonly Effect[], turn: number): LogLine[] {
   const additions: LogLine[] = [];
   for (const e of effects) {
     if (e.kind === 'log') additions.push({ turn, text: e.text });
@@ -46,7 +53,21 @@ function appendLog(prev: LogLine[], effects: readonly Effect[], turn: number): L
     else if (e.kind === 'game-over') additions.push({ turn, text: `${e.winner} wins the game.` });
   }
   if (additions.length === 0) return prev;
-  const merged = [...prev, ...additions];
+  let merged = [...prev, ...additions];
+  // Per-turn cap: drop oldest entries with `turn` === `turn` beyond PER_TURN_CAP.
+  // Entries from earlier turns are untouched.
+  const sameTurnCount = merged.reduce((n, entry) => n + (entry.turn === turn ? 1 : 0), 0);
+  if (sameTurnCount > PER_TURN_CAP) {
+    const drop = sameTurnCount - PER_TURN_CAP;
+    let dropped = 0;
+    merged = merged.filter((entry) => {
+      if (entry.turn === turn && dropped < drop) {
+        dropped++;
+        return false;
+      }
+      return true;
+    });
+  }
   return merged.length > LOG_CAP ? merged.slice(merged.length - LOG_CAP) : merged;
 }
 
