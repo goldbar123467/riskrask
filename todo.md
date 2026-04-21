@@ -70,22 +70,53 @@ intact (98.5% victory / 1.5% stalemate).
 
 ---
 
+---
+
+## Sprint 3 goal — COMPLETE
+
+Stand up the web multiplayer client + server polish on top of the sprint-2
+beachhead. Front-loaded research → per-agent build guides → parallel
+sub-agents in isolated worktrees → QA gate between each merge.
+
+### Loop 0 — Diagnostics
+- [x] bun install / typecheck / 310 tests / lint clean / smoke clean
+
+### Loop 1 — Research & build guides
+- [x] `docs/mp-buildout/00-overview.md` — orchestration rules + gate pipeline
+- [x] `docs/mp-buildout/A-ws-client.md`
+- [x] `docs/mp-buildout/B-lobby-routing.md`
+- [x] `docs/mp-buildout/C-server-polish.md`
+- [x] `docs/mp-buildout/D-integration-test.md`
+
+### Loop 2 — Gate A+C (parallel worktrees)
+- [x] Agent A — `net/ws.ts` real reconnecting client + `useRoomDispatcher` + `applyEffects` on `useGame` + tests
+- [x] Agent C — `send_chat` RPC persistence + `?lastSeq=` welcome delta + `Database.Functions` typed
+- [x] **QA Gate 1** — 332 tests, typecheck/lint/smoke green
+
+### Loop 3 — Gate B
+- [x] Agent B (timed-out mid-stream, recovered from worktree) — `Lobby.tsx` + `auth.ts` + REST helpers + `PlayRoom.tsx` + Play switcher + victory-modal room mode + Lobby component tests
+- [x] **QA Gate 2** — 337 tests, typecheck/lint/smoke green
+
+### Loop 4 — Gate D
+- [x] Agent D — server-side 2-human integration test with real WS + AI fallback in < 3 s; Playwright `.fixme()` stub; clock injection through Timer → Room → Registry
+- [x] **QA Gate 3** — **338 tests** (shared 34 · engine 92 · ai 113 · server 58 · web 40 · admin 1), typecheck/lint/smoke green
+
+### Loop 5 — Ship
+- [x] Update `gamebuild-progressreport.md`
+- [x] Update `todo.md`
+- [x] Scoped commits on `claude/multiplayer-subagent-build-dGa5z`
+- [x] Push to origin
+
+---
+
 ## Deferred — backlog for next sprint
 
-### Track F follow-on (client + chat + tick)
-- [ ] `apps/web/src/net/ws.ts` — replace stub with real reconnecting client + intent queue + heartbeat (contract already defined in `packages/shared/src/protocol.ts`)
-- [ ] `apps/web/src/net/protocol.ts` — re-export shared schemas for client use
-- [ ] `apps/web/src/game/useRoomDispatcher.ts` — parallel to `useSoloDispatcher`; sends `intent`, waits for `applied`
-- [ ] `apps/web/src/routes/Lobby.tsx` — list / create / join / ready / add-AI / launch
-- [ ] `apps/web/src/routes/Play.tsx` — detect `:roomId` route param, swap dispatcher
-- [ ] `apps/server/src/ws/index.ts:145` — chat currently broadcasts in-session only; wire to `send_chat` RPC
-- [ ] `apps/server/src/ws/index.ts:66` — `welcome` replays full state; add `lastSeq` delta replay (event log already populated in `Room.getEventLog()`)
-- [ ] `apps/server/src/supabase.ts:17` — `Database.Functions` is missing `create_room` / `join_room` / `leave_room` / `set_ready` / `add_ai_seat` / `launch_game` signatures; add when we have a codegen pass
+### Still open
+- [ ] Supabase test-JWT helper → unblocks `e2e/mp-two-humans.spec.ts` Playwright scenario (currently `.fixme()`)
 - [ ] Tick edge function — current 1 Hz in-process `setInterval` in `registry.ts:20` is v1; swap to `pg_cron` + edge tick when multi-instance deployment is on the table
-- [ ] `e2e/mp-two-humans.spec.ts` — Playwright 2-human + AI-fallback scenario
+- [ ] Auth signup route with Turnstile + username reserve (Track F Task 1 — paste-a-JWT lobby is the current stopgap)
 
 ### Other
 - [ ] Admin panel (Track G)
 - [ ] Replay + analytics (Track H)
 - [ ] 500-game balance rerun for tighter archetype CIs
-- [ ] Auth signup route with Turnstile + username reserve (Track F Task 1 — login currently works end-to-end)
