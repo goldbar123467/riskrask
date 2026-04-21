@@ -35,6 +35,15 @@ interface GameStore {
   /** Apply an engine action. Returns effects from this action. */
   dispatch: (action: Action) => Effect[];
 
+  /**
+   * Append a batch of effects produced elsewhere (e.g. the server on a
+   * multiplayer `applied` frame, after the local reducer has already advanced
+   * state). Funnels through the same log-accumulation path `dispatch` uses;
+   * the zustand state itself is not re-derived here. Pure plumbing — solo
+   * never calls this path.
+   */
+  applyEffects: (effects: Effect[]) => void;
+
   setSelected: (name: TerritoryName | null) => void;
   setHover: (name: TerritoryName | null) => void;
 
@@ -94,6 +103,17 @@ export const useGame = create<GameStore>((set, get) => ({
       log: appendLog(prev.log, effects, next.turn),
     }));
     return effects;
+  },
+
+  applyEffects: (effects) => {
+    if (effects.length === 0) return;
+    set((prev) => {
+      const turn = prev.state?.turn ?? 0;
+      return {
+        effectsQueue: [...prev.effectsQueue, ...effects],
+        log: appendLog(prev.log, effects, turn),
+      };
+    });
   },
 
   setSelected: (name) => set({ selected: name }),
