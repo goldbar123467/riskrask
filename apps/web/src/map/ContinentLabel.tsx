@@ -6,47 +6,53 @@ interface ContinentLabelProps {
 }
 
 /**
- * Per-continent title with glow filter (feGaussianBlur + feMerge) and bonus tspan.
+ * Continent title rendered at the top/bottom of its region with the bonus
+ * stat inline to the right. Matches the command-console mockup: muted grey
+ * uppercase name with wide tracking, plus a hot-accent "+N" token.
  */
 export function ContinentLabel({ id, continent }: ContinentLabelProps) {
   const filterId = `glow-${id}`;
+  const nameText = continent.name.toUpperCase();
+  // Rough estimate so the "+N" sits to the right of the name, inline.
+  const nameWidth = nameText.length * 8.4;
+  const bonusX = continent.labelX + nameWidth / 2 + 18;
+
   return (
     <g aria-label={`continent-${id}`}>
       <defs>
         <filter id={filterId} x="-50%" y="-50%" width="200%" height="200%">
-          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feGaussianBlur stdDeviation="3" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
             <feMergeNode in="SourceGraphic" />
           </feMerge>
         </filter>
       </defs>
-      {/*
-        Contrast bumped 2026-04-20 after the world-map background layer was
-        removed — against the darker stage these needed more weight to stay
-        legible. Previously 0.25 / 0.15, which was fine *over* the world fill.
-      */}
       <text
         x={continent.labelX}
         y={continent.labelY}
         textAnchor="middle"
         style={{ filter: `url(#${filterId})` }}
-        fill="rgba(232,236,242,0.45)"
-        fontSize="11"
+        fill="rgba(180,190,210,0.28)"
+        fontSize="13"
         fontFamily="'Space Grotesk', system-ui, sans-serif"
         fontWeight="500"
-        letterSpacing="0.18em"
+        letterSpacing="0.32em"
       >
-        {continent.name.toUpperCase()}
-        <tspan
-          dy="13"
-          x={continent.labelX}
-          fontSize="9"
-          fill="rgba(232,236,242,0.3)"
-          letterSpacing="0.12em"
-        >
-          +{continent.bonus}
-        </tspan>
+        {nameText}
+      </text>
+      <text
+        x={bonusX}
+        y={continent.labelY}
+        textAnchor="start"
+        fill="var(--hot)"
+        fontSize="10"
+        fontFamily="'JetBrains Mono', monospace"
+        fontWeight="500"
+        letterSpacing="0.08em"
+        opacity="0.85"
+      >
+        +{continent.bonus}
       </text>
     </g>
   );

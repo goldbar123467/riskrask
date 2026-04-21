@@ -16,12 +16,13 @@ interface NodeProps {
   onHover: (name: TerritoryName | null) => void;
 }
 
-const HEX_W = 22;
-const HEX_H = 22;
+const HEX_W = 32;
+const HEX_H = 32;
 
 /**
- * One territory marker: hex shell, unit silhouette, count, name label.
- * Props in, JSX out — no global store reads.
+ * One territory marker: hex shell, centered unit silhouette, pointer arrow,
+ * and a name label below. Troop count rides as a small badge on the lower
+ * edge of the hex so the silhouette stays the dominant glyph.
  */
 export function Node({
   name,
@@ -38,15 +39,16 @@ export function Node({
   const unitType = unitTypeForTerritory(name);
 
   const strokeColor = selected ? 'var(--hot)' : targetable ? 'rgba(255,255,100,0.7)' : ownerColor;
-
-  const strokeWidth = selected ? 2 : targetable ? 1.5 : 1;
-  const fillColor = owned ? `${ownerColor}22` : 'rgba(10,15,20,0.7)';
+  const strokeWidth = selected ? 2 : targetable ? 1.5 : 1.2;
+  const fillColor = owned ? `${ownerColor}1f` : 'rgba(10,15,20,0.55)';
 
   const armyWord = territory.armies === 1 ? 'army' : 'armies';
   const tooltipText =
     territory.adj.length > 0
       ? `${name}: ${territory.armies} ${armyWord} · ${continent} · adjacent to ${territory.adj.join(', ')}`
       : `${name}: ${territory.armies} ${armyWord} · ${continent}`;
+
+  const label = displayName(name);
 
   return (
     <g
@@ -74,62 +76,46 @@ export function Node({
         strokeWidth={strokeWidth}
       />
 
-      {/* Unit silhouette — top half of hex */}
+      {/* Unit silhouette — centered in hex */}
       {territory.armies > 0 && (
-        <UnitSilhouette type={unitType} color={ownerColor} x={x} y={y - 4} size={9} />
+        <UnitSilhouette type={unitType} color={ownerColor} x={x} y={y - 2} size={14} />
       )}
 
-      {/* Underline divider */}
-      <line
-        x1={x - HEX_W / 2 + 4}
-        y1={y + 1}
-        x2={x + HEX_W / 2 - 4}
-        y2={y + 1}
-        stroke={strokeColor}
-        strokeWidth="0.5"
-        opacity="0.5"
+      {/* Pointer arrow below icon */}
+      <path
+        d={`M ${x - 3},${y + 8} L ${x + 3},${y + 8} L ${x},${y + 11} Z`}
+        fill={strokeColor}
+        opacity={selected ? 1 : 0.7}
       />
 
-      {/* Troop count */}
+      {/* Troop count — small badge centered under the hex body */}
       <text
         x={x}
-        y={y + 8}
+        y={y + HEX_H / 2 - 0.5}
         textAnchor="middle"
         dominantBaseline="middle"
-        fontSize="7"
+        fontSize="6.5"
         fontFamily="'JetBrains Mono', monospace"
-        fontWeight="500"
+        fontWeight="600"
         fill={selected ? 'var(--hot)' : ownerColor}
+        opacity="0.95"
       >
-        {territory.armies > 0 ? territory.armies : '·'}
+        {territory.armies > 0 ? territory.armies : ''}
       </text>
 
       {/* Territory name label (below hex) */}
       <text
         x={x}
-        y={y + HEX_H / 2 + 7}
+        y={y + HEX_H / 2 + 9}
         textAnchor="middle"
-        fontSize="6"
+        fontSize="6.5"
         fontFamily="'JetBrains Mono', monospace"
-        fill="rgba(140,155,175,0.7)"
-        letterSpacing="0.04em"
+        fill="rgba(180,190,210,0.72)"
+        letterSpacing="0.12em"
+        fontWeight="500"
       >
-        {abbreviate(name)}
+        {label}
       </text>
-
-      {/* Hot accent ring if selected */}
-      {selected && (
-        <circle
-          cx={x}
-          cy={y}
-          r={HEX_W / 2 + 5}
-          fill="none"
-          stroke="var(--hot)"
-          strokeWidth="1"
-          strokeDasharray="3 3"
-          opacity="0.6"
-        />
-      )}
     </g>
   );
 }
@@ -168,11 +154,52 @@ function HexPath({
   return <path d={d} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
 }
 
-function abbreviate(name: string): string {
-  if (name.length <= 8) return name;
-  return name
-    .split(' ')
-    .map((w) => w[0])
-    .join('')
-    .toUpperCase();
+/** Short-form territory label used below the hex — matches screenshot style. */
+const ABBREV: Readonly<Record<string, string>> = Object.freeze({
+  Alaska: 'ALASKA',
+  'Northwest Territory': 'N. TERRITORY',
+  Greenland: 'GREENLAND',
+  Alberta: 'ALBERTA',
+  Ontario: 'ONTARIO',
+  Quebec: 'QUEBEC',
+  'Western US': 'WESTERN US',
+  'Eastern US': 'EASTERN US',
+  'Central America': 'C. AMERICA',
+  Venezuela: 'VENEZUELA',
+  Brazil: 'BRAZIL',
+  Peru: 'PERU',
+  Argentina: 'ARGENTINA',
+  Iceland: 'ICELAND',
+  Scandinavia: 'SCANDINAVIA',
+  'Great Britain': 'GREAT BRITAIN',
+  'Northern Europe': 'N. EUROPE',
+  Ukraine: 'UKRAINE',
+  'Southern Europe': 'S. EUROPE',
+  'Western Europe': 'W. EUROPE',
+  'North Africa': 'N. AFRICA',
+  Egypt: 'EGYPT',
+  'East Africa': 'E. AFRICA',
+  Congo: 'CONGO',
+  'South Africa': 'S. AFRICA',
+  Madagascar: 'MADAGASCAR',
+  Ural: 'URAL',
+  Siberia: 'SIBERIA',
+  Yakutsk: 'YAKUTSK',
+  Kamchatka: 'KAMCHATKA',
+  Irkutsk: 'IRKUTSK',
+  Mongolia: 'MONGOLIA',
+  Japan: 'JAPAN',
+  Afghanistan: 'AFGHANISTAN',
+  China: 'CHINA',
+  'Middle East': 'MIDDLE EAST',
+  India: 'INDIA',
+  Siam: 'SIAM',
+  Indonesia: 'INDONESIA',
+  'New Guinea': 'NEW GUINEA',
+  'Western Australia': 'W. AUSTRALIA',
+  'Eastern Australia': 'E. AUSTRALIA',
+});
+
+function displayName(name: string): string {
+  return ABBREV[name] ?? name.toUpperCase();
 }

@@ -6,117 +6,121 @@ interface SelectedOverlayProps {
   state: GameState;
 }
 
+const RING_R = 26;
+
 /**
- * Crosshair ring + callout annotation for the selected territory.
+ * Hot-accent glow ring around the selected territory plus an inline callout
+ * with headline / action / queue line. Matches the command-console mockup:
+ * no bounding box, text floats next to the hex.
  */
 export function SelectedOverlay({ selected, target: _target, state }: SelectedOverlayProps) {
   const terr = state.territories[selected];
   if (!terr) return null;
 
   const { x, y } = terr;
-  const owner = state.players.find((p) => p.id === terr.owner);
 
   const actionHint =
     state.phase === 'attack'
-      ? 'ATTACK'
+      ? 'STRIKE'
       : state.phase === 'fortify'
         ? 'FORTIFY'
-        : state.phase === 'reinforce'
+        : state.phase === 'reinforce' || state.phase === 'setup-reinforce'
           ? 'DEPLOY'
-          : '';
+          : state.phase === 'setup-claim'
+            ? 'CLAIM'
+            : '';
+
+  // Current player's reserves gives a nice "+N" token next to the action.
+  const cp = state.players[state.currentPlayerIdx];
+  const reserves = cp?.reserves ?? 0;
+  const reinforceToken =
+    (state.phase === 'reinforce' || state.phase === 'setup-reinforce') && reserves > 0
+      ? ` +${reserves}`
+      : '';
+
+  // Place the callout on the side of the map that has more room.
+  const placeRight = x < 780;
+  const calloutX = placeRight ? x + RING_R + 8 : x - RING_R - 8;
+  const textAnchor = placeRight ? 'start' : 'end';
+
+  const headline = selected.toUpperCase();
+  const actionLine = actionHint ? `CONTROL TO ${actionHint}${reinforceToken}` : '';
+
+  const glowId = `sel-glow-${selected.replace(/\s+/g, '-')}`;
 
   return (
     <g aria-label="selected-overlay" pointerEvents="none">
-      {/* Crosshair ring */}
+      <defs>
+        <filter id={glowId} x="-100%" y="-100%" width="300%" height="300%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feMerge>
+            <feMergeNode in="blur" />
+            <feMergeNode in="SourceGraphic" />
+          </feMerge>
+        </filter>
+      </defs>
+
+      {/* Outer soft glow */}
       <circle
         cx={x}
         cy={y}
-        r={20}
+        r={RING_R + 4}
         fill="none"
         stroke="var(--hot)"
-        strokeWidth="1"
-        strokeDasharray="4 4"
-        opacity="0.8"
+        strokeWidth="0.8"
+        opacity="0.28"
+        style={{ filter: `url(#${glowId})` }}
       />
-      {/* Cross lines */}
-      <line
-        x1={x - 26}
-        y1={y}
-        x2={x - 22}
-        y2={y}
+      {/* Solid ring */}
+      <circle
+        cx={x}
+        cy={y}
+        r={RING_R}
+        fill="none"
         stroke="var(--hot)"
-        strokeWidth="1"
-        opacity="0.6"
-      />
-      <line
-        x1={x + 22}
-        y1={y}
-        x2={x + 26}
-        y2={y}
-        stroke="var(--hot)"
-        strokeWidth="1"
-        opacity="0.6"
-      />
-      <line
-        x1={x}
-        y1={y - 26}
-        x2={x}
-        y2={y - 22}
-        stroke="var(--hot)"
-        strokeWidth="1"
-        opacity="0.6"
-      />
-      <line
-        x1={x}
-        y1={y + 22}
-        x2={x}
-        y2={y + 26}
-        stroke="var(--hot)"
-        strokeWidth="1"
-        opacity="0.6"
+        strokeWidth="1.2"
+        opacity="0.9"
       />
 
-      {/* Callout annotation */}
-      <g transform={`translate(${x + 28}, ${y - 22})`}>
-        <rect
-          x="0"
-          y="0"
-          width="100"
-          height="40"
-          fill="rgba(7,8,9,0.85)"
-          stroke="var(--hot)"
-          strokeWidth="0.5"
-        />
+      {/* Callout text — no bounding box */}
+      <g>
         <text
-          x="5"
-          y="12"
-          fontSize="7"
-          fill="var(--hot)"
-          fontFamily="'JetBrains Mono',monospace"
+          x={calloutX}
+          y={y - 4}
+          textAnchor={textAnchor}
+          fontSize="9"
           fontWeight="600"
+          fill="var(--hot)"
+          fontFamily="'JetBrains Mono', monospace"
+          letterSpacing="0.1em"
         >
-          ▸ {selected.length > 14 ? selected.substring(0, 14) : selected}
+          {headline}
         </text>
-        <text
-          x="5"
-          y="24"
-          fontSize="6"
-          fill="rgba(140,155,175,0.8)"
-          fontFamily="'JetBrains Mono',monospace"
-        >
-          {owner ? `${owner.name.substring(0, 8)}` : 'NEUTRAL'} · {terr.armies}
-        </text>
-        {actionHint && (
+        {actionLine && (
           <text
-            x="5"
-            y="34"
-            fontSize="6"
-            fill="rgba(255,77,46,0.7)"
-            fontFamily="'JetBrains Mono',monospace"
+            x={calloutX}
+            y={y + 6}
+            textAnchor={textAnchor}
+            fontSize="6.5"
+            fill="var(--hot)"
+            fontFamily="'JetBrains Mono', monospace"
+            letterSpacing="0.12em"
+            opacity="0.85"
           >
-            → {actionHint}
+            {actionLine}
           </text>
         )}
+        <text
+          x={calloutX}
+          y={y + 16}
+          textAnchor={textAnchor}
+          fontSize="6"
+          fill="rgba(180,190,210,0.55)"
+          fontFamily="'JetBrains Mono', monospace"
+          letterSpacing="0.1em"
+        >
+          {placeRight ? '▸ ' : ''}BORDER CONFLICT QUEUE{!placeRight ? ' ◂' : ''}
+        </text>
       </g>
     </g>
   );
