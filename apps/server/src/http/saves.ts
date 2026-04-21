@@ -8,15 +8,16 @@
  * Calls the Supabase edge functions for create/load; uses the persistence
  * layer directly for owner deletes.
  *
- * TURNSTILE_REQUIRED feature flag: when set to "1" (default off for now),
- * anonymous POSTs must include a valid Cloudflare Turnstile token in the
- * `X-Turnstile-Token` header.  Verification is a no-op until Track F lands.
- * TODO(track-f): wire in real Turnstile verification.
+ * TURNSTILE_REQUIRED feature flag: when set to "1" anonymous POSTs must
+ * include a valid Cloudflare Turnstile token in the `X-Turnstile-Token`
+ * header (or `cf-turnstile-response`). Authenticated (owner-bound) requests
+ * skip the Turnstile check.
  */
 
 import { parseSaveCode } from '@riskrask/shared';
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { isTurnstileRequired, verifyTurnstile } from '../auth/turnstile';
 import { verifySupabaseJwt } from '../auth/verify';
 import { SaveExpiredError, createSave, deleteSave, loadSave } from '../persistence/saves';
 import { serviceClient } from '../supabase';
@@ -45,10 +46,6 @@ savesRouter.post('/', async (c) => {
     return c.json({ ok: false, code: 'INVALID_REQUEST', detail: 'invalid body shape' }, 400);
   }
 
-  // Optional Turnstile gate (TODO: enable via TURNSTILE_REQUIRED=1 env)
-  // const turnstileRequired = process.env.TURNSTILE_REQUIRED === '1';
-  // if (turnstileRequired && !body.ownerId) { ... }
-
   // Owner check: if Authorization is present, the JWT user must match ownerId.
   let resolvedOwnerId: string | null = body.ownerId ?? null;
   const authHeader = c.req.header('Authorization');
@@ -61,6 +58,22 @@ savesRouter.post('/', async (c) => {
       return c.json({ ok: false, code: 'FORBIDDEN', detail: 'ownerId mismatch' }, 403);
     }
     resolvedOwnerId = user.id;
+  }
+
+  // Turnstile gate: anonymous callers must solve the widget when the flag is
+  // on. Authenticated callers (resolvedOwnerId set via JWT) are trusted.
+  if (isTurnstileRequired() && !resolvedOwnerId) {
+    const token =
+      c.req.header('X-Turnstile-Token') ?? c.req.header('cf-turnstile-response') ?? null;
+    const remoteIp =
+      c.req.header('CF-Connecting-IP') ?? c.req.header('X-Forwarded-For') ?? undefined;
+    const ok = await verifyTurnstile(token, { remoteIp });
+    if (!ok) {
+      return c.json(
+        { ok: false, code: 'TURNSTILE_REQUIRED', detail: 'invalid or missing captcha token' },
+        403,
+      );
+    }
   }
 
   const stateJson = body.state as Record<string, unknown>;

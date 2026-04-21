@@ -42,8 +42,7 @@ Already set in `apps/web/src/theme/tokens.css` by Phase 0. Do not edit them unle
 | `src/stage/PhaseTabs.tsx` | Draft / Deploy / Attack / Fortify / End — derived from `state.phase` and reinforcement/trade flags |
 | `src/stage/ZoomControl.tsx` | +/– + fit buttons, disabled during Setup |
 | `src/stage/StageHud.tsx` | 4 corner overlays: theatre / coordinates / legend / selected-callout |
-| `src/map/Map.tsx` | SVG root (viewBox 0 0 1500 960), renders world.svg, grid, continents, edges, nodes |
-| `src/map/WorldLayer.tsx` | Imports `/assets/world.svg` as a module and pastes outline + boundaries |
+| `src/map/Map.tsx` | SVG root (viewBox 0 0 1000 640), renders lat/long grid, continent fills, adjacency edges, and territory nodes (no world outline as of 2026-04-20 — see TODO.md) |
 | `src/map/ContinentLabel.tsx` | Per-continent title with glow filter and bonus tspan |
 | `src/map/AdjacencyLines.tsx` | Dashed edges; long edges get the `sea` style |
 | `src/map/Node.tsx` | One territory marker: hex/diamond/shield shell + unit silhouette + count + name label |
@@ -107,11 +106,15 @@ Keep each file ≤300 lines. Split further if a component's internals exceed tha
 - [ ] `useSoloDispatcher`: wraps engine `apply`. On phase change, if current player is AI, enqueue `takeTurn` actions with 450ms throttle so the UI animates.
 - [ ] Test: 3-AI game runs to a winner in <500 turns given seed `'solo-test-1'`. Must remain deterministic.
 
-### Task 4: Map — world layer + grid + continents + edges
+### Task 4: Map — grid + continents + edges
 
-- [ ] `Map.tsx` renders an SVG with viewBox `0 0 1500 960`.
-- [ ] Import `world.svg` as a raw string via Vite's `?raw` suffix. Extract `#outline` and `#boundaries` paths via regex at module load, cached.
-- [ ] Render in z order: lat/long grid, world outline (fill `#0e131a`, stroke `rgba(150,170,200,0.22)`), boundaries, continent titles, adjacency edges.
+> **Deprecated 2026-04-20**: the world SVG outline was removed from the stage
+> (see TODO.md "Just done"). `WorldLayer.tsx` no longer exists; the map now
+> renders only grid + continent fills + adjacency + nodes. Continent tints in
+> `board.ts` carry the visual weight of the outline.
+
+- [ ] `Map.tsx` renders an SVG with viewBox `0 0 1000 640`.
+- [ ] Render in z order: lat/long grid, continent fills (tinted boxes via `ContinentLabel`), adjacency edges, territory nodes.
 - [ ] `ContinentLabel` uses the glow filter from the mockup (`feGaussianBlur` + `feMerge`).
 - [ ] `AdjacencyLines` marks edges whose euclidean length exceeds 260 as `sea` (shorter dash pattern).
 

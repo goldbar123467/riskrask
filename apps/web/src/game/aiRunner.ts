@@ -1,6 +1,6 @@
+import { Arch, takeTurn } from '@riskrask/ai';
 import type { Action, GameState, PlayerId } from '@riskrask/engine';
 import { ADJACENCY, TERR_ORDER, createRng, nextInt } from '@riskrask/engine';
-import { Arch, takeTurn } from '@riskrask/ai';
 
 /**
  * Deterministically assign an archetype to a player based on seed + id, so

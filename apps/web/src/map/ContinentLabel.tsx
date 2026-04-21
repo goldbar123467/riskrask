@@ -21,12 +21,17 @@ export function ContinentLabel({ id, continent }: ContinentLabelProps) {
           </feMerge>
         </filter>
       </defs>
+      {/*
+        Contrast bumped 2026-04-20 after the world-map background layer was
+        removed — against the darker stage these needed more weight to stay
+        legible. Previously 0.25 / 0.15, which was fine *over* the world fill.
+      */}
       <text
         x={continent.labelX}
         y={continent.labelY}
         textAnchor="middle"
         style={{ filter: `url(#${filterId})` }}
-        fill="rgba(232,236,242,0.25)"
+        fill="rgba(232,236,242,0.45)"
         fontSize="11"
         fontFamily="'Space Grotesk', system-ui, sans-serif"
         fontWeight="500"
@@ -37,7 +42,7 @@ export function ContinentLabel({ id, continent }: ContinentLabelProps) {
           dy="13"
           x={continent.labelX}
           fontSize="9"
-          fill="rgba(232,236,242,0.15)"
+          fill="rgba(232,236,242,0.3)"
           letterSpacing="0.12em"
         >
           +{continent.bonus}

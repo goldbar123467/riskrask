@@ -1,85 +1,72 @@
 # Riskrask — Resume Point
 
-_Last updated 2026-04-20 after an audit against `riskrules.md`._
+_Last updated 2026-04-21 after the two-player Neutral variant + P2 sweep._
 
 ## Context in one paragraph
 
 The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade escalation, BFS fortify), but a few rules are either wrong or missing, and **the AI is a placeholder** (`dilettanteTurn`) which is why the last balance run (`docs/balance/balance-2026-04-20.md`) had an **81.6% stalemate rate over 500 games** (177 avg turns). The UI mostly works for a human vs. AI solo round, but many rule gaps mean games don't feel like Risk. The world-map SVG has been removed from the stage as requested.
 
-## Just done
+## Just done (2026-04-21)
+
+- **Engine: two-player Neutral variant (§3.5)**
+  - `STARTING_ARMIES[2] = 40`; `createInitialState` synthesises a 3rd `isNeutral: true` seat when `players.length === 2` and strips the 2 wild cards from the deck.
+  - `advanceTurn` skips Neutral, so Neutral never reinforces / attacks / earns cards in the main game.
+  - `checkVictory` ignores Neutral when counting contenders — a human wins by eliminating all *other* humans.
+  - Setup UI (`apps/web/src/routes/Setup.tsx`) exposes **2** in the player-count picker with a "beta" note explaining the Neutral injection.
+  - New `isNeutral?: boolean` on `PlayerState`; exported `NEUTRAL_ID`, `NEUTRAL_COLOR` from `@riskrask/engine`.
+  - Tests: `packages/engine/test/setup.test.ts` (neutral injection, 40 reserves, no wilds); `packages/engine/test/victory.test.ts` (neutral excluded); `packages/engine/test/reducer.test.ts` (end-turn skips Neutral).
+  - **Caveat**: we keep the existing turn-by-turn claim/place flow rather than the strict "deal 3 piles of 14" setup from classic. Neutral plays via `dilettanteTurn` (random) in setup. Good enough for v1.
+- **Server: real Cloudflare Access JWT + Turnstile verify**
+  - `apps/server/src/auth/verify.ts::verifyAdminJwt` now fetches `https://<team>.cloudflareaccess.com/cdn-cgi/access/certs`, verifies the RS256 signature via `crypto.subtle`, checks `aud` against `CF_ACCESS_AUD`, and honours `exp` / `nbf`. JWKS is cached for 1h.
+  - New `apps/server/src/auth/turnstile.ts` does siteverify round-trips. Gated by `TURNSTILE_REQUIRED=1`; silent no-op when unset or when the caller is already JWT-authenticated.
+  - Wired into `POST /api/saves` for anonymous requests; returns 403 `TURNSTILE_REQUIRED` on failure.
+  - `.env.example` gains `TURNSTILE_REQUIRED`.
+  - Tests: `apps/server/test/turnstile.test.ts` covers the off/on/missing/valid/invalid paths.
+- **UI: contrast sweep after world-SVG removal**
+  - `ContinentLabel.tsx` fill alpha bumped 0.25 → 0.45 (main) and 0.15 → 0.30 (+bonus tspan).
+  - `CONTINENTS[*].color` alpha bumped 0.08 → 0.14 so continent blocks read on the darker stage.
+- **Docs drift**
+  - `docs/superpowers/plans/2026-04-19-track-d-web.md` Task 4 + file-structure table no longer mention `WorldLayer.tsx`. Viewbox corrected to `0 0 1000 640`.
+
+## Just done (2026-04-20)
 
 - **UI: removed world map background**
   - Deleted `apps/web/src/map/WorldLayer.tsx`.
   - Removed import + `<WorldLayer />` render from `apps/web/src/map/Map.tsx`.
   - Map now shows: lat/long grid → continent fills → adjacency lines → territory nodes. No world outline/boundaries.
-  - **Verify**: `bun run dev:web`, open `/play` — continent fill tints + node positions should still read clearly. If not, bump continent fill alpha in `board.ts` `CONTINENTS[*].color` from `0.08` to `~0.15`.
 - **Wrote `riskrules.md`**
   - Canonical classic-Risk reference. All engine changes below should cite it.
 
 ## P0 — rule bugs that break classic feel
 
-1. **Card territory bonus is placed in `reserves`, not on the matched territory.**
-   - `packages/engine/src/cards.ts:134-138` — the `+2` is added to `player.reserves`.
-   - Classic rule (`riskrules.md` §4.1.3): the 2 extra armies are placed **on the specific matching territory**, immediately.
-   - Fix: `tradeCards()` should return a `territoryBonus` payload that the reducer uses to bump `territories[name].armies += 2`, *not* reserves.
-   - Touchpoints: `cards.ts` `TradeResult`, `reducer.ts::applyTradeCards`.
-
-2. **Forced card trade at 5 cards is unenforced.**
-   - `PendingForcedTrade` + `'five-card-limit'` reason exist in `types.ts:46-49,104` but no reducer path sets `pendingForcedTrade` or blocks `reinforce` until the trade happens.
-   - Fix: at start of each `applyReinforce` / `advanceTurn` into `reinforce`, if `player.cards.length >= 5`, set `pendingForcedTrade` and reject everything except `trade-cards` until resolved.
-
-3. **Mid-attack forced trade on elimination is unenforced.**
-   - `riskrules.md` §4.2.7: if you eliminate a player and that takeover pushes your hand to ≥ 6, you **must immediately** trade sets down to < 5 before continuing the attack phase.
-   - `reducer.ts::applyMoveAfterCapture` calls `transferCardsOnElimination` but doesn't check hand size / set `pendingForcedTrade`.
-   - Fix: after transfer, if hand ≥ 6 set `pendingForcedTrade = { reason: 'elimination' }` and gate further attack actions.
-
-4. **Fortify uses connected-through-owned BFS instead of classic "one adjacent move".**
-   - `packages/engine/src/fortify.ts:9-42` implements the BFS "free move" house rule.
-   - Classic Hasbro rule: only one adjacent territory (`riskrules.md` §4.3).
-   - Decision needed (pick one, don't ship both):
-     - Option A — change `canFortify` to require `ADJACENCY[src].includes(tgt)`.
-     - Option B — keep BFS, but add a rulebook flag in `GameConfig` (`fortifyRule: 'adjacent' | 'connected'`).
-
-5. **Two-player variant missing.**
-   - `packages/engine/src/setup.ts:47` throws `Unsupported player count: 2`.
-   - Classic rules support 2 via a Neutral third color (`riskrules.md` §3.5).
-   - Low priority for v1 — stub out or explicitly document "3–6 only" in the UI.
+1. **Card territory bonus** — _done_ (see `apps/web`/engine commit `ae4e7dc`).
+2. **Forced card trade at 5 cards** — _done_ (commit `ae4e7dc`).
+3. **Mid-attack forced trade on elimination** — _done_ (commit `ae4e7dc`).
+4. **Fortify rule** — still BFS-through-owned. No engine change yet. Decide: keep BFS (house rule) or flip `canFortify` to strict adjacency, _then_ add a `GameConfig.fortifyRule` flag. Touchpoint: `packages/engine/src/fortify.ts:9-42`.
+5. **Two-player Neutral variant** — _done 2026-04-21_.
 
 ## P1 — AI is the main reason games stalemate
 
-6. **Wire `@riskrask/ai` into `aiRunner.ts`.**
-   - `apps/web/src/game/aiRunner.ts:7-10` TODO(Track F). Currently returns `dilettanteTurn` (random-ish) rather than the real archetype system in `packages/ai/src/`.
-   - Per `docs/balance/balance-2026-04-20.md`, dilettante wins 4.2%; real archetypes only hit 6.0% (napoleon) because the simulation is *also* using dilettante — pure random on both sides dominates the sim.
-   - Fix: expose a `takeTurn(state, playerId, rng, persona)` from `packages/ai/src/index.ts`, and call it from `aiRunner.ts`. Then re-run the balance sim harness.
-
+6. **`@riskrask/ai` wired into `aiRunner.ts`** — _done_ (commit `ae4e7dc`). Re-run the balance harness on the new archetype path and replace `docs/balance/balance-2026-04-20.md` with a fresh report.
 7. **Stalemate suppression.**
-   - 81.6% timeout at 177 turns is not a balance problem, it's an AI problem (players never press a winning advantage) + board-size problem (continent flips: SA 31.5×, EU 20.4×, AF 26.6× per game).
-   - Short term: make AI more aggressive once it holds a continent (apply a "press" bonus in the AI planner).
+   - 81.6% timeout at 177 turns with dilettante-only. Re-measure first, then decide if a "press" bonus on held continents is still needed.
    - Long term: consider turn-cap victory-by-territory-count (not classic; flag as house rule).
 
 ## P2 — polish and plumbing
 
-8. **Server endpoints are stubs.**
-   - `apps/server/src/http/saves.ts:7` — TODO wire real Turnstile verify.
-   - `apps/server/src/auth/verify.ts` — TODO real Cloudflare Access JWT verify.
-   - No multiplayer yet; only save/load by code.
-
-9. **UI cleanup after removing the world background.**
-   - Continent labels and fills should still orient the player. Re-check contrast on `ContinentLabel.tsx` vs. the darker stage background.
-   - Consider deleting `apps/web/public/assets/world.svg` if nothing else imports it (`design/mockups/*` still does — fine to keep file).
-
-10. **Docs drift.**
-    - `docs/superpowers/plans/2026-04-19-track-d-web.md:45-46` still references `WorldLayer.tsx`. Mark deprecated or remove lines.
+8. **Server endpoints** — _done 2026-04-21_. Turnstile + CF Access JWT are now real. Remaining: no multiplayer endpoints yet (Track F).
+9. **UI cleanup after removing the world background** — _done 2026-04-21_ (ContinentLabel + board alpha bumps). Revisit only if Playwright screenshots show regressions.
+10. **Docs drift** — _done 2026-04-21_.
 
 ## Suggested first commit after this one
 
-Pick **item 1** (card territory bonus). It's isolated (touches `cards.ts` + `applyTradeCards` + one test), fully specified by classic rules, and will make card plays feel right without needing a broader rebalance.
+Pick **P0 #4** (fortify rule). It's a one-line flip in `canFortify` with a config flag, and closes the last classic-rule gap before the balance rerun.
 
 ## Files to read first when you resume
 
 - `riskrules.md` — rules source of truth.
-- `packages/engine/src/reducer.ts` — action handlers; where most of the fixes above land.
-- `packages/engine/src/cards.ts` — P0 #1.
+- `packages/engine/src/reducer.ts` — action handlers.
+- `packages/engine/src/setup.ts` — 2P Neutral injection.
 - `packages/engine/src/fortify.ts` — P0 #4.
-- `apps/web/src/game/aiRunner.ts` — P1 #6.
-- `docs/balance/balance-2026-04-20.md` — current "this is broken" data.
+- `apps/server/src/auth/verify.ts` + `apps/server/src/auth/turnstile.ts` — the new gate modules.
+- `docs/balance/balance-2026-04-20.md` — baseline data; will be stale after the next harness run.
