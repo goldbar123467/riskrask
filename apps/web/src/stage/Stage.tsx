@@ -1,5 +1,5 @@
 import type { GameState, TerritoryName } from '@riskrask/engine';
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { TransformComponent, TransformWrapper, useControls } from 'react-zoom-pan-pinch';
 import type { UIPhase } from '../game/phase';
 import { Map as GameMap } from '../map/Map';
@@ -31,6 +31,7 @@ export function Stage({
   onSelect,
   onHover,
 }: StageProps) {
+  const [scale, setScale] = useState(1);
   return (
     <div
       className="relative h-full w-full overflow-hidden"
@@ -65,6 +66,9 @@ export function Stage({
         maxScale={4}
         centerOnInit
         limitToBounds={false}
+        onTransformed={(_ref, stateObj) => {
+          if (typeof stateObj.scale === 'number') setScale(stateObj.scale);
+        }}
       >
         <ZoomInner
           state={state}
@@ -72,6 +76,7 @@ export function Stage({
           selected={selected}
           target={target}
           currentPhase={currentPhase}
+          scale={scale}
           onSelect={onSelect}
           onHover={onHover}
         />
@@ -86,6 +91,7 @@ interface ZoomInnerProps {
   selected: TerritoryName | null;
   target: TerritoryName | null;
   currentPhase: UIPhase;
+  scale: number;
   onSelect: (name: TerritoryName) => void;
   onHover: (name: TerritoryName | null) => void;
 }
@@ -96,6 +102,7 @@ function ZoomInner({
   selected,
   target,
   currentPhase,
+  scale,
   onSelect,
   onHover,
 }: ZoomInnerProps) {
@@ -124,6 +131,7 @@ function ZoomInner({
         onZoomIn={() => zoomIn()}
         onZoomOut={() => zoomOut()}
         onFit={() => resetTransform()}
+        scale={scale}
         disabled={currentPhase === 'Setup'}
       />
     </>
