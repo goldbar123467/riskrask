@@ -102,6 +102,15 @@ export function Home() {
               NEW GAME
             </button>
 
+            <button
+              type="button"
+              onClick={() => void navigate('/lobby')}
+              className="border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-line-2 hover:text-ink"
+              data-testid="multiplayer-btn"
+            >
+              Multiplayer
+            </button>
+
             {existingState && (
               <button
                 type="button"
