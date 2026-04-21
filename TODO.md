@@ -4,10 +4,14 @@ _Last updated 2026-04-21 after the fortify-rule flag landed._
 
 ## Context in one paragraph
 
-The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade escalation, BFS fortify), but a few rules are either wrong or missing, and **the AI is a placeholder** (`dilettanteTurn`) which is why the last balance run (`docs/balance/balance-2026-04-20.md`) had an **81.6% stalemate rate over 500 games** (177 avg turns). The UI mostly works for a human vs. AI solo round, but many rule gaps mean games don't feel like Risk. The world-map SVG has been removed from the stage as requested.
+The engine now plays classic Risk (dice, continent bonuses, trade escalation, adjacent-only fortify by default, two-player Neutral variant), and the AI is `@riskrask/ai.takeTurn` with a per-player archetype. The fresh 50-game run (`docs/balance/balance-2026-04-21.md`) still shows a **78% stalemate rate** (172 avg turns), down only ~4 pp from the dilettante-only baseline — so the remaining P1 work is **terminating more games**, not fixing rules. The UI works for a human vs. AI solo round; the world-map SVG has been removed from the stage as requested.
 
 ## Just done (2026-04-21)
 
+- **Balance harness rerun (small sample)**
+  - 50 games on archetype-AI + classic-fortify: **22.0%** victory rate (11/50), 78% stalemate, avg 172.5 turns. JSONL at `reports/balance-2026-04-21.jsonl`, markdown at `docs/balance/balance-2026-04-21.md`.
+  - +3.6 pp victory rate and −4.7 avg turns vs. the 500-game dilettante baseline — directional, not significant. 84% of games still terminate at the action cap rather than the turn cap, so the blocker is AI aggression, not pathological inf-loops.
+  - Per-archetype cells are mostly < 10 games; the matchup matrix here is noise, don't tune off it. A 500-game rerun is the right move before any archetype tuning.
 - **Engine: fortify rule flag (P0 #4)**
   - New `FortifyRule = 'adjacent' | 'connected'` type exported from `@riskrask/engine`.
   - `GameConfig.fortifyRule?` (default `'adjacent'`) is threaded into `createInitialState`, persisted on `GameState.fortifyRule`, and read by `canFortify`. Missing field on legacy saves falls back to `'adjacent'` — the classic Hasbro 2008+ rule that has been in force since commit `ae4e7dc`.
@@ -54,9 +58,9 @@ The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade 
 
 ## P1 — AI is the main reason games stalemate
 
-6. **`@riskrask/ai` wired into `aiRunner.ts`** — _done_ (commit `ae4e7dc`). Re-run the balance harness on the new archetype path and replace `docs/balance/balance-2026-04-20.md` with a fresh report.
+6. **Balance harness rerun on `@riskrask/ai`** — _50-game pilot done 2026-04-21_ (`balance-2026-04-21.md`). Full 500-game rerun is the next commit before archetype tuning.
 7. **Stalemate suppression.**
-   - 81.6% timeout at 177 turns with dilettante-only. Re-measure first, then decide if a "press" bonus on held continents is still needed.
+   - 78% timeout at 172 turns with archetype AI — ~flat vs. dilettante baseline, so the AI currently isn't closing games faster. "Press" bonus on held continents is back on the table.
    - Long term: consider turn-cap victory-by-territory-count (not classic; flag as house rule).
 
 ## P2 — polish and plumbing
@@ -67,7 +71,7 @@ The engine is **mostly** right for Classic Risk (dice, continent bonuses, trade 
 
 ## Suggested first commit after this one
 
-Re-run `scripts/balance-harness.ts` and write `docs/balance/balance-2026-04-21.md`. With the AI now wired via `@riskrask/ai.takeTurn` (ae4e7dc) and the classic fortify rule flag locked in, the baseline from `balance-2026-04-20.md` is stale — P1 #7 (stalemate suppression) depends on fresh data before any "press bonus" is considered.
+Full 500-game rerun of `scripts/balance-harness.ts`, overwriting `balance-2026-04-21.md`. The 50-game pilot settled the headline (22% vic / 78% stale / 172 turns) but per-archetype cells have < 10 games each; don't tune archetypes off that. After the 500-game run, the next call is P1 #7 — either a "press" continent-hold bonus or a turn-cap victory-by-territory-count house rule.
 
 ## Files to read first when you resume
 
@@ -76,4 +80,4 @@ Re-run `scripts/balance-harness.ts` and write `docs/balance/balance-2026-04-21.m
 - `packages/engine/src/setup.ts` — 2P Neutral injection.
 - `packages/engine/src/fortify.ts` — P0 #4.
 - `apps/server/src/auth/verify.ts` + `apps/server/src/auth/turnstile.ts` — the new gate modules.
-- `docs/balance/balance-2026-04-20.md` — baseline data; will be stale after the next harness run.
+- `docs/balance/balance-2026-04-21.md` — current baseline (50-game pilot). Superseded by the 500-game rerun when that lands.
