@@ -56,6 +56,7 @@ function runAiStep(state: GameState, dispatch: DispatchFn): void {
   if (state.phase === 'done') return;
 
   const actions = dilettanteTurn(state, cp.id);
+  let dispatched = false;
   for (const action of actions) {
     try {
       // Dice-rolling and post-capture moves each get their own tick so the
@@ -70,11 +71,22 @@ function runAiStep(state: GameState, dispatch: DispatchFn): void {
         return;
       }
       dispatch(action);
+      dispatched = true;
     } catch {
       // An engine rejection mid-batch means the AI's plan went stale (rare —
       // usually from a prior action changing the board). Bail out of the
       // remaining batch; the next tick recomputes from the current state.
-      return;
+      break;
+    }
+  }
+
+  // Safety valve: if the entire batch failed (or was empty) and we're mid-turn,
+  // forcibly end the turn so the dispatcher doesn't deadlock on an unchanged state.
+  if (!dispatched) {
+    try {
+      dispatch({ type: 'end-turn' });
+    } catch {
+      // nothing more we can do; next tick will re-evaluate
     }
   }
 }

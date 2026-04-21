@@ -38,6 +38,7 @@ export function Play() {
   >('map');
   const [attackDice, setAttackDice] = useState<readonly number[]>([]);
   const [defenseDice, setDefenseDice] = useState<readonly number[]>([]);
+  const [draftSkipped, setDraftSkipped] = useState(false);
 
   // Human player is always index 0 in solo mode
   const humanPlayerId = state?.players[0]?.id ?? 'human';
@@ -49,6 +50,11 @@ export function Play() {
   useEffect(() => {
     if (!state) void navigate('/');
   }, [state, navigate]);
+
+  // Reset the "draft skipped" escape hatch whenever the engine phase or turn advances.
+  useEffect(() => {
+    setDraftSkipped(false);
+  }, [state?.phase, state?.turn]);
 
   // Consume dice-roll effects
   const effectsQueue = useGame((s) => s.effectsQueue);
@@ -249,7 +255,7 @@ export function Play() {
 
   if (!state) return null;
 
-  const phase = uiPhase(state, humanPlayerId);
+  const phase = uiPhase(state, humanPlayerId, draftSkipped);
   const cp = state.players[state.currentPlayerIdx];
 
   return (
@@ -289,9 +295,8 @@ export function Play() {
             onDeployConfirm={handleDeployConfirm}
             onDeployCancel={handleDeployCancel}
             onTrade={handleTrade}
-            onSkipDraft={() => {
-              /* just skip, phase heroes show deploy next */
-            }}
+            onSkipDraft={() => setDraftSkipped(true)}
+            draftSkipped={draftSkipped}
             onAttackSingle={handleAttackSingle}
             onAttackBlitz={handleAttackBlitz}
             onEndAttack={handleEndAttack}

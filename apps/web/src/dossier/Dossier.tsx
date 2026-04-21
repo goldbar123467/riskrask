@@ -26,6 +26,7 @@ interface DossierProps {
   onAttackCancel: () => void;
   onFortifyConfirm: (count: number) => void;
   onFortifySkip: () => void;
+  draftSkipped?: boolean;
 }
 
 /**
@@ -49,9 +50,10 @@ export function Dossier({
   onAttackCancel,
   onFortifyConfirm,
   onFortifySkip,
+  draftSkipped = false,
 }: DossierProps) {
   const player = state.players.find((p) => p.id === humanPlayerId);
-  const phase = uiPhase(state, humanPlayerId);
+  const phase = uiPhase(state, humanPlayerId, draftSkipped);
 
   const isHumanTurn = state.players[state.currentPlayerIdx]?.id === humanPlayerId;
 
@@ -76,7 +78,7 @@ export function Dossier({
             />
           )}
 
-          {phase === 'Deploy' && state.phase === 'reinforce' && (
+          {state.phase === 'reinforce' && (player?.reserves ?? 0) > 0 && (
             <DeployPanel
               state={state}
               humanPlayerId={humanPlayerId}
