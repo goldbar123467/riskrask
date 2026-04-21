@@ -134,6 +134,7 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
   >('map');
   const [attackDice, setAttackDice] = useState<readonly number[]>([]);
   const [defenseDice, setDefenseDice] = useState<readonly number[]>([]);
+  const [deployCount, setDeployCount] = useState(1);
 
   // Server controls phase progression, so the draft-skipped escape hatch from
   // solo doesn't apply here. `uiPhase` is called with `draftSkipped=false`.
@@ -223,12 +224,14 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
     sendIntent(action);
   }
 
-  function handleDeployConfirm() {
+  function handleDeployConfirm(count?: number) {
     if (!state || !selected) return;
     const player = state.players.find((p) => p.id === humanPlayerId);
     if (!player || player.reserves <= 0) return;
-    emit({ type: 'reinforce', territory: selected, count: player.reserves });
-    setSelected(null);
+    const requested = count ?? deployCount;
+    const amount = Math.min(Math.max(1, requested), player.reserves);
+    emit({ type: 'reinforce', territory: selected, count: amount });
+    if (player.reserves - amount <= 0) setSelected(null);
   }
 
   function handleDeployCancel() {
@@ -347,6 +350,7 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
             hover={hoverTarget}
             onSelect={handleSelect}
             onHover={setHover}
+            mode="room"
           />
         }
         dossier={
@@ -357,6 +361,8 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
             target={target}
             attackDice={attackDice}
             defenseDice={defenseDice}
+            deployCount={deployCount}
+            onDeployCountChange={setDeployCount}
             onDeployConfirm={handleDeployConfirm}
             onDeployCancel={handleDeployCancel}
             onTrade={handleTrade}
