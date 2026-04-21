@@ -125,9 +125,7 @@ console.log(`actions applied : ${actionsApplied}`);
 console.log(`engine errors   : ${engineErrors}`);
 console.log(`winner          : ${winnerArch ?? '<none>'}`);
 console.log(`leader          : ${leaderArch} (${leaderCount} territories)`);
-console.log(
-  `territories/arch: ${sorted.map(([a, n]) => `${a}=${n}`).join(' ')}`,
-);
+console.log(`territories/arch: ${sorted.map(([a, n]) => `${a}=${n}`).join(' ')}`);
 
 // Exit non-zero only if the engine rejected more actions than it accepted —
 // that means a rule change broke the orchestrator.

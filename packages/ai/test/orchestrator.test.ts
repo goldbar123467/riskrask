@@ -77,22 +77,23 @@ describe('takeTurn', () => {
     expect(allActions.length).toBe(4);
   });
 
-  test('last action in list is end-turn or game-over state', () => {
+  test('last action in list ends the turn', () => {
     const state = buildMidgameState();
     const pid = currentPlayerId(state);
     const rng = createRng('end-turn-test');
     const actions = takeTurn(state, pid, rng, 'dilettante');
     const last = actions[actions.length - 1];
-    // Either end-turn, or the game ended (winner set) before end-turn
     if (last) {
-      const validEnders = ['end-turn', 'concede'];
+      // `fortify` auto-advances the turn in the engine, so it counts as a
+      // valid ender alongside `end-turn` and `concede`.
+      const validEnders = ['end-turn', 'concede', 'fortify'];
       let s = state;
       for (const action of actions) {
         const result = apply(s, action);
         s = result.next;
       }
       if (!s.winner) {
-        expect(last.type).toBe('end-turn');
+        expect(validEnders).toContain(last.type);
       }
     }
   });

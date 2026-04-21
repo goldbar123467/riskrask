@@ -204,21 +204,27 @@ export function scoreAttack(
   }
   if (oppId) {
     const oppTerrs = ownedBy(state, oppId);
-    if (
-      oppTerrs.length <= 3 &&
-      target ===
-        oppTerrs.reduce(
-          (min, n) =>
-            (state.territories[n]?.armies ?? 0) < (state.territories[min]?.armies ?? 0) ? n : min,
-          oppTerrs[0] ?? target,
-        )
-    ) {
-      score += 10 * getWeight(ps, 'attack', 'eliminate');
+    // Scale eliminate bonus as the opponent shrinks: a 1-territory enemy is
+    // almost always worth killing; the old binary ≤3 cutoff missed the
+    // critical "knock them to 1" step.
+    if (oppTerrs.length > 0 && oppTerrs.length <= 6) {
+      const bonus = (7 - oppTerrs.length) * 4 * getWeight(ps, 'attack', 'eliminate');
+      score += bonus;
+      // Extra kicker when this very attack *is* the finishing blow.
+      if (oppTerrs.length === 1) {
+        score += 30 * getWeight(ps, 'attack', 'eliminate');
+      }
     }
   }
   score += 5 * (src.armies - tgt.armies) * getWeight(ps, 'attack', 'armyAdvantage');
-  if (src.armies <= tgt.armies && !aiOwnsOthers) {
-    score -= 50 * getWeight(ps, 'attack', 'hopelessPenalty');
+  // Soften the hopelessness penalty: in classic dice odds, a 3v3 blitz wins
+  // about 47%, and 4v3 is a clear favourite. The hard -50 was stopping AIs
+  // from closing marginal engagements. Gate it to truly hopeless matchups
+  // (we have fewer armies *and* no continent context to defend).
+  if (src.armies < tgt.armies && !aiOwnsOthers) {
+    score -= 40 * getWeight(ps, 'attack', 'hopelessPenalty');
+  } else if (src.armies === tgt.armies && !aiOwnsOthers) {
+    score -= 10 * getWeight(ps, 'attack', 'hopelessPenalty');
   }
   return score;
 }
@@ -231,35 +237,57 @@ export interface FortifyScore {
 }
 
 /**
- * Scores fortify options. Mirrors v2 aiFortify heuristic:
- * source = interior territory with highest armies, dest = adjacent friendly with highest enemy-army sum.
+ * Compute the "enemy pressure" on a territory — the sum of enemy-army counts
+ * across all adjacent enemy-owned territories. 0 for pure interiors.
+ */
+function enemyPressure(state: GameState, name: TerritoryName, playerId: PlayerId): number {
+  const t = state.territories[name];
+  if (!t) return 0;
+  return t.adj.reduce((sum, a) => {
+    const n = state.territories[a];
+    if (!n || n.owner === playerId) return sum;
+    return sum + (n.armies ?? 0);
+  }, 0);
+}
+
+/**
+ * Scores fortify options. Heuristic: maximise pressure-delta — pull armies
+ * from low-pressure (interior or quiet) owned territories to high-pressure
+ * adjacent owned territories.
+ *
+ * Original v2 behaviour only considered *pure interior* sources, which meant
+ * the AI never re-shuffled between active fronts. That left lopsided stacks
+ * on quiet borders while active fronts thinned out, which was a secondary
+ * driver of stalemates.
  */
 export function scoreFortifyOptions(state: GameState, playerId: PlayerId): FortifyScore[] {
   const owned = ownedBy(state, playerId);
-  // candidates = owned territories that have ≥2 armies and all adj are friendly (interior)
-  const candidates = owned.filter((n) => {
-    const t = state.territories[n];
-    return t && t.armies >= 2 && t.adj.every((a) => state.territories[a]?.owner === playerId);
-  });
-  if (candidates.length === 0) return [];
-  candidates.sort(
-    (a, b) => (state.territories[b]?.armies ?? 0) - (state.territories[a]?.armies ?? 0),
-  );
+  const sources = owned.filter((n) => (state.territories[n]?.armies ?? 0) >= 2);
+  if (sources.length === 0) return [];
+
+  const pressureCache: Record<TerritoryName, number> = {};
+  const pressureOf = (n: TerritoryName): number => {
+    if (pressureCache[n] === undefined) pressureCache[n] = enemyPressure(state, n, playerId);
+    return pressureCache[n];
+  };
+
   const results: FortifyScore[] = [];
-  for (const srcName of candidates) {
+  for (const srcName of sources) {
     const srcT = state.territories[srcName];
     if (!srcT) continue;
+    const srcPressure = pressureOf(srcName);
     for (const adj of srcT.adj) {
       if (state.territories[adj]?.owner !== playerId) continue;
-      const adjT = state.territories[adj];
-      if (!adjT) continue;
-      const enemyTotal = adjT.adj.reduce(
-        (s, n) =>
-          s + (state.territories[n]?.owner !== playerId ? (state.territories[n]?.armies ?? 0) : 0),
-        0,
-      );
+      const adjName = adj as TerritoryName;
+      const adjPressure = pressureOf(adjName);
+      // Only fortify in the direction of higher pressure; otherwise we're
+      // just shuffling armies sideways. +1 fudge lets the AI move armies
+      // off quiet interiors even when destination is also interior but has
+      // at least a breath of enemy adjacency.
+      if (adjPressure <= srcPressure && !(srcPressure === 0 && adjPressure > 0)) continue;
       const move = srcT.armies - 1;
-      results.push({ from: srcName, to: adj as TerritoryName, count: move, score: enemyTotal });
+      const score = adjPressure - srcPressure + (srcPressure === 0 ? 5 : 0);
+      results.push({ from: srcName, to: adjName, count: move, score });
     }
   }
   return results;

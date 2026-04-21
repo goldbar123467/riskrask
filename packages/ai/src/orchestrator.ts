@@ -24,7 +24,17 @@ import type { PersonaState } from './persona.js';
 import type { ScoredOption } from './persona.js';
 import { Rule } from './rule.js';
 
-const MAX_ATTACKS_PER_TURN = 8;
+/** Total territories on the Classic Risk board. */
+const TOTAL_TERRITORIES = 42;
+
+/**
+ * Hard cap on attacks per AI turn. Closeout turns in Risk routinely sweep
+ * 20+ territories when a player has a snowballing stack; 8 was an early-game
+ * placeholder that was throttling late-game terminations and produced ~78%
+ * stalemate rates. 32 matches the practical max a real player reaches in a
+ * single aggressive turn.
+ */
+const MAX_ATTACKS_PER_TURN = 32;
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -43,10 +53,7 @@ function ownedSet(state: GameState, playerId: PlayerId): ReadonlySet<TerritoryNa
  * (3 types × at most 2 each + wilds covers it), so the loop is guaranteed to
  * make progress unless the hand is already < 3.
  */
-function resolveForcedTrades(
-  state: GameState,
-  playerId: PlayerId,
-): [Action[], GameState] {
+function resolveForcedTrades(state: GameState, playerId: PlayerId): [Action[], GameState] {
   const actions: Action[] = [];
   let s = state;
   for (let i = 0; i < 10; i++) {
@@ -167,6 +174,12 @@ function doAttack(
     const owned = ownedBy(s, playerId);
     const options: ScoredOption<{ from: TerritoryName; to: TerritoryName }>[] = [];
 
+    // Recognise close-out mode: once we hold >= 50% of the map, every
+    // low-cost conquest compresses remaining turns. The orchestrator keeps
+    // pushing instead of bailing on the first losing score.
+    const ownedCount = owned.length;
+    const pressMode = ownedCount * 2 >= TOTAL_TERRITORIES;
+
     for (const src of owned) {
       const sT = s.territories[src];
       if (!sT || sT.armies < 2) continue;
@@ -176,6 +189,16 @@ function doAttack(
         if (s.territories[adj]?.owner === playerId) continue;
         let score = Persona.scoreAttack(s, src, adj as TerritoryName, playerId, ps);
         if (arch) score += Book.attackBonus(arch.openingBook, adj as TerritoryName, s.turn);
+        // In press mode, reward any attack where we have a dice-favoured edge.
+        // 3v1 blitz win prob ≈ 92%; 3v2 ≈ 66%; 2v1 ≈ 58% — all worth taking
+        // when we're already leading and the target can't threaten us back.
+        if (pressMode) {
+          const tT = s.territories[adj];
+          const myArmies = sT.armies;
+          const enemyArmies = tT?.armies ?? 0;
+          if (myArmies >= enemyArmies + 1) score += 12;
+          if (enemyArmies <= 1) score += 8;
+        }
         options.push({ item: { from: src, to: adj as TerritoryName }, score });
       }
     }
@@ -183,13 +206,19 @@ function doAttack(
     if (options.length === 0) break;
 
     const chosen = Persona.pick(options, ps, arch, s.turn, rng);
-    if (!chosen || chosen.score <= 0) break;
+    if (!chosen) break;
+    // In press mode we keep attacking on any positive-EV option even when the
+    // softmax pick returned a mild score. Outside press mode we respect the
+    // traditional `score > 0` gate so cautious archetypes don't suicide into
+    // bad matchups.
+    if (!pressMode && chosen.score <= 0) break;
+    if (pressMode && chosen.score <= -20) break; // still guard against true suicide
 
-    // v2: stop if AI holds ≥1 conquest and max source stack ≤3
-    if (attacksMade >= 1) {
-      const maxSrc = Math.max(...owned.map((n) => s.territories[n]?.armies ?? 0));
-      if (maxSrc <= 3) break;
-    }
+    // Old v2 rule stopped attacking once every source dropped to ≤3 armies.
+    // That was the dominant cause of stalemates: closeout turns need to sweep
+    // long chains of 1-army enemy territories where 3v1 blitz wins 92% of the
+    // time. We now only stop when *no* source can attack at all — which the
+    // `options.length === 0` guard above already handles.
 
     const action: Action = {
       type: 'attack-blitz',

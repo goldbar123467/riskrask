@@ -3,7 +3,15 @@ import { useEffect, useRef } from 'react';
 import { dilettanteTurn } from './aiRunner';
 import { useGame } from './useGame';
 
-const AI_TICK_MS = 450;
+/**
+ * Throttle between AI actions. Dice-rolling actions ride a slightly slower
+ * beat so the 600ms shake animation reads clearly; other actions (trades,
+ * placements, fortify) are fast enough to feel responsive even on 20+ action
+ * closeout turns.
+ */
+const AI_TICK_SLOW_MS = 420; // attack / blitz — paced for dice animation
+const AI_TICK_FAST_MS = 140; // non-dice actions (reinforce, trade, fortify, end-turn)
+const AI_TICK_SETUP_MS = 60; // setup-claim / setup-reinforce — even faster
 
 type DispatchFn = (action: Action) => Effect[];
 
@@ -23,9 +31,15 @@ export function useSoloDispatcher(_humanPlayerId: string): void {
     const cp = state.players[state.currentPlayerIdx];
     if (!cp || !cp.isAI) return;
 
+    // Setup phases run at the fastest tempo so the claim/place ritual doesn't
+    // drag. Dice combat gets the slower beat. Everything else in between.
+    const isSetup = state.phase === 'setup-claim' || state.phase === 'setup-reinforce';
+    const isAttack = state.phase === 'attack';
+    const tickMs = isSetup ? AI_TICK_SETUP_MS : isAttack ? AI_TICK_SLOW_MS : AI_TICK_FAST_MS;
+
     timerRef.current = setTimeout(() => {
       runAiStep(state, dispatch);
-    }, AI_TICK_MS);
+    }, tickMs);
 
     return () => {
       if (timerRef.current !== null) {
@@ -43,17 +57,24 @@ function runAiStep(state: GameState, dispatch: DispatchFn): void {
 
   const actions = dilettanteTurn(state, cp.id);
   for (const action of actions) {
-    // After a move-after-capture, the state might need a special dispatch
-    if (action.type === 'attack-blitz' || action.type === 'attack') {
+    try {
+      // Dice-rolling and post-capture moves each get their own tick so the
+      // dice animation + capture readout have space to breathe. Every other
+      // action type flushes immediately in this batch.
+      if (action.type === 'attack-blitz' || action.type === 'attack') {
+        dispatch(action);
+        return;
+      }
+      if (action.type === 'move-after-capture') {
+        dispatch(action);
+        return;
+      }
       dispatch(action);
-      // If pendingMove is now set, we need to resolve it
-      // The effect loop will handle via the next state update
+    } catch {
+      // An engine rejection mid-batch means the AI's plan went stale (rare —
+      // usually from a prior action changing the board). Bail out of the
+      // remaining batch; the next tick recomputes from the current state.
       return;
     }
-    if (action.type === 'move-after-capture') {
-      dispatch(action);
-      return;
-    }
-    dispatch(action);
   }
 }

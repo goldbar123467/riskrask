@@ -1,4 +1,5 @@
 import type { Action, Effect, TerritoryName } from '@riskrask/engine';
+import { createInitialState } from '@riskrask/engine';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Brand } from '../console/Brand';
@@ -202,9 +203,28 @@ export function Play() {
 
   function handleRematch() {
     if (!state) return;
-    const newState = { ...state, phase: 'setup-claim' as const, winner: undefined };
-    void newState; // use createInitialState instead
-    void navigate('/setup');
+    // Spin up a fresh game with the same roster but a new seed so the board
+    // layout diverges from the previous match. Neutral seats synthesised by
+    // createInitialState are skipped here — they're re-injected on rebuild.
+    const humanPlayers = state.players
+      .filter((p) => !p.isNeutral)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        isAI: p.isAI,
+      }));
+    const nextSeed = Math.random().toString(36).slice(2, 10);
+    const fresh = createInitialState({
+      seed: nextSeed,
+      players: humanPlayers,
+      ...(state.fortifyRule ? { fortifyRule: state.fortifyRule } : {}),
+    });
+    loadState(fresh);
+    setSelected(null);
+    setTarget(null);
+    setAttackDice([]);
+    setDefenseDice([]);
   }
 
   // Hotkeys — defined after handlers so they can reference them
