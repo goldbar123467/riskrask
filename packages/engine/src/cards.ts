@@ -131,10 +131,13 @@ export function tradeCards(
   const idxSet = new Set(indices);
   const remainingCards = player.cards.filter((_, i) => !idxSet.has(i));
 
+  // Classic rule: the +2 territory bonus is placed directly onto the matched
+  // territory, not added to the reserve pool. Reserves track only the trade-
+  // table value; the reducer applies the territory bonus to state.territories.
   const updatedPlayer: PlayerState = {
     ...player,
     cards: remainingCards,
-    reserves: player.reserves + armies + (territoryBonus ? 2 : 0),
+    reserves: player.reserves + armies,
   };
 
   const newDiscard = [...state.discard, ...trio];
@@ -142,7 +145,7 @@ export function tradeCards(
   return {
     player: updatedPlayer,
     discard: newDiscard,
-    armiesGained: armies + (territoryBonus ? 2 : 0),
+    armiesGained: armies,
     territoryBonus,
   };
 }

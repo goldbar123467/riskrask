@@ -42,10 +42,15 @@ export function connectedThroughOwned(
 }
 
 /**
- * Returns true if a fortify move is legal:
+ * Returns true if a fortify move is legal under classic Risk rules:
  * - Both territories owned by playerId
- * - Connected through owned territories (BFS)
+ * - Directly adjacent (land border or sea-lane)
  * - src.armies > 1
+ *
+ * Classic Hasbro rule (§4.3): "Move as many armies as you like from one of
+ * your territories into one adjacent territory you also own." The
+ * connected-through-owned BFS helper is retained for potential future opt-in
+ * but is not the default.
  */
 export function canFortify(
   state: GameState,
@@ -58,7 +63,7 @@ export function canFortify(
   if (!src || !tgt) return false;
   if (src.owner !== playerId || tgt.owner !== playerId) return false;
   if (src.armies <= 1) return false;
-  return connectedThroughOwned(state, srcName, tgtName, playerId);
+  return (ADJACENCY[srcName] ?? []).includes(tgtName);
 }
 
 export interface FortifyResult {
@@ -97,10 +102,7 @@ export function doFortify(
     );
   }
   if (!canFortify(state, srcName, tgtName, cp.id)) {
-    throw new EngineError(
-      'NOT_CONNECTED',
-      `${srcName} and ${tgtName} are not connected through owned territories`,
-    );
+    throw new EngineError('NOT_ADJACENT', `${srcName} is not adjacent to ${tgtName}`);
   }
 
   const newTerritories = { ...state.territories };
