@@ -19,6 +19,7 @@ COPY apps/admin/package.json apps/admin/
 COPY packages/engine/package.json packages/engine/
 COPY packages/ai/package.json packages/ai/
 COPY packages/shared/package.json packages/shared/
+COPY scripts/package.json scripts/
 
 # Install with frozen lockfile
 RUN bun install --frozen-lockfile
