@@ -1,5 +1,5 @@
 import type { GameState, TerritoryName } from '@riskrask/engine';
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface DeployPanelProps {
   state: GameState;
@@ -41,6 +41,18 @@ export function DeployPanel({
   const canDeploy = Boolean(selected) && reserves > 0;
   const effectiveCount = Math.min(Math.max(1, count), Math.max(1, reserves));
 
+  // "Bump" the readout briefly each time count changes.
+  const [bump, setBump] = useState(0);
+  const lastCountRef = useRef(effectiveCount);
+  useEffect(() => {
+    if (lastCountRef.current !== effectiveCount) {
+      lastCountRef.current = effectiveCount;
+      setBump((b) => b + 1);
+    }
+  }, [effectiveCount]);
+
+  const fillPct = reserves > 0 ? Math.min(100, (effectiveCount / reserves) * 100) : 0;
+
   return (
     <div className="flex flex-col gap-3 border-b border-line px-4 py-4" aria-label="deploy-panel">
       {/* Phase headline */}
@@ -59,11 +71,35 @@ export function DeployPanel({
         {selectedTerr && <Readout label="ARMIES" value={String(selectedTerr.armies)} />}
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1 w-full overflow-hidden bg-panel-2">
+      {/* Big "PLACE: N" readout — bumps on change */}
+      {canDeploy && (
+        <div className="flex items-baseline justify-between border border-hot/40 bg-hot/5 px-3 py-2">
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-hot/80">
+            PLACE
+          </span>
+          <span
+            key={bump}
+            className="font-display text-2xl font-semibold tracking-[0.04em] text-hot"
+            style={{
+              animation: 'scaleIn 120ms var(--ease-bounce)',
+              textShadow: '0 0 14px rgba(255,77,46,0.5)',
+            }}
+          >
+            {effectiveCount}
+          </span>
+        </div>
+      )}
+
+      {/* Progress bar — fills to count/reserves. Decorative; the slider above
+          is the real input and announces its value via aria-label. */}
+      <div className="h-1 w-full overflow-hidden bg-panel-2" aria-hidden>
         <div
-          className="h-full bg-hot transition-all duration-300"
-          style={{ width: reserves > 0 ? `${Math.min(100, (reserves / 10) * 100)}%` : '0%' }}
+          className="h-full bg-hot"
+          style={{
+            width: `${fillPct}%`,
+            transition: 'width 220ms var(--ease-out-fast)',
+            boxShadow: '0 0 8px var(--hot-glow)',
+          }}
         />
       </div>
 
@@ -71,7 +107,9 @@ export function DeployPanel({
       {canDeploy && (
         <div className="flex flex-col gap-1.5">
           <div className="flex items-center justify-between">
-            <span className="font-mono text-[9px] text-ink-faint">PLACE: {effectiveCount}</span>
+            <span className="font-mono text-[9px] text-ink-faint">
+              {effectiveCount}/{reserves}
+            </span>
             <span className="font-mono text-[9px] text-ink-ghost">max {reserves}</span>
           </div>
           <input
@@ -105,7 +143,7 @@ export function DeployPanel({
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-danger hover:text-danger"
+          className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim transition-colors hover:border-danger hover:text-danger"
         >
           Cancel
         </button>
@@ -113,7 +151,7 @@ export function DeployPanel({
           type="button"
           onClick={() => onConfirm(effectiveCount)}
           disabled={!canDeploy}
-          className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
+          className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot transition-colors hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
         >
           Confirm
         </button>
@@ -127,7 +165,7 @@ function QuickBtn({ label, onClick }: { label: string; onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex-1 border border-line py-1 font-mono text-[9px] uppercase tracking-widest text-ink-dim hover:border-hot hover:text-hot"
+      className="flex-1 border border-line py-1 font-mono text-[9px] uppercase tracking-widest text-ink-dim transition-colors hover:border-hot hover:text-hot"
     >
       {label}
     </button>

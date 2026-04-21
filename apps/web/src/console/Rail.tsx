@@ -88,12 +88,24 @@ export function Rail({ activeItem, onSelect }: RailProps) {
             onClick={() => onSelect(id)}
             aria-label={label}
             aria-pressed={isActive}
-            className={`relative flex h-11 w-11 cursor-pointer flex-col items-center justify-center gap-0.5 font-mono text-[8px] tracking-[0.12em] transition-colors ${
-              isActive ? 'text-ink' : 'text-ink-faint hover:text-ink-dim'
+            className={`relative flex h-11 w-11 cursor-pointer flex-col items-center justify-center gap-0.5 font-mono text-[8px] tracking-[0.12em] transition-all duration-150 ease-out hover:scale-110 active:scale-95 ${
+              isActive ? 'text-hot' : 'text-ink-faint hover:text-ink'
             }`}
+            style={{
+              transformOrigin: 'center',
+              filter: isActive ? 'drop-shadow(0 0 6px rgba(255,77,46,0.55))' : undefined,
+            }}
           >
             {/* Hot accent bar on left edge */}
-            {isActive && <span className="absolute bottom-2 left-0 top-2 w-0.5 bg-hot" />}
+            {isActive && (
+              <span
+                className="rr-anim-pulseGlow absolute bottom-2 left-0 top-2 w-0.5 bg-hot"
+                style={{
+                  boxShadow: 'var(--shadow-hot-glow)',
+                  animation: 'pulseGlow 1600ms ease-in-out infinite',
+                }}
+              />
+            )}
             <span className="h-[18px] w-[18px]">{icon}</span>
             <span>{label}</span>
           </button>

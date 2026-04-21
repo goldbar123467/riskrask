@@ -5,22 +5,69 @@ interface DicePanelProps {
   defenseDice: readonly number[];
 }
 
+interface Outcome {
+  /** Net attacker losses (defender losses minus attacker losses, signed). */
+  delta: number;
+  /** WIN if attacker took fewer losses than defender; LOSS if more; PUSH if even. */
+  kind: 'WIN' | 'LOSS' | 'PUSH';
+  attackerLosses: number;
+  defenderLosses: number;
+}
+
+/**
+ * Pair the highest attacker die against the highest defender die, and the
+ * second-highest pair if both have one. Defender wins ties — classic Risk.
+ */
+function computeOutcome(
+  attackDice: readonly number[],
+  defenseDice: readonly number[],
+): Outcome | null {
+  if (attackDice.length === 0 || defenseDice.length === 0) return null;
+  const atk = [...attackDice].sort((a, b) => b - a);
+  const def = [...defenseDice].sort((a, b) => b - a);
+  const pairs = Math.min(atk.length, def.length);
+  let attackerLosses = 0;
+  let defenderLosses = 0;
+  for (let i = 0; i < pairs; i++) {
+    const a = atk[i] ?? 0;
+    const d = def[i] ?? 0;
+    if (a > d) defenderLosses++;
+    else attackerLosses++;
+  }
+  const delta = defenderLosses - attackerLosses;
+  const kind: Outcome['kind'] = delta > 0 ? 'WIN' : delta < 0 ? 'LOSS' : 'PUSH';
+  return { delta, kind, attackerLosses, defenderLosses };
+}
+
 /**
  * 3×2 dice grid: attacker above (red), defender below (grey).
  * Tumble on roll, then a settled glow pulse on the resulting value.
+ *
+ * A small outcome banner flashes "WIN +N" / "LOSS −N" beneath the grid
+ * for ~1s after each new roll arrives.
  */
 export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
   const [shaking, setShaking] = useState(false);
+  const [flashKey, setFlashKey] = useState<number>(0);
+  const [showBanner, setShowBanner] = useState(false);
   const prevRef = useRef<string>('');
 
   const key = JSON.stringify({ attackDice, defenseDice });
+  const outcome = computeOutcome(attackDice, defenseDice);
 
   useEffect(() => {
     if (key !== prevRef.current && (attackDice.length > 0 || defenseDice.length > 0)) {
       prevRef.current = key;
       setShaking(true);
-      const t = setTimeout(() => setShaking(false), 900);
-      return () => clearTimeout(t);
+      setShowBanner(true);
+      setFlashKey((k) => k + 1);
+      const t1 = setTimeout(() => setShaking(false), 900);
+      // Banner stays visible for ~1s after the dice settle.
+      const t2 = setTimeout(() => setShowBanner(false), 1900);
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+      };
     }
   }, [key, attackDice.length, defenseDice.length]);
 
@@ -63,7 +110,48 @@ export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
           </div>
         </div>
       </div>
+
+      {/* Outcome banner — flashes after each new roll */}
+      <OutcomeBanner outcome={outcome} visible={showBanner} flashKey={flashKey} />
     </div>
+  );
+}
+
+function OutcomeBanner({
+  outcome,
+  visible,
+  flashKey,
+}: {
+  outcome: Outcome | null;
+  visible: boolean;
+  flashKey: number;
+}) {
+  if (!outcome || !visible) return null;
+  const { kind, delta } = outcome;
+  const isWin = kind === 'WIN';
+  const isLoss = kind === 'LOSS';
+  const sign = delta > 0 ? '+' : delta < 0 ? '−' : '±';
+  const colorVar = isWin ? 'var(--ok)' : isLoss ? 'var(--danger)' : 'var(--ink-dim)';
+  return (
+    <output
+      key={flashKey}
+      aria-label="dice-outcome"
+      className="rr-anim-fadeInUp mt-1 flex items-center justify-center border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em]"
+      style={{
+        color: colorVar,
+        borderColor: colorVar,
+        background: `${isWin ? 'rgba(95,179,138,0.08)' : isLoss ? 'rgba(201,74,74,0.08)' : 'rgba(138,148,165,0.06)'}`,
+        animation: 'fadeInUp 220ms var(--ease-out-fast)',
+        boxShadow: isWin
+          ? '0 0 10px rgba(95,179,138,0.25)'
+          : isLoss
+            ? '0 0 10px rgba(201,74,74,0.25)'
+            : undefined,
+      }}
+    >
+      {kind} {sign}
+      {Math.abs(delta)}
+    </output>
   );
 }
 

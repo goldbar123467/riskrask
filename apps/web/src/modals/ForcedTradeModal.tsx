@@ -1,5 +1,7 @@
 import type { Card, ForcedTrade, GameState } from '@riskrask/engine';
 import { findBestSet } from '@riskrask/engine';
+import { motion } from 'framer-motion';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface ForcedTradeModalProps {
   state: GameState;
@@ -13,6 +15,7 @@ interface ForcedTradeModalProps {
  * Always shown as Cancel (not applicable here, both valid) + Confirm pair.
  */
 export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: ForcedTradeModalProps) {
+  const reduced = useReducedMotion();
   const player = state.players.find((p) => p.id === forcedTrade.playerId);
   const cards = player?.cards ?? [];
   const ownedTerritories = new Set(
@@ -24,10 +27,14 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-      <dialog
+      <motion.dialog
         className="flex w-[380px] flex-col gap-5 border border-warn bg-bg-0 p-7"
         aria-label="forced-trade-modal"
         open
+        initial={reduced ? { opacity: 0 } : { opacity: 0, scale: 0.94, y: 6 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: reduced ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
+        style={{ boxShadow: '0 0 28px rgba(212,162,74,0.25)' }}
       >
         <div>
           <p className="font-mono text-[9px] uppercase tracking-[0.18em] text-warn">
@@ -41,14 +48,26 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
           </p>
         </div>
 
-        {/* Cards */}
+        {/* Cards — staggered hover-lift */}
         <div className="flex flex-wrap gap-1.5">
           {cards.map((card, i) => (
-            <div
+            <motion.div
               key={`${card.type}-${card.territory ?? ''}-${i}`}
+              initial={reduced ? { opacity: 0 } : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: reduced ? 0 : 0.18,
+                delay: reduced ? 0 : 0.05 + i * 0.04,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+              {...(reduced ? {} : { whileHover: { y: -2, scale: 1.04 } })}
+              data-testid={`card-${i}`}
               className={`flex flex-col items-center gap-0.5 border p-1.5 ${
                 bestSet?.includes(i) ? 'border-hot bg-hot/10' : 'border-line bg-panel'
               }`}
+              style={{
+                boxShadow: bestSet?.includes(i) ? '0 0 12px rgba(255,77,46,0.25)' : undefined,
+              }}
             >
               <span className="font-mono text-[8px] uppercase text-ink-faint">{card.type}</span>
               {card.territory && (
@@ -56,7 +75,7 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
                   {card.territory.substring(0, 8)}
                 </span>
               )}
-            </div>
+            </motion.div>
           ))}
         </div>
 
@@ -64,7 +83,7 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim hover:border-danger hover:text-danger"
+            className="flex-1 border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-dim transition-colors hover:border-danger hover:text-danger"
           >
             Skip
           </button>
@@ -72,12 +91,12 @@ export function ForcedTradeModal({ state, forcedTrade, onTrade, onCancel }: Forc
             type="button"
             onClick={() => bestSet && onTrade(bestSet)}
             disabled={!bestSet}
-            className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
+            className="flex-1 border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot transition-colors hover:bg-hot/20 disabled:cursor-not-allowed disabled:border-line disabled:text-ink-ghost"
           >
             Trade
           </button>
         </div>
-      </dialog>
+      </motion.dialog>
     </div>
   );
 }

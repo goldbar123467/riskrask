@@ -32,4 +32,15 @@
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  /* motion — shared timings for micro-interactions + entrances */
+  --ease-out-fast: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --dur-fast: 120ms;
+  --dur-norm: 200ms;
+  --dur-slow: 400ms;
+
+  /* reusable glows */
+  --shadow-hot-glow: 0 0 12px rgba(255, 77, 46, 0.45), 0 0 24px rgba(255, 77, 46, 0.22);
+  --shadow-sel-glow: 0 0 16px rgba(255, 77, 46, 0.55), 0 0 32px rgba(255, 77, 46, 0.25);
 }

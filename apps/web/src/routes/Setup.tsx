@@ -1,7 +1,9 @@
 import { PALETTE, createInitialState } from '@riskrask/engine';
+import { motion } from 'framer-motion';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGame } from '../game/useGame';
+import { useReducedMotion } from '../hooks/useReducedMotion';
 
 interface SeatConfig {
   name: string;
@@ -22,11 +24,10 @@ function randomSeed(): string {
  */
 export function Setup() {
   const navigate = useNavigate();
+  const reduced = useReducedMotion();
   const loadState = useGame((s) => s.loadState);
 
   const [playerCount, setPlayerCount] = useState(3);
-  // In the classic Neutral variant the engine synthesises a 3rd "Neutral"
-  // participant; the UI still only collects 1 opponent for a 2-player game.
   const [hostName, setHostName] = useState('Commander');
   const [hostColorIdx, setHostColorIdx] = useState(0);
   const [seed, setSeed] = useState(randomSeed);
@@ -36,6 +37,7 @@ export function Setup() {
       isAI: true,
     })),
   );
+  const [launching, setLaunching] = useState(false);
 
   const otherSeats = seats.slice(0, playerCount - 1);
 
@@ -44,6 +46,8 @@ export function Setup() {
   }
 
   function handleLaunch() {
+    if (launching) return;
+    setLaunching(true);
     const players = [
       {
         id: 'human',
@@ -178,13 +182,27 @@ export function Setup() {
         </Section>
 
         {/* Launch */}
-        <button
+        <motion.button
           type="button"
           onClick={handleLaunch}
-          className="w-full border border-hot bg-hot/10 py-3 font-display tracking-[0.2em] text-hot hover:bg-hot/20"
+          disabled={launching}
+          className="flex w-full items-center justify-center gap-2 border border-hot bg-hot/10 py-3 font-display tracking-[0.2em] text-hot transition-colors hover:bg-hot/20 disabled:cursor-wait disabled:opacity-80"
+          style={{ boxShadow: 'var(--shadow-hot-glow)' }}
+          {...(reduced ? {} : { whileTap: { scale: 0.97 } })}
+          {...(reduced ? {} : { whileHover: { boxShadow: 'var(--shadow-sel-glow)' } })}
+          transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
         >
-          LAUNCH
-        </button>
+          {launching ? (
+            <>
+              <span className="relative inline-block h-4 w-4 animate-spin" aria-hidden>
+                <span className="absolute inset-0 rotate-45 border border-hot" />
+              </span>
+              <span>LAUNCHING…</span>
+            </>
+          ) : (
+            <span>LAUNCH</span>
+          )}
+        </motion.button>
 
         <button
           type="button"

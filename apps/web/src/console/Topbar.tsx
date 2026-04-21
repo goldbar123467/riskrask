@@ -76,7 +76,8 @@ function IconBtn({ title, children }: { title: string; children: React.ReactNode
     <button
       type="button"
       title={title}
-      className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center border border-line bg-panel text-ink-dim hover:border-line-2 hover:text-ink"
+      className="flex h-[30px] w-[30px] cursor-pointer items-center justify-center border border-line bg-panel text-ink-dim transition-all duration-150 ease-out hover:scale-110 hover:border-hot hover:text-hot active:scale-95"
+      style={{ transformOrigin: 'center' }}
     >
       <span className="h-[18px] w-[18px]">{children}</span>
     </button>

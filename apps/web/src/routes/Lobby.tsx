@@ -15,6 +15,7 @@
 import { ROOM_CODE_RE } from '@riskrask/shared';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { AuthPanel } from '../auth/AuthPanel';
 import {
   type CreateRoomBody,
   type RoomDetail,
@@ -33,25 +34,30 @@ import { useAuth } from '../net/auth';
 
 const ROOM_LIST_POLL_MS = 5000;
 const ROOM_DETAIL_POLL_MS = 3000;
-const AI_ARCHETYPES: readonly { id: string; label: string }[] = [
-  { id: 'dilettante', label: 'Dilettante' },
-  { id: 'viper', label: 'Viper' },
-  { id: 'hoarder', label: 'Hoarder' },
-  { id: 'zealot', label: 'Zealot' },
+const AI_ARCHETYPES: readonly { id: string; label: string; tag: string }[] = [
+  { id: 'dilettante', label: 'The Dilettante', tag: 'unpredictable opener' },
+  { id: 'napoleon', label: 'Bonaparte', tag: 'aggressive expansion' },
+  { id: 'fortress', label: 'The Fortress', tag: 'turtle, slow burn' },
+  { id: 'jackal', label: 'The Jackal', tag: 'opportunistic eliminator' },
+  { id: 'vengeful', label: 'The Tsar', tag: 'remembers grudges' },
+  { id: 'patient', label: 'The Patriarch', tag: 'late-game closer' },
+  { id: 'shogun', label: 'The Shogun', tag: 'disciplined sweeps' },
+  { id: 'hermit', label: 'The Hermit', tag: 'isolationist' },
+  { id: 'prophet', label: 'The Prophet', tag: 'zealous all-in' },
 ];
 
 export function Lobby() {
   const { roomId } = useParams<{ roomId?: string }>();
   const navigate = useNavigate();
-  const { token, userId, setToken, clearToken } = useAuth();
+  const { token, userId, email, setToken, clearToken } = useAuth();
 
   if (!token) {
-    return <SignInPanel onToken={setToken} />;
+    return <AuthPanel onLegacyToken={setToken} />;
   }
 
   return (
     <main className="flex h-full min-h-screen flex-col bg-bg-0 px-4 py-6 lg:px-8">
-      <LobbyHeader onSignOut={clearToken} userId={userId} />
+      <LobbyHeader onSignOut={clearToken} userId={userId} email={email} />
 
       <div className="mt-6 grid flex-1 gap-6 lg:grid-cols-[1fr_minmax(320px,420px)]">
         <section className="flex flex-col gap-4">
@@ -78,80 +84,20 @@ export function Lobby() {
 }
 
 // ---------------------------------------------------------------------------
-// Sign-in stopgap (paste-a-JWT)
-// ---------------------------------------------------------------------------
-
-function SignInPanel({ onToken }: { onToken: (t: string) => void }) {
-  const [value, setValue] = useState('');
-  const navigate = useNavigate();
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    const trimmed = value.trim();
-    if (trimmed.length === 0) return;
-    onToken(trimmed);
-  }
-
-  return (
-    <main className="flex h-full min-h-screen flex-col items-center justify-center gap-6 bg-bg-0 px-6">
-      <header className="flex flex-col items-center gap-2">
-        <div className="relative h-7 w-7">
-          <div className="absolute inset-0 rotate-45 border border-ink" />
-          <div className="absolute h-[6px] w-[6px] bg-hot" style={{ top: 11, left: 11 }} />
-        </div>
-        <h1 className="font-display text-sm tracking-[0.36em] text-ink">RISKRASK · LOBBY</h1>
-      </header>
-
-      <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-3">
-        <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink-ghost">
-          Sign in to play multiplayer
-        </p>
-        <label
-          htmlFor="rr-token"
-          className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-faint"
-        >
-          Paste Supabase access token
-        </label>
-        <textarea
-          id="rr-token"
-          data-testid="token-input"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          rows={4}
-          className="border border-line bg-panel px-3 py-2 font-mono text-xs text-ink placeholder:text-ink-ghost focus:border-hot focus:outline-none"
-          placeholder="eyJhbGciOi…"
-        />
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            data-testid="token-submit"
-            className="flex-1 border border-hot bg-hot/10 py-2 font-display tracking-[0.2em] text-hot hover:bg-hot/20"
-          >
-            CONTINUE
-          </button>
-          <button
-            type="button"
-            onClick={() => void navigate('/')}
-            className="border border-line px-4 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
-          >
-            Back
-          </button>
-        </div>
-        <p className="font-mono text-[9px] leading-relaxed text-ink-ghost">
-          The signup route is still WIP — paste a JWT from your Supabase dashboard to test the
-          multiplayer flow. This panel will be replaced by the real auth form once it ships.
-        </p>
-      </form>
-    </main>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Header
 // ---------------------------------------------------------------------------
 
-function LobbyHeader({ onSignOut, userId }: { onSignOut: () => void; userId: string | null }) {
+function LobbyHeader({
+  onSignOut,
+  userId,
+  email,
+}: {
+  onSignOut: () => void;
+  userId: string | null;
+  email: string | null;
+}) {
   const navigate = useNavigate();
+  const label = email ?? (userId ? `${userId.slice(0, 8)}…` : null);
   return (
     <header className="flex items-center justify-between border-b border-line pb-4">
       <div className="flex items-center gap-3">
@@ -165,17 +111,19 @@ function LobbyHeader({ onSignOut, userId }: { onSignOut: () => void; userId: str
         <h1 className="font-display text-sm tracking-[0.36em] text-ink">RISKRASK · LOBBY</h1>
       </div>
       <div className="flex items-center gap-3">
-        {userId && (
+        {label && (
           <span
             className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-ghost"
-            title={userId}
+            title={userId ?? undefined}
+            data-testid="auth-identity"
           >
-            {userId.slice(0, 8)}
+            {label}
           </span>
         )}
         <button
           type="button"
           onClick={onSignOut}
+          data-testid="sign-out"
           className="border border-line px-3 py-1.5 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
         >
           Sign out
@@ -693,29 +641,37 @@ function SeatRow({ seat }: { seat: RoomSeat }) {
 
 function AddAiControl({ onAdd }: { onAdd: (archId: string) => void }) {
   const [archId, setArchId] = useState<string>(AI_ARCHETYPES[0]?.id ?? 'dilettante');
+  const arch = AI_ARCHETYPES.find((a) => a.id === archId);
 
   return (
-    <div className="flex gap-2">
-      <select
-        data-testid="ai-archetype-select"
-        value={archId}
-        onChange={(e) => setArchId(e.target.value)}
-        className="flex-1 border border-line bg-bg-0 px-3 py-2 font-mono text-[11px] uppercase tracking-widest text-ink-dim focus:border-hot focus:outline-none"
-      >
-        {AI_ARCHETYPES.map((a) => (
-          <option key={a.id} value={a.id}>
-            {a.label}
-          </option>
-        ))}
-      </select>
-      <button
-        type="button"
-        data-testid="add-ai-btn"
-        onClick={() => onAdd(archId)}
-        className="border border-line px-4 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
-      >
-        + AI seat
-      </button>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex gap-2">
+        <select
+          data-testid="ai-archetype-select"
+          value={archId}
+          onChange={(e) => setArchId(e.target.value)}
+          className="flex-1 border border-line bg-bg-0 px-3 py-2 font-mono text-[11px] uppercase tracking-widest text-ink-dim focus:border-hot focus:outline-none"
+        >
+          {AI_ARCHETYPES.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          data-testid="add-ai-btn"
+          onClick={() => onAdd(archId)}
+          className="border border-line px-4 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
+        >
+          + AI seat
+        </button>
+      </div>
+      {arch && (
+        <p className="font-mono text-[9px] uppercase tracking-[0.16em] text-ink-ghost">
+          {arch.tag}
+        </p>
+      )}
     </div>
   );
 }
