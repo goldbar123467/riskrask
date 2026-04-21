@@ -21,6 +21,7 @@ beforeAll(() => {
 
 // Import after env is set so supabase.ts doesn't throw on module eval.
 import app from '../src/index';
+import { persistChat } from '../src/ws';
 
 describe('POST /api/rooms', () => {
   test('missing Authorization returns 401', async () => {
@@ -125,5 +126,52 @@ describe('GET /api/rooms list query', () => {
   test('rejects bogus state', async () => {
     const res = await app.fetch(new Request('http://localhost/api/rooms?state=wat'));
     expect(res.status).toBe(400);
+  });
+});
+
+/**
+ * Chat persistence — the WS handler forwards the text to the `send_chat`
+ * RPC before broadcasting. We drive `persistChat` with a stubbed Supabase
+ * client so we can assert both the success and error paths without needing
+ * a live socket upgrade.
+ */
+describe('WS chat persistence (send_chat RPC)', () => {
+  interface RpcCall {
+    fn: string;
+    args: Record<string, unknown>;
+  }
+
+  function stubClient(behaviour: 'ok' | 'err' | 'throw', errMsg = 'rpc boom') {
+    const calls: RpcCall[] = [];
+    const client = {
+      rpc: async (fn: string, args: Record<string, unknown>) => {
+        calls.push({ fn, args });
+        if (behaviour === 'ok') return { data: null, error: null };
+        if (behaviour === 'err') return { data: null, error: { message: errMsg } };
+        throw new Error(errMsg);
+      },
+    } as unknown as Parameters<typeof persistChat>[0];
+    return { client, calls };
+  }
+
+  test('ok path: RPC is called with (p_room_id, p_text) and returns null', async () => {
+    const { client, calls } = stubClient('ok');
+    const result = await persistChat(client, 'room-uuid', 'gg wp');
+    expect(result).toBeNull();
+    expect(calls.length).toBe(1);
+    expect(calls[0]!.fn).toBe('send_chat');
+    expect(calls[0]!.args).toEqual({ p_room_id: 'room-uuid', p_text: 'gg wp' });
+  });
+
+  test('error path: surfaced message propagates so caller can emit CHAT_PERSIST_FAILED', async () => {
+    const { client } = stubClient('err', 'rate limit (max 5 msgs per 10s)');
+    const result = await persistChat(client, 'room-uuid', 'spam');
+    expect(result).toBe('rate limit (max 5 msgs per 10s)');
+  });
+
+  test('thrown exception path: message captured instead of crashing the handler', async () => {
+    const { client } = stubClient('throw', 'network down');
+    const result = await persistChat(client, 'room-uuid', 'hi');
+    expect(result).toBe('network down');
   });
 });

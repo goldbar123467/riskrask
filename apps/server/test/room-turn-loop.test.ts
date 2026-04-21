@@ -24,6 +24,7 @@ import type { GameState } from '@riskrask/engine';
 import type { ServerMsg } from '@riskrask/shared';
 import { Room, RoomError, type TurnLogger } from '../src/rooms/Room';
 import type { Seat } from '../src/rooms/seat';
+import { sendWelcomeWithDelta } from '../src/ws';
 
 const PLAYERS = [
   { id: '0', name: 'Alice', color: '#dc2626', isAI: false },
@@ -197,5 +198,81 @@ describe('Room.detach', () => {
     expect(presence).toBeDefined();
     expect(presence!.seatIdx).toBe(1);
     expect(presence!.connected).toBe(false);
+  });
+});
+
+/**
+ * sendWelcomeWithDelta — the WS onOpen helper that replays the event log
+ * above the client's `?lastSeq` so reconnects don't always have to re-hydrate.
+ */
+describe('sendWelcomeWithDelta', () => {
+  /**
+   * Advance a room by N intents on the reinforce → attack → end-turn → next
+   * player sequence so we end up with a predictable event log.
+   */
+  async function driveRoomFive(): Promise<Room> {
+    const s0 = buildReinforcePhaseState();
+    const room = new Room('r-delta', 'g-delta', s0, buildSeats(), { roomCode: 'DDDDDD' });
+    room.attach(0, () => {});
+    room.attach(1, () => {});
+
+    // seat 0 turn: reinforce → end-attack-phase → end-turn (3 intents).
+    const cp0 = s0.players[s0.currentPlayerIdx]!;
+    const first0 = Object.keys(s0.territories).find((n) => s0.territories[n]?.owner === cp0.id)!;
+    await room.applyIntent(0, { type: 'reinforce', territory: first0, count: cp0.reserves });
+    await room.applyIntent(0, { type: 'end-attack-phase' });
+    await room.applyIntent(0, { type: 'end-turn' });
+
+    // seat 1 turn: reinforce → end-attack-phase (2 more intents, total 5).
+    const s1 = room.getState();
+    const cp1 = s1.players[s1.currentPlayerIdx]!;
+    const first1 = Object.keys(s1.territories).find((n) => s1.territories[n]?.owner === cp1.id)!;
+    await room.applyIntent(1, { type: 'reinforce', territory: first1, count: cp1.reserves });
+    await room.applyIntent(1, { type: 'end-attack-phase' });
+
+    expect(room.getSeq()).toBe(5);
+    return room;
+  }
+
+  test('lastSeq=3 after 5 intents → welcome + exactly 2 applied frames', async () => {
+    const room = await driveRoomFive();
+    const frames: ServerMsg[] = [];
+    sendWelcomeWithDelta((m) => frames.push(m), room, 0, 3);
+
+    // First frame is welcome; then 2 applied for seq 4 and 5.
+    expect(frames[0]?.type).toBe('welcome');
+    const applied = frames.filter(
+      (m): m is Extract<ServerMsg, { type: 'applied' }> => m.type === 'applied',
+    );
+    expect(applied.length).toBe(2);
+    expect(applied[0]!.seq).toBe(4);
+    expect(applied[1]!.seq).toBe(5);
+    // Every applied carries effects (engine provides them — at minimum the log effect).
+    for (const f of applied) {
+      expect(Array.isArray(f.effects)).toBe(true);
+    }
+  });
+
+  test('lastSeq=undefined → full welcome only, no applied', async () => {
+    const room = await driveRoomFive();
+    const frames: ServerMsg[] = [];
+    sendWelcomeWithDelta((m) => frames.push(m), room, 0, undefined);
+    expect(frames.length).toBe(1);
+    expect(frames[0]?.type).toBe('welcome');
+  });
+
+  test('lastSeq=0 is treated as fresh (no delta)', async () => {
+    const room = await driveRoomFive();
+    const frames: ServerMsg[] = [];
+    sendWelcomeWithDelta((m) => frames.push(m), room, 0, 0);
+    expect(frames.length).toBe(1);
+    expect(frames[0]?.type).toBe('welcome');
+  });
+
+  test('lastSeq=5 (caller already caught up) → welcome only', async () => {
+    const room = await driveRoomFive();
+    const frames: ServerMsg[] = [];
+    sendWelcomeWithDelta((m) => frames.push(m), room, 0, 5);
+    expect(frames.filter((f) => f.type === 'applied').length).toBe(0);
   });
 });
