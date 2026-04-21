@@ -266,3 +266,101 @@ Test delta: 273 → 310 (+37 new tests: +14 shared protocol, +14 server, +6 web,
 - Tick edge function for multi-instance deployment.
 - Playwright 2-human + AI-fallback scenario.
 
+---
+
+# Sprint 3 — Track-F follow-on: web multiplayer buildout
+
+_Orchestrator: Mara Volkov. Branch: `claude/multiplayer-subagent-build-dGa5z`._
+_Pattern: front-load research → per-agent `.md` guides → parallel sub-agents in
+isolated worktrees → QA gate between each merge._
+
+## Loop 0 — Baseline
+
+| Check                | Result                                                       |
+| -------------------- | ------------------------------------------------------------ |
+| `bun install`        | 548 packages, clean                                          |
+| `bun run typecheck`  | PASS — 7/7                                                   |
+| `bun run test`       | PASS — 310 tests (post sprint-2)                             |
+| `bun run lint`       | PASS — 0 errors                                              |
+| `bun run scripts/smoke.ts` | PASS — 982 actions / 0 engine errors                   |
+
+## Loop 1 — Front-loaded research (parallel Explore agents)
+
+Five concurrent sub-agents audited: `net/ws.ts` stub, `Play.tsx` route shape,
+server WS chat & welcome flow, `Database.Functions` surface, e2e scaffolding.
+Findings captured in `docs/mp-buildout/00-overview.md` + four per-agent guides.
+
+## Loop 2 — Per-agent `.md` build guides
+
+- `docs/mp-buildout/A-ws-client.md` — WS client + dispatcher + protocol re-export + tests
+- `docs/mp-buildout/B-lobby-routing.md` — Lobby route + PlayRoom + routing + auth hook + tests
+- `docs/mp-buildout/C-server-polish.md` — chat persistence + welcome delta + Database.Functions types
+- `docs/mp-buildout/D-integration-test.md` — server-side 2-human integration test + Playwright stub
+
+## Loop 3 — Implementation gates
+
+### Gate A+C (parallel worktrees)
+
+- **Agent A** (`claude/mp-agent-a-ws-client`): real `WsClient` with state machine,
+  reconnect backoff, heartbeat, send queue; `useRoomDispatcher` hook that maps
+  `welcome → loadState`, `applied → local reducer replay` with `hashState`
+  cross-check; `applyEffects` action added to `useGame` (purely additive).
+- **Agent C** (`claude/mp-agent-c-server-polish`): `send_chat` RPC persistence
+  with `CHAT_PERSIST_FAILED` broadcast, `?lastSeq=` delta replay in welcome,
+  `Database.Functions` typed for all 7 room RPCs.
+
+**QA Gate 1** — typecheck 7/7, 332 tests pass, lint 0 errors, smoke clean.
+
+### Gate B
+
+- **Agent B** (timed out mid-stream; recovered manually from its worktree):
+  `Lobby.tsx` (sign-in / room-list / active-room panels, 5 s polling,
+  join-by-code validation, host-gated controls), `auth.ts` (JWT sub-claim
+  decode + localStorage), REST helpers, `PlayRoom.tsx` (server-authoritative
+  variant routing every click through `sendIntent`), Play switcher preserving
+  solo body, victory-modal room mode, Lobby component tests.
+
+**QA Gate 2** — typecheck 7/7, 337 tests pass, lint 0 errors, smoke clean.
+
+### Gate D
+
+- **Agent D** (`claude/mp-agent-d-e2e`): `mp-two-humans.test.ts` drives real
+  Hono app + real WS upgrade through the REST lobby flow into a live game
+  with AI fallback firing on Alice AFK, all under 3 s wall-clock. Threaded
+  `now: () => number` clock through Timer → Room → Registry for deterministic
+  expiry. Playwright `.fixme()` stub documents the Supabase test-JWT helper
+  as the concrete unblock for browser coverage.
+
+**QA Gate 3** — typecheck 7/7, **338 tests pass** (shared 34 · engine 92 ·
+ai 113 · server 58 · web 40 · admin 1), lint 0 errors, smoke 982 actions /
+0 engine errors, solo-playthrough still green at 336 ms.
+
+## Loop 4 — Ship
+
+- Scoped commits on `claude/multiplayer-subagent-build-dGa5z` across 12 groups:
+  build guides, Agent A merge, Agent C merge, 5 Gate-B groups, Agent D merge,
+  final docs update.
+- Pushed to `origin/claude/multiplayer-subagent-build-dGa5z`.
+
+### What shipped
+
+- **Web multiplayer is playable end-to-end (paste a Supabase JWT, create room,
+  join, ready-up, launch, play through server-authoritative dispatcher).**
+- **WS client is production-grade**: reconnect with exponential backoff + max
+  6 retries, heartbeat every 20 s, send queue cap 100, zod validation on every
+  ingress frame, desync detection via `hashState` cross-check.
+- **Server chat is durably persisted** via `send_chat` RPC; welcome frames
+  honour `?lastSeq=` for delta replay against `Room.getEventLog()`.
+- **2-human + AI-fallback integration test** covers the full happy path at the
+  server boundary in under 3 s.
+- **Solo is unchanged**: `Play.tsx` split into switcher + `PlaySolo` + `PlayRoom`
+  so the original solo body is untouched — `solo-playthrough.test.ts` still
+  green at 336 ms.
+
+### What's next (still deferred)
+
+- Supabase test-JWT helper → unblock the Playwright browser scenario.
+- Tick edge function for multi-instance deployment (still in-process 1 Hz).
+- Admin panel (Track G) and Replay/analytics (Track H).
+- Turnstile signup route (Track F Task 1 — JWT paste is the current stopgap).
+
