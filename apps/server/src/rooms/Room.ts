@@ -79,12 +79,19 @@ export class Room {
   private seats: Seat[];
   private sendFns: Map<number, SendFn> = new Map();
   private eventLog: RoomEventLogEntry[] = [];
-  private timer: Timer = new Timer();
+  private timer: Timer;
   private logger: TurnLogger | null;
   private disconnectGrace: Map<number, number> = new Map();
 
   /** ms after a seat disconnects before it's flagged AFK for AI takeover. */
   readonly disconnectGraceMs: number;
+
+  /**
+   * Injectable clock. The Room forwards this to its `Timer` and uses it for
+   * the disconnect-grace stopwatch. Tests can pass a deterministic counter
+   * instead of `performance.now`. Defaults to `performance.now`.
+   */
+  private readonly now: () => number;
 
   constructor(
     roomId: string,
@@ -95,6 +102,7 @@ export class Room {
       roomCode?: string;
       logger?: TurnLogger;
       disconnectGraceMs?: number;
+      now?: () => number;
     } = {},
   ) {
     this.roomId = roomId;
@@ -106,6 +114,8 @@ export class Room {
     this.rng = createRng(`${opts.roomCode ?? roomId}:room`);
     this.logger = opts.logger ?? null;
     this.disconnectGraceMs = opts.disconnectGraceMs ?? 15_000;
+    this.now = opts.now ?? (() => performance.now());
+    this.timer = new Timer(undefined, undefined, this.now);
     this.timer.start();
   }
 
@@ -147,7 +157,7 @@ export class Room {
     if (seat) {
       seat.connected = false;
     }
-    this.disconnectGrace.set(seatIdx, performance.now());
+    this.disconnectGrace.set(seatIdx, this.now());
     this.broadcast({ type: 'presence', seatIdx, connected: false });
   }
 
@@ -255,7 +265,7 @@ export class Room {
    * flagged AFK this tick so the caller can trigger AI fallback without the
    * Room needing to depend on @riskrask/ai directly.
    */
-  tick(now: number = performance.now()): number[] {
+  tick(now: number = this.now()): number[] {
     const newlyAfk: number[] = [];
 
     // Promote disconnected-long seats to AFK.

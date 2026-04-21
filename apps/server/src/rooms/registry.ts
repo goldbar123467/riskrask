@@ -17,15 +17,22 @@ export interface RegistryOptions {
   autoTick?: boolean;
   tickIntervalMs?: number;
   logger?: TurnLogger;
+  /**
+   * Optional clock injection. Forwarded to every Room this registry creates.
+   * Tests pass a controllable counter so phase/bank expiry is deterministic.
+   */
+  now?: () => number;
 }
 
 export class RoomRegistry {
   private rooms: Map<string, Room> = new Map();
   private tickHandle: ReturnType<typeof setInterval> | null = null;
   private logger: TurnLogger | null;
+  private now: (() => number) | null;
 
   constructor(opts: RegistryOptions = {}) {
     this.logger = opts.logger ?? null;
+    this.now = opts.now ?? null;
     if (opts.autoTick !== false) {
       this.tickHandle = setInterval(() => this.tickAll(), opts.tickIntervalMs ?? 1_000);
       // Node/Bun: don't keep the event loop alive just for this.
@@ -33,6 +40,16 @@ export class RoomRegistry {
         (this.tickHandle as unknown as { unref: () => void }).unref();
       }
     }
+  }
+
+  /**
+   * Test-only: swap the clock used for Rooms minted after this call. The
+   * production caller is expected to pass `now` via the constructor; the
+   * integration suite uses the singleton `registry` and needs to retro-fit
+   * a controllable clock before invoking `/api/rooms/:id/launch`.
+   */
+  __setClockForTests(now: (() => number) | null): void {
+    this.now = now;
   }
 
   get(roomId: string): Room | undefined {
@@ -48,13 +65,15 @@ export class RoomRegistry {
     gameId: string,
     initialState: GameState,
     seats: Seat[],
-    opts: { roomCode?: string } = {},
+    opts: { roomCode?: string; now?: () => number } = {},
   ): Room {
     const existing = this.rooms.get(roomId);
     if (existing) return existing;
+    const now = opts.now ?? this.now ?? undefined;
     const room = new Room(roomId, gameId, initialState, seats, {
       ...(opts.roomCode !== undefined ? { roomCode: opts.roomCode } : {}),
       ...(this.logger !== null ? { logger: this.logger } : {}),
+      ...(now !== undefined ? { now } : {}),
     });
     this.rooms.set(roomId, room);
     return room;

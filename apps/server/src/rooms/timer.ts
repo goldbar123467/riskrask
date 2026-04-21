@@ -17,17 +17,28 @@ export class Timer {
   private startedAt: number | null = null;
   private pausedAt: number | null = null;
   private accumulatedPauseMs = 0;
+  /**
+   * Injectable clock — the Room passes its own `now` down so tests can
+   * control phase/bank expiry deterministically without touching a global.
+   * Defaults to `performance.now`.
+   */
+  private readonly now: () => number;
 
-  constructor(phaseMs: number = DEFAULT_PHASE_MS, bankMs: number = DEFAULT_BANK_MS) {
+  constructor(
+    phaseMs: number = DEFAULT_PHASE_MS,
+    bankMs: number = DEFAULT_BANK_MS,
+    now: () => number = () => performance.now(),
+  ) {
     this.phaseMs = phaseMs;
     this.bankMs = bankMs;
+    this.now = now;
   }
 
   /** Begin a new phase. Any carry-over bank is preserved. */
   start(phaseMs: number = DEFAULT_PHASE_MS, bankMs?: number): void {
     this.phaseMs = phaseMs;
     if (bankMs !== undefined) this.bankMs = bankMs;
-    this.startedAt = performance.now();
+    this.startedAt = this.now();
     this.pausedAt = null;
     this.accumulatedPauseMs = 0;
   }
@@ -35,18 +46,18 @@ export class Timer {
   pause(): void {
     if (this.startedAt === null) return;
     if (this.pausedAt !== null) return;
-    this.pausedAt = performance.now();
+    this.pausedAt = this.now();
   }
 
   resume(): void {
     if (this.pausedAt === null) return;
-    const now = performance.now();
+    const now = this.now();
     this.accumulatedPauseMs += now - this.pausedAt;
     this.pausedAt = null;
   }
 
   /** Time remaining in the phase+bank, in ms. Never negative. */
-  remainingMs(now: number = performance.now()): number {
+  remainingMs(now: number = this.now()): number {
     if (this.startedAt === null) return this.phaseMs + this.bankMs;
     const pauseTotal = this.accumulatedPauseMs + (this.pausedAt !== null ? now - this.pausedAt : 0);
     const elapsed = now - this.startedAt - pauseTotal;
@@ -55,7 +66,7 @@ export class Timer {
     return remaining > 0 ? remaining : 0;
   }
 
-  isExpired(now: number = performance.now()): boolean {
+  isExpired(now: number = this.now()): boolean {
     return this.remainingMs(now) <= 0;
   }
 }
