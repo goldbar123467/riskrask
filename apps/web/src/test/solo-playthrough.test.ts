@@ -173,13 +173,11 @@ describe('solo playthrough via useGame store', () => {
       // outside that player's turn, but the engine drives it via pendingForcedTrade.
       if (s.pendingForcedTrade) {
         const who = s.players.find((p) => p.id === s.pendingForcedTrade!.playerId);
-        if (!who) throw new Error(`pendingForcedTrade for unknown player`);
+        if (!who) throw new Error('pendingForcedTrade for unknown player');
         if (who.isAI) {
           const act = dilettanteTurn(s, who.id)[0];
           if (!act) {
-            throw new Error(
-              `AI could not resolve forced trade\n  state: ${stateFingerprint(s)}`,
-            );
+            throw new Error(`AI could not resolve forced trade\n  state: ${stateFingerprint(s)}`);
           }
           dispatchOrFail(act, `ai-forced-trade:${who.name}`);
           actions++;
@@ -187,9 +185,7 @@ describe('solo playthrough via useGame store', () => {
         }
         const act = humanAction(s, humanId);
         if (!act) {
-          throw new Error(
-            `human could not resolve forced trade\n  state: ${stateFingerprint(s)}`,
-          );
+          throw new Error(`human could not resolve forced trade\n  state: ${stateFingerprint(s)}`);
         }
         dispatchOrFail(act, 'human-forced-trade');
         actions++;
@@ -204,9 +200,7 @@ describe('solo playthrough via useGame store', () => {
       if (cp.isAI) {
         const batch = dilettanteTurn(s, cp.id);
         if (batch.length === 0) {
-          throw new Error(
-            `AI ${cp.name} produced 0 actions\n  state: ${stateFingerprint(s)}`,
-          );
+          throw new Error(`AI ${cp.name} produced 0 actions\n  state: ${stateFingerprint(s)}`);
         }
         // Mirror useSoloDispatcher.runAiStep: apply actions in sequence.
         let progressed = false;
@@ -239,9 +233,7 @@ describe('solo playthrough via useGame store', () => {
       }
       const act = humanAction(s, humanId);
       if (!act) {
-        throw new Error(
-          `human could not produce an action\n  state: ${stateFingerprint(s)}`,
-        );
+        throw new Error(`human could not produce an action\n  state: ${stateFingerprint(s)}`);
       }
       dispatchOrFail(act, `human:${s.phase}`);
       actions++;

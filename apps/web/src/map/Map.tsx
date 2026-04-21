@@ -26,6 +26,17 @@ function ownerColor(
   return playerColors[owner] ?? PALETTE[0]?.color ?? NEUTRAL_COLOR;
 }
 
+/** Reverse-lookup: territory name → human-readable continent name. */
+const CONTINENT_BY_TERRITORY: Readonly<Record<string, string>> = (() => {
+  const map: Record<string, string> = {};
+  for (const cont of Object.values(CONTINENTS)) {
+    for (const member of cont.members) {
+      map[member] = cont.name;
+    }
+  }
+  return Object.freeze(map);
+})();
+
 /**
  * SVG root (viewBox 0 0 1000 640): lat/long grid + continents + edges + nodes.
  * Uses territory positions from the engine's TERRITORIES constant.
@@ -124,6 +135,7 @@ export function GameMap({ state, humanPlayerId, selected, target, onSelect, onHo
             owned={terr.owner === humanPlayerId}
             selected={selected === tname}
             targetable={isTargetable(tname)}
+            continent={CONTINENT_BY_TERRITORY[tname] ?? 'Unknown'}
             onSelect={onSelect}
             onHover={onHover}
           />

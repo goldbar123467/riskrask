@@ -6,3 +6,4 @@ export const CURRENT_SCHEMA_VERSION = 1 as const;
 export * from './saveCode';
 export * from './saves';
 export * from './types';
+export * from './protocol';

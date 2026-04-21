@@ -10,6 +10,8 @@ interface NodeProps {
   owned: boolean;
   selected: boolean;
   targetable: boolean;
+  /** Human-readable continent name for the tooltip, e.g. "North America". */
+  continent: string;
   onSelect: (name: TerritoryName) => void;
   onHover: (name: TerritoryName | null) => void;
 }
@@ -28,6 +30,7 @@ export function Node({
   owned,
   selected,
   targetable,
+  continent,
   onSelect,
   onHover,
 }: NodeProps) {
@@ -38,6 +41,12 @@ export function Node({
 
   const strokeWidth = selected ? 2 : targetable ? 1.5 : 1;
   const fillColor = owned ? `${ownerColor}22` : 'rgba(10,15,20,0.7)';
+
+  const armyWord = territory.armies === 1 ? 'army' : 'armies';
+  const tooltipText =
+    territory.adj.length > 0
+      ? `${name}: ${territory.armies} ${armyWord} · ${continent} · adjacent to ${territory.adj.join(', ')}`
+      : `${name}: ${territory.armies} ${armyWord} · ${continent}`;
 
   return (
     <g
@@ -52,6 +61,8 @@ export function Node({
       tabIndex={0}
       aria-label={name}
     >
+      <title>{tooltipText}</title>
+
       {/* Hex outline shell */}
       <HexPath
         cx={x}
