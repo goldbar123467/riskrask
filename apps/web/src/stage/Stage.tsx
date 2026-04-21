@@ -1,6 +1,7 @@
 import type { GameState, TerritoryName } from '@riskrask/engine';
 import { useRef, useState } from 'react';
 import { TransformComponent, TransformWrapper, useControls } from 'react-zoom-pan-pinch';
+import { AiTurnOverlay } from '../components/AiTurnOverlay';
 import type { UIPhase } from '../game/phase';
 import { Map as GameMap } from '../map/Map';
 import { PhaseTabs } from './PhaseTabs';
@@ -16,6 +17,12 @@ interface StageProps {
   hover: TerritoryName | null;
   onSelect: (name: TerritoryName) => void;
   onHover: (name: TerritoryName | null) => void;
+  /**
+   * `'solo'` (default) shows the AI-turn overlay while it's an AI's turn.
+   * `'room'` suppresses it — every non-human seat in multiplayer is a remote
+   * commander, not a local AI, and the overlay would mis-label them.
+   */
+  mode?: 'solo' | 'room';
 }
 
 /**
@@ -30,8 +37,19 @@ export function Stage({
   hover,
   onSelect,
   onHover,
+  mode = 'solo',
 }: StageProps) {
   const [scale, setScale] = useState(1);
+  const cp = state.players[state.currentPlayerIdx];
+  const aiTurn =
+    mode === 'solo' &&
+    !!cp &&
+    cp.isAI === true &&
+    cp.id !== humanPlayerId &&
+    state.phase !== 'done' &&
+    state.phase !== 'setup-claim' &&
+    state.phase !== 'setup-reinforce';
+
   return (
     <div
       className="relative h-full w-full overflow-hidden"
@@ -88,6 +106,14 @@ export function Stage({
           onHover={onHover}
         />
       </TransformWrapper>
+
+      {/* AI-turn overlay — pointer-events: none means hover/zoom still work
+          on the map layer beneath. Only mounted in solo mode. */}
+      <AiTurnOverlay
+        active={aiTurn}
+        name={cp?.name ?? 'AI'}
+        {...(cp?.color ? { color: cp.color } : {})}
+      />
     </div>
   );
 }

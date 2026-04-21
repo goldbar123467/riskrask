@@ -64,6 +64,116 @@
   }
 }
 
+/* Generic entrance: fade in while rising a few px. */
+@keyframes fadeInUp {
+  0% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slow, soft pulse used for active/selected states. */
+@keyframes pulseGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 4px 0 var(--hot-glow), 0 0 0 0 rgba(255, 77, 46, 0);
+    opacity: 0.9;
+  }
+  50% {
+    box-shadow: var(--shadow-hot-glow);
+    opacity: 1;
+  }
+}
+
+/* Modal-style scale-in bump. */
+@keyframes scaleIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Toast / intel-feed slide from the right edge. */
+@keyframes slideInRight {
+  0% {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Confetti particle fall — translated and rotated by a random X offset
+   provided via `--confetti-x` at the element level. */
+@keyframes confettiFall {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -40px, 0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-x, 0px), 520px, 0) rotate(720deg);
+  }
+}
+
+/* Marching-ants stroke animation for the selection ring. */
+@keyframes marchingAnts {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -24;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  /* Neutralise the decorative loops completely. */
+  .rr-anim-fadeInUp,
+  .rr-anim-pulseGlow,
+  .rr-anim-scaleIn,
+  .rr-anim-slideInRight,
+  .rr-anim-confettiFall,
+  .rr-anim-marchingAnts,
+  .rr-anim-dieGlow,
+  .rr-anim-dieTumble,
+  .rr-anim-shake {
+    animation: none !important;
+  }
+}
+
+/* Node hover lift — SVG can't use Tailwind's hover variant for transforms cleanly. */
+.rr-node:hover {
+  transform: scale(1.08);
+}
+.rr-node:focus-visible {
+  outline: none;
+  transform: scale(1.06);
+}
+
 @layer base {
   * {
     box-sizing: border-box;

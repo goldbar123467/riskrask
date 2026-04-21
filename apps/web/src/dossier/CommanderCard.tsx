@@ -6,6 +6,7 @@ interface CommanderCardProps {
 
 /**
  * Commander crest card: faction color swatch + name + tag row.
+ * The inner crest dot pulses gently with the faction colour.
  */
 export function CommanderCard({ name, tag, color }: CommanderCardProps) {
   return (
@@ -17,8 +18,15 @@ export function CommanderCard({ name, tag, color }: CommanderCardProps) {
       <div className="relative flex h-8 w-8 shrink-0 items-center justify-center">
         <div className="absolute h-6 w-6 rotate-45 border" style={{ borderColor: color }} />
         <div
-          className="absolute h-2 w-2"
-          style={{ background: color, boxShadow: `0 0 8px ${color}` }}
+          className="rr-anim-pulseGlow absolute h-2 w-2"
+          style={
+            {
+              background: color,
+              boxShadow: `0 0 8px ${color}`,
+              animation: 'pulseGlow 1800ms ease-in-out infinite',
+              ['--hot-glow' as string]: `${color}55`,
+            } as React.CSSProperties
+          }
         />
       </div>
 

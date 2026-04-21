@@ -15,6 +15,7 @@ const TABS: { id: UIPhase; label: string }[] = [
 
 /**
  * Phase tab bar at top-center of stage. Derived from state.phase.
+ * Active tab gets a pulsing underline + hot-glow shadow.
  * Tabs not accessible during AI turn appear dimmed.
  */
 export function PhaseTabs({ currentPhase, isHumanTurn }: PhaseTabsProps) {
@@ -37,15 +38,33 @@ export function PhaseTabs({ currentPhase, isHumanTurn }: PhaseTabsProps) {
         return (
           <div
             key={id}
-            className={`border-r border-line px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] transition-colors last:border-r-0 ${
+            className={`relative border-r border-line px-3 py-1.5 font-mono text-[9px] uppercase tracking-[0.14em] last:border-r-0 ${
               isActive
                 ? 'bg-hot/10 text-hot'
                 : isReachable
-                  ? 'text-ink-dim'
+                  ? 'text-ink-dim opacity-100'
                   : 'text-ink-ghost opacity-40'
             }`}
+            style={{
+              transition:
+                'color var(--dur-fast) var(--ease-out-fast), background-color var(--dur-fast) linear, opacity var(--dur-norm) linear',
+              boxShadow: isActive
+                ? 'inset 0 -1px 0 0 var(--hot), var(--shadow-hot-glow)'
+                : undefined,
+            }}
           >
             {label}
+            {isActive && (
+              <span
+                aria-hidden
+                className="rr-anim-pulseGlow absolute -bottom-px left-1.5 right-1.5 h-[2px]"
+                style={{
+                  background: 'var(--hot)',
+                  boxShadow: 'var(--shadow-hot-glow)',
+                  animation: 'pulseGlow 1500ms ease-in-out infinite',
+                }}
+              />
+            )}
           </div>
         );
       })}

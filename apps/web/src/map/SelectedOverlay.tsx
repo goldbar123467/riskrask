@@ -7,13 +7,17 @@ interface SelectedOverlayProps {
 }
 
 const RING_R = 26;
+const ANTS_R = 30;
 
 /**
  * Hot-accent glow ring around the selected territory plus an inline callout
  * with headline / action / queue line. Matches the command-console mockup:
  * no bounding box, text floats next to the hex.
+ *
+ * When a target is also selected, a second "marching-ants" ring colour-coded
+ * `--warn` orbits the target so the user can see the engagement at a glance.
  */
-export function SelectedOverlay({ selected, target: _target, state }: SelectedOverlayProps) {
+export function SelectedOverlay({ selected, target, state }: SelectedOverlayProps) {
   const terr = state.territories[selected];
   if (!terr) return null;
 
@@ -47,6 +51,7 @@ export function SelectedOverlay({ selected, target: _target, state }: SelectedOv
   const actionLine = actionHint ? `CONTROL TO ${actionHint}${reinforceToken}` : '';
 
   const glowId = `sel-glow-${selected.replace(/\s+/g, '-')}`;
+  const targetTerr = target ? state.territories[target] : null;
 
   return (
     <g aria-label="selected-overlay" pointerEvents="none">
@@ -81,6 +86,46 @@ export function SelectedOverlay({ selected, target: _target, state }: SelectedOv
         strokeWidth="1.2"
         opacity="0.9"
       />
+      {/* Marching-ants outer ring on the source — `--hot` */}
+      <circle
+        cx={x}
+        cy={y}
+        r={ANTS_R}
+        fill="none"
+        stroke="var(--hot)"
+        strokeWidth="0.8"
+        strokeDasharray="3 3"
+        opacity="0.7"
+        className="rr-anim-marchingAnts"
+        style={{ animation: 'marchingAnts 1100ms linear infinite' }}
+      />
+
+      {/* Mirror ring on the target territory, colour-coded warn. */}
+      {targetTerr && target && target !== selected && (
+        <g>
+          <circle
+            cx={targetTerr.x}
+            cy={targetTerr.y}
+            r={RING_R}
+            fill="none"
+            stroke="var(--warn)"
+            strokeWidth="1"
+            opacity="0.85"
+          />
+          <circle
+            cx={targetTerr.x}
+            cy={targetTerr.y}
+            r={ANTS_R}
+            fill="none"
+            stroke="var(--warn)"
+            strokeWidth="0.8"
+            strokeDasharray="3 3"
+            opacity="0.65"
+            className="rr-anim-marchingAnts"
+            style={{ animation: 'marchingAnts 1300ms linear infinite reverse' }}
+          />
+        </g>
+      )}
 
       {/* Callout text — no bounding box */}
       <g>

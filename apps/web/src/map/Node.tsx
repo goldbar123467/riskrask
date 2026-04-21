@@ -38,8 +38,8 @@ export function Node({
   const { x, y } = territory;
   const unitType = unitTypeForTerritory(name);
 
-  const strokeColor = selected ? 'var(--hot)' : targetable ? 'rgba(255,255,100,0.7)' : ownerColor;
-  const strokeWidth = selected ? 2 : targetable ? 1.5 : 1.2;
+  const strokeColor = selected ? 'var(--hot)' : targetable ? 'var(--warn)' : ownerColor;
+  const strokeWidth = selected ? 2 : targetable ? 1.6 : 1.2;
   const fillColor = owned ? `${ownerColor}1f` : 'rgba(10,15,20,0.55)';
 
   const armyWord = territory.armies === 1 ? 'army' : 'armies';
@@ -50,6 +50,9 @@ export function Node({
 
   const label = displayName(name);
 
+  // Unique per-node filter id so multiple glow filters never collide.
+  const glowId = `node-glow-${name.replace(/\s+/g, '-')}`;
+
   return (
     <g
       data-territory={name}
@@ -59,22 +62,62 @@ export function Node({
       }}
       onMouseEnter={() => onHover(name)}
       onMouseLeave={() => onHover(null)}
-      style={{ cursor: 'pointer' }}
+      style={{
+        cursor: 'pointer',
+        transformOrigin: `${x}px ${y}px`,
+        transformBox: 'fill-box',
+        transition: 'transform 160ms var(--ease-out-fast)',
+      }}
+      className="rr-node"
       tabIndex={0}
       aria-label={name}
     >
       <title>{tooltipText}</title>
 
+      {selected && (
+        <defs>
+          <filter id={glowId} x="-80%" y="-80%" width="260%" height="260%">
+            <feGaussianBlur stdDeviation="2.2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+      )}
+
+      {/* Soft pulsing ring around selected node. */}
+      {selected && (
+        <circle
+          cx={x}
+          cy={y}
+          r={HEX_W / 2 + 3}
+          fill="none"
+          stroke="var(--hot)"
+          strokeWidth="0.9"
+          opacity="0.55"
+          style={{ animation: 'pulseGlow 1600ms ease-in-out infinite' }}
+          className="rr-anim-pulseGlow"
+        />
+      )}
+
       {/* Hex outline shell */}
-      <HexPath
-        cx={x}
-        cy={y}
-        w={HEX_W}
-        h={HEX_H}
-        fill={fillColor}
-        stroke={strokeColor}
-        strokeWidth={strokeWidth}
-      />
+      <g
+        style={{
+          filter: selected ? `url(#${glowId})` : undefined,
+          transition: 'filter 180ms var(--ease-out-fast)',
+        }}
+      >
+        <HexPath
+          cx={x}
+          cy={y}
+          w={HEX_W}
+          h={HEX_H}
+          fill={fillColor}
+          stroke={strokeColor}
+          strokeWidth={strokeWidth}
+        />
+      </g>
 
       {/* Unit silhouette — centered in hex */}
       {territory.armies > 0 && (
@@ -151,7 +194,15 @@ function HexPath({
     'Z',
   ].join(' ');
 
-  return <path d={d} fill={fill} stroke={stroke} strokeWidth={strokeWidth} />;
+  return (
+    <path
+      d={d}
+      fill={fill}
+      stroke={stroke}
+      strokeWidth={strokeWidth}
+      style={{ transition: 'stroke 180ms var(--ease-out-fast), stroke-width 180ms linear' }}
+    />
+  );
 }
 
 /** Short-form territory label used below the hex — matches screenshot style. */
