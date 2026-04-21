@@ -66,6 +66,70 @@ export interface Database {
         Args: Record<string, never>;
         Returns: string;
       };
+      // ----- room lifecycle RPCs (supabase/migrations/0011_rpc_room_lifecycle.sql) -----
+      // NOTE on Returns shapes:
+      //   The SQL functions below declare `returns rooms` (create_room, join_room)
+      //   or `returns void` (leave_room / set_ready / add_ai_seat / launch_game).
+      //   Postgres wraps a scalar/void return in a single-row result set; supabase-js
+      //   then unwraps it to `null` for `void`. We type these as the widest superset
+      //   that compiles cleanly at each call site in `http/rooms.ts`.
+      create_room: {
+        Args: {
+          p_visibility: 'public' | 'private';
+          p_max_players: number;
+          p_settings: Record<string, unknown>;
+        };
+        Returns: {
+          id: string;
+          code: string;
+          state: string;
+          visibility: 'public' | 'private';
+          host_id: string;
+          max_players: number;
+          settings: Record<string, unknown>;
+          current_game_id: string | null;
+          winner_id: string | null;
+          created_at: string;
+        };
+      };
+      join_room: {
+        Args: { p_code: string };
+        Returns: {
+          id: string;
+          code: string;
+          state: string;
+          visibility: 'public' | 'private';
+          host_id: string;
+          max_players: number;
+          settings: Record<string, unknown>;
+          current_game_id: string | null;
+          winner_id: string | null;
+          created_at: string;
+        };
+      };
+      leave_room: {
+        Args: { p_room_id: string };
+        Returns: null;
+      };
+      set_ready: {
+        Args: { p_room_id: string; p_ready: boolean };
+        Returns: null;
+      };
+      add_ai_seat: {
+        Args: { p_room_id: string; p_arch_id: string };
+        Returns: null;
+      };
+      launch_game: {
+        Args: { p_room_id: string };
+        Returns: null;
+      };
+      // ----- chat RPC (supabase/migrations/0012_rpc_chat.sql) -----
+      // Declared `returns void` in SQL; supabase-js surfaces that as `null`
+      // `data` with no error.
+      send_chat: {
+        Args: { p_room_id: string; p_text: string };
+        Returns: null;
+      };
     };
   };
 }
