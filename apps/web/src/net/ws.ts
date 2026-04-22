@@ -54,13 +54,18 @@ const CODE_NORMAL = 1000;
 
 function deriveUrl(opts: WsClientOpts): string {
   if (opts.url !== undefined) return opts.url;
+  const path = `/api/ws/${encodeURIComponent(opts.roomId)}`;
+  const q = `token=${encodeURIComponent(opts.token)}&seat=${opts.seatIdx}`;
+  const apiUrl = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+  if (apiUrl !== '') {
+    const wsOrigin = apiUrl.replace(/^http:/, 'ws:').replace(/^https:/, 'wss:');
+    return `${wsOrigin}${path}?${q}`;
+  }
   if (typeof window === 'undefined') {
     throw new Error('createWsClient: no url provided and no window.location available');
   }
   const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  const path = `/api/ws/${encodeURIComponent(opts.roomId)}`;
-  const q = `token=${encodeURIComponent(opts.token)}&seat=${opts.seatIdx}`;
   return `${proto}//${host}${path}?${q}`;
 }
 

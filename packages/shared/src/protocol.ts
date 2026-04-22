@@ -84,6 +84,14 @@ export const ServerWelcomeSchema = z.object({
   seats: z.array(SeatInfoSchema),
   hash: HashSchema,
   seq: SeqSchema,
+  /**
+   * Absolute epoch-ms at which the current seat's turn budget expires.
+   * Optional because rooms that haven't launched yet (setup-claim without
+   * TurnDriver) won't emit it, and reconnects that arrive between turns or
+   * after the game ended won't either. Clients that see it start a
+   * countdown.
+   */
+  turnDeadlineMs: z.number().int().optional(),
 });
 
 export const ServerAppliedSchema = z.object({
@@ -125,6 +133,35 @@ export const ServerErrorSchema = z.object({
   detail: z.string().optional(),
 });
 
+/**
+ * Fired whenever the server changes the active seat (`state.currentPlayerIdx`).
+ * Clients use it to restart their per-turn countdown and optionally
+ * re-surface whose turn it is. `turnNumber` matches `GameState.turn`
+ * post-advance.
+ */
+export const ServerTurnAdvanceSchema = z.object({
+  type: z.literal('turn_advance'),
+  currentSeatIdx: SeatIdxSchema,
+  turnNumber: z.number().int().min(0),
+  deadlineMs: z.number().int(),
+});
+
+/**
+ * Terminal frame emitted exactly once when the engine sets `state.winner`.
+ * The server closes sockets ~500ms after broadcasting. `winnerUserId` is
+ * null for AI winners; `winnerSeatIdx` is null only if the winner cannot be
+ * resolved back to a seat (defensive — shouldn't happen in practice).
+ */
+export const ServerGameOverSchema = z.object({
+  type: z.literal('game_over'),
+  winnerPlayerId: z.string().min(1),
+  winnerSeatIdx: SeatIdxSchema.nullable(),
+  winnerUserId: z.string().nullable(),
+  winnerDisplay: z.string().min(1),
+  finalHash: HashSchema,
+  finalSeq: SeqSchema,
+});
+
 export const ServerMsgSchema = z.discriminatedUnion('type', [
   ServerWelcomeSchema,
   ServerAppliedSchema,
@@ -133,6 +170,8 @@ export const ServerMsgSchema = z.discriminatedUnion('type', [
   ServerPresenceSchema,
   ServerDesyncSchema,
   ServerErrorSchema,
+  ServerTurnAdvanceSchema,
+  ServerGameOverSchema,
 ]);
 
 export type ServerMsg = z.infer<typeof ServerMsgSchema>;

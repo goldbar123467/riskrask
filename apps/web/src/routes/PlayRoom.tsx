@@ -33,7 +33,7 @@ import { Topbar } from '../console/Topbar';
 import { Dossier } from '../dossier/Dossier';
 import { uiPhase } from '../game/phase';
 import { useGame } from '../game/useGame';
-import { useRoomDispatcher } from '../game/useRoomDispatcher';
+import { type GameOverPayload, useRoomDispatcher } from '../game/useRoomDispatcher';
 import { useHotkeys } from '../hooks/useHotkey';
 import { ForcedTradeModal } from '../modals/ForcedTradeModal';
 import { MoveModal } from '../modals/MoveModal';
@@ -41,6 +41,22 @@ import { VictoryModal } from '../modals/VictoryModal';
 import { getRoom } from '../net/api';
 import { useAuth } from '../net/auth';
 import { Stage } from '../stage/Stage';
+
+/**
+ * Live countdown hook. Rerenders every ~250ms and returns the integer
+ * seconds remaining until `deadlineMs` (absolute epoch-ms). Null deadline
+ * returns null — callers render a placeholder.
+ */
+function useTurnClock(deadlineMs: number | null): number | null {
+  const [, force] = useState(0);
+  useEffect(() => {
+    if (deadlineMs === null) return;
+    const id = setInterval(() => force((n) => n + 1), 250);
+    return () => clearInterval(id);
+  }, [deadlineMs]);
+  if (deadlineMs === null) return null;
+  return Math.max(0, Math.ceil((deadlineMs - Date.now()) / 1000));
+}
 
 interface PlayRoomProps {
   roomId: string;
@@ -68,6 +84,12 @@ export function PlayRoom({ roomId }: PlayRoomProps) {
       if (cancelled) return;
       if (!res.ok) {
         setResolution({ kind: 'redirect', to: `/lobby/${roomId}` });
+        return;
+      }
+      // Room already finished → the game_over broadcast we would have
+      // relied on is stale. Kick straight back to the lobby.
+      if (res.data.room.state === 'finished') {
+        setResolution({ kind: 'redirect', to: '/lobby' });
         return;
       }
       const seats = res.data.room.seats ?? [];
@@ -116,17 +138,38 @@ interface InnerProps {
 }
 
 function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
+  const navigate = useNavigate();
   const state = useGame((s) => s.state);
   const selected = useGame((s) => s.selected);
   const hoverTarget = useGame((s) => s.hoverTarget);
   const setSelected = useGame((s) => s.setSelected);
   const setHover = useGame((s) => s.setHover);
 
+  const [turnDeadline, setTurnDeadline] = useState<number | null>(null);
+  const [gameOver, setGameOver] = useState<GameOverPayload | null>(null);
+
+  const handleTurnDeadline = useCallback((d: number | null) => setTurnDeadline(d), []);
+  const handleGameOver = useCallback((p: GameOverPayload) => setGameOver(p), []);
+
   const { connState, sendIntent, lastError } = useRoomDispatcher({
     roomId,
     seatIdx,
     token,
+    onTurnDeadline: handleTurnDeadline,
+    onGameOver: handleGameOver,
   });
+
+  // 3-second redirect on game_over — the VictoryModal renders immediately
+  // because the preceding `applied` set `state.phase === 'done'`.
+  useEffect(() => {
+    if (!gameOver) return;
+    const id = setTimeout(() => {
+      void navigate('/lobby', { replace: true });
+    }, 3000);
+    return () => clearTimeout(id);
+  }, [gameOver, navigate]);
+
+  const secondsRemaining = useTurnClock(turnDeadline);
 
   const [target, setTarget] = useState<TerritoryName | null>(null);
   const [activeRailItem, setActiveRailItem] = useState<
@@ -335,7 +378,7 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
             session={`ROOM · #${seatIdx}`}
             turn={String(state.turn + 1)}
             phase={phase}
-            clock="—"
+            clock={secondsRemaining !== null ? `${secondsRemaining}s` : '—'}
             players={`${state.players.filter((p) => !p.eliminated).length}/${state.players.length}`}
           />
         }

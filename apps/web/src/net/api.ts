@@ -4,7 +4,10 @@ type ApiOk<T> = { ok: true; data: T };
 type ApiErr = { ok: false; code: string; detail?: string };
 export type ApiResult<T> = ApiOk<T> | ApiErr;
 
-const BASE = '/api';
+// API origin is configured via VITE_API_URL at build time
+// (see apps/web/.env.production). Empty string → same-origin `/api` for local dev.
+const API_ORIGIN = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const BASE = `${API_ORIGIN}/api`;
 
 async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   try {
@@ -98,11 +101,17 @@ export function loadSave(code: string): Promise<ApiResult<LoadResponse>> {
 export interface RoomSummary {
   id: string;
   code: string;
+  name: string | null;
   state: 'lobby' | 'active' | 'post_game' | 'countdown' | 'finished' | 'archived';
   visibility: 'public' | 'private';
   hostId: string;
   createdAt: string;
   seatCount: number;
+  /**
+   * Present on `/rooms/mine` responses — the seat index held by the caller
+   * in this room. Undefined on public-list rows (caller isn't a member).
+   */
+  mySeatIdx?: number | null;
 }
 
 /** Seat row surfaced on the room-detail view. Mirrors `room_seats`. */
@@ -124,6 +133,7 @@ export interface RoomSeat {
 export interface RoomDetail {
   id: string;
   code: string;
+  name?: string | null;
   state: RoomSummary['state'];
   currentGameId?: string | null;
   visibility?: 'public' | 'private';
@@ -145,11 +155,21 @@ export interface GameSummary {
 export interface CreateRoomBody {
   visibility: 'public' | 'private';
   maxPlayers: number;
+  /** Required human-readable label. Server trims + enforces length 1..80. */
+  name: string;
 }
 
 /** GET /api/rooms — list public rooms in the lobby state, newest first. */
 export function listPublicRooms(token: string): Promise<ApiResult<{ rooms: RoomSummary[] }>> {
   return authGet<{ rooms: RoomSummary[] }>('/rooms?visibility=public&state=lobby', token);
+}
+
+/**
+ * GET /api/rooms/mine — rooms the caller currently occupies (any state). Used
+ * by the lobby's "My Rooms" tab. Server filters by the caller's user id.
+ */
+export function listMyRooms(token: string): Promise<ApiResult<{ rooms: RoomSummary[] }>> {
+  return authGet<{ rooms: RoomSummary[] }>('/rooms/mine', token);
 }
 
 /** POST /api/rooms — create a new room. */
@@ -169,12 +189,25 @@ export function joinRoom(code: string, token: string): Promise<ApiResult<{ room:
   return authPost<{ room: RoomDetail }>('/rooms/by-code/join', { code }, token);
 }
 
-/** POST /api/rooms/:id/leave — vacate the caller's seat. */
+/**
+ * POST /api/rooms/:id/leave — vacate the caller's seat.
+ *
+ * Returns `{ roomDeleted, newHostId }`:
+ *   - `roomDeleted: true`  — caller was the last human in a lobby; server
+ *     dropped the room row (and cascaded room_seats / games / chat).
+ *   - `newHostId: <uuid>`  — caller was the host and there were other humans
+ *     remaining; host ownership transferred to this seat.
+ *   - both false / null    — plain leave with no side-effects.
+ */
 export function leaveRoom(
   roomId: string,
   token: string,
-): Promise<ApiResult<Record<string, never>>> {
-  return authPost<Record<string, never>>(`/rooms/${encodeURIComponent(roomId)}/leave`, {}, token);
+): Promise<ApiResult<{ roomDeleted: boolean; newHostId: string | null }>> {
+  return authPost<{ roomDeleted: boolean; newHostId: string | null }>(
+    `/rooms/${encodeURIComponent(roomId)}/leave`,
+    {},
+    token,
+  );
 }
 
 /** POST /api/rooms/:id/ready — toggle the caller's `is_ready`. */
@@ -231,4 +264,23 @@ export function getRoom(
   return token !== undefined
     ? authGet<{ room: RoomDetail; game: GameSummary | null }>(path, token)
     : get<{ room: RoomDetail; game: GameSummary | null }>(path);
+}
+
+// ---------------------------------------------------------------------------
+// Profile — caller's own profile row, used for display-name resolution.
+// ---------------------------------------------------------------------------
+
+/** Shape of `GET /api/profile/me` — all fields nullable. */
+export interface Profile {
+  displayName: string | null;
+  username: string | null;
+  email: string | null;
+}
+
+/**
+ * GET /api/profile/me — returns the caller's profile row joined with
+ * auth.users.email. All fields may be null; consumers must fallback.
+ */
+export function fetchMyProfile(token: string): Promise<ApiResult<Profile>> {
+  return authGet<Profile>('/profile/me', token);
 }

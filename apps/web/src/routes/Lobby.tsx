@@ -13,9 +13,10 @@
  */
 
 import { ROOM_CODE_RE } from '@riskrask/shared';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthPanel } from '../auth/AuthPanel';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   type CreateRoomBody,
   type RoomDetail,
@@ -23,14 +24,29 @@ import {
   type RoomSummary,
   addAiSeat,
   createRoom,
+  fetchMyProfile,
   getRoom,
   joinRoom,
   launchRoom,
   leaveRoom,
+  listMyRooms,
   listPublicRooms,
   setReady,
 } from '../net/api';
 import { useAuth } from '../net/auth';
+
+type LobbyTab = 'my' | 'public';
+
+/** Narrow `useSearchParams` output to a valid tab, defaulting to `public`. */
+function readTab(params: URLSearchParams): LobbyTab {
+  const raw = params.get('tab');
+  return raw === 'my' ? 'my' : 'public';
+}
+
+/** Append `?tab=<current>` to a lobby-internal path. */
+function withTab(path: string, tab: LobbyTab): string {
+  return `${path}?tab=${tab}`;
+}
 
 const ROOM_LIST_POLL_MS = 5000;
 const ROOM_DETAIL_POLL_MS = 3000;
@@ -49,7 +65,29 @@ const AI_ARCHETYPES: readonly { id: string; label: string; tag: string }[] = [
 export function Lobby() {
   const { roomId } = useParams<{ roomId?: string }>();
   const navigate = useNavigate();
-  const { token, userId, email, setToken, clearToken } = useAuth();
+  const [searchParams] = useSearchParams();
+  const tab = readTab(searchParams);
+  const { token, userId, email, setToken, clearToken, setDisplayName } = useAuth();
+
+  // One-shot profile fetch so the header + seat rows can show a real name.
+  // Guarded by a ref keyed on the token so we refetch on token rotation but
+  // never repeat for the same session.
+  const fetchedForTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    if (fetchedForTokenRef.current === token) return;
+    fetchedForTokenRef.current = token;
+    void (async () => {
+      const result = await fetchMyProfile(token);
+      if (!result.ok) {
+        // Fall back silently — the seat rows already have their own fallbacks.
+        return;
+      }
+      const { displayName, username, email: profileEmail } = result.data;
+      const resolved = displayName ?? username ?? profileEmail ?? email ?? null;
+      setDisplayName(resolved);
+    })();
+  }, [token, email, setDisplayName]);
 
   if (!token) {
     return <AuthPanel onLegacyToken={setToken} />;
@@ -61,7 +99,7 @@ export function Lobby() {
 
       <div className="mt-6 grid flex-1 gap-6 lg:grid-cols-[1fr_minmax(320px,420px)]">
         <section className="flex flex-col gap-4">
-          <RoomListPanel token={token} activeRoomId={roomId ?? null} />
+          <RoomListPanel token={token} activeRoomId={roomId ?? null} tab={tab} />
         </section>
 
         <section className="flex flex-col gap-4">
@@ -71,7 +109,7 @@ export function Lobby() {
               roomId={roomId}
               token={token}
               userId={userId}
-              onLeave={() => void navigate('/lobby')}
+              onLeave={() => void navigate(withTab('/lobby', tab))}
               onLaunch={() => void navigate(`/play/${roomId}`)}
             />
           ) : (
@@ -140,10 +178,12 @@ function LobbyHeader({
 interface RoomListPanelProps {
   token: string;
   activeRoomId: string | null;
+  tab: LobbyTab;
 }
 
-function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
+function RoomListPanel({ token, activeRoomId, tab }: RoomListPanelProps) {
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -153,16 +193,20 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
   const [createBusy, setCreateBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const result = await listPublicRooms(token);
+    const result = await (tab === 'my' ? listMyRooms(token) : listPublicRooms(token));
     if (result.ok) {
       setRooms(result.data.rooms);
       setListError(null);
     } else {
       setListError(result.detail ?? result.code);
     }
-  }, [token]);
+  }, [token, tab]);
 
   useEffect(() => {
+    // Reset the list when the tab flips so stale rows from the other bucket
+    // don't flash in before the first fetch resolves.
+    setRooms([]);
+    setListError(null);
     void refresh();
     const handle = setInterval(() => {
       void refresh();
@@ -182,7 +226,8 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
       return;
     }
     setCreateOpen(false);
-    void navigate(`/lobby/${result.data.room.id}`);
+    // A freshly created room always belongs in "my rooms" — snap to that tab.
+    void navigate(`/lobby/${result.data.room.id}?tab=my`);
   }
 
   async function handleJoinByCode(e: FormEvent) {
@@ -199,8 +244,18 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
       return;
     }
     setJoinCode('');
-    void navigate(`/lobby/${result.data.room.id}`);
+    void navigate(withTab(`/lobby/${result.data.room.id}`, tab));
   }
+
+  function switchTab(next: LobbyTab) {
+    if (next === tab) return;
+    setSearchParams({ tab: next });
+  }
+
+  const emptyCopy =
+    tab === 'my'
+      ? 'No active rooms — create one or join by code.'
+      : 'No open rooms yet. Create one to get started.';
 
   return (
     <>
@@ -258,6 +313,21 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
         )}
       </form>
 
+      <div data-testid="room-list-tabs" className="flex gap-0 border border-line bg-panel">
+        <TabButton
+          active={tab === 'my'}
+          onClick={() => switchTab('my')}
+          testId="tab-my"
+          label="My Rooms"
+        />
+        <TabButton
+          active={tab === 'public'}
+          onClick={() => switchTab('public')}
+          testId="tab-public"
+          label="Public Lobby"
+        />
+      </div>
+
       <div className="flex flex-col border border-line bg-panel">
         {listError && (
           <p className="border-b border-line px-3 py-2 font-mono text-[9px] text-danger">
@@ -266,7 +336,7 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
         )}
         {rooms.length === 0 && !listError ? (
           <p className="px-3 py-4 font-mono text-[10px] uppercase tracking-widest text-ink-ghost">
-            No open rooms yet. Create one to get started.
+            {emptyCopy}
           </p>
         ) : (
           <ul data-testid="room-list" className="divide-y divide-line">
@@ -278,14 +348,19 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
                 }`}
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-mono text-sm tracking-[0.2em] text-ink">{r.code}</span>
+                  <span
+                    data-testid="room-row-label"
+                    className="font-mono text-sm tracking-[0.2em] text-ink"
+                  >
+                    {r.name ?? r.code}
+                  </span>
                   <span className="font-mono text-[9px] uppercase tracking-widest text-ink-faint">
-                    {r.state} · {r.seatCount} seat{r.seatCount === 1 ? '' : 's'}
+                    {r.code} · {r.state} · {r.seatCount} seat{r.seatCount === 1 ? '' : 's'}
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => void navigate(`/lobby/${r.id}`)}
+                  onClick={() => void navigate(withTab(`/lobby/${r.id}`, tab))}
                   className="border border-line px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-hot hover:text-hot"
                 >
                   Open
@@ -299,6 +374,32 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
   );
 }
 
+function TabButton({
+  active,
+  onClick,
+  testId,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  testId: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex-1 border-r border-line px-3 py-2 text-center font-mono text-[10px] uppercase tracking-[0.22em] last:border-r-0 ${
+        active ? 'bg-hot/10 text-hot' : 'text-ink-faint hover:bg-bg-0/40 hover:text-ink-dim'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function CreateRoomForm({
   onSubmit,
   busy,
@@ -308,13 +409,17 @@ function CreateRoomForm({
   busy: boolean;
   error: string | null;
 }) {
+  const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [maxPlayers, setMaxPlayers] = useState(6);
 
+  const trimmedName = name.trim();
+  const canSubmit = !busy && trimmedName.length > 0;
+
   function handle(e: FormEvent) {
     e.preventDefault();
-    if (busy) return;
-    onSubmit({ visibility, maxPlayers });
+    if (!canSubmit) return;
+    onSubmit({ visibility, maxPlayers, name: trimmedName });
   }
 
   return (
@@ -323,6 +428,22 @@ function CreateRoomForm({
       onSubmit={handle}
       className="flex flex-col gap-3 border border-line bg-panel p-3"
     >
+      <label className="flex flex-col gap-1.5">
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
+          Name
+        </span>
+        <input
+          data-testid="room-name-input"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          required
+          placeholder="e.g. Friday Night Fight"
+          className="border border-line bg-bg-0 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-ghost focus:border-hot focus:outline-none"
+        />
+      </label>
+
       <div className="flex flex-col gap-1.5">
         <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
           Visibility
@@ -372,7 +493,7 @@ function CreateRoomForm({
       <button
         type="submit"
         data-testid="create-room-submit"
-        disabled={busy}
+        disabled={!canSubmit}
         className="border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:opacity-50"
       >
         {busy ? 'Creating…' : 'Create room'}
@@ -402,6 +523,10 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
   const [room, setRoom] = useState<RoomDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  // `lobbyClosedToast` is a tiny inline toast triggered when the server
+  // reports the leave deleted the room. Null = hidden. Auto-clears via effect.
+  const [lobbyClosedToast, setLobbyClosedToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await getRoom(roomId, token);
@@ -432,6 +557,18 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     }
   }, [room?.state]);
 
+  // Auto-dismiss the "Lobby closed" toast after 3s and hand off to onLeave.
+  useEffect(() => {
+    if (lobbyClosedToast === null) return;
+    const h = setTimeout(() => {
+      setLobbyClosedToast(null);
+      onLeave();
+    }, 2400);
+    return () => {
+      clearTimeout(h);
+    };
+  }, [lobbyClosedToast, onLeave]);
+
   if (loadError) {
     return (
       <div className="flex flex-col gap-3 border border-line bg-panel p-4">
@@ -461,8 +598,15 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
   const isHost = room.hostId !== undefined && userId !== null && room.hostId === userId;
   const mySeat = seats.find((s) => s.userId !== null && s.userId === userId) ?? null;
   const filledSeats = seats.length;
-  const allReady = seats.length > 0 && seats.every((s) => s.isAi || s.ready);
-  const canLaunch = isHost && filledSeats >= 2 && allReady && room.state === 'lobby';
+  // Launch gate — the host's click is the implicit ready signal, so we drop
+  // the per-seat `allReady` requirement. S3 autofill handles empty slots.
+  const canLaunch = isHost && filledSeats >= 1 && room.state === 'lobby';
+
+  // Count active humans for the leave-confirm copy. A user is "solo" iff
+  // they're the only non-AI seat currently present; leaving then deletes
+  // the room server-side. AI seats don't block deletion.
+  const activeHumanCount = seats.filter((s) => s.userId !== null && !s.isAi).length;
+  const soloHuman = activeHumanCount === 1 && mySeat !== null;
 
   async function handleReadyToggle() {
     if (!mySeat) return;
@@ -475,12 +619,27 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     void refresh();
   }
 
-  async function handleLeave() {
+  async function handleConfirmLeave() {
+    setLeaveConfirmOpen(false);
     setActionError(null);
     const result = await leaveRoom(roomId, token);
     if (!result.ok) {
       setActionError(result.detail ?? result.code);
       return;
+    }
+    if (result.data.roomDeleted) {
+      // Server dropped the room — surface a brief toast then navigate out.
+      setLobbyClosedToast('Lobby closed');
+      return;
+    }
+    if (result.data.newHostId !== null && result.data.newHostId === userId) {
+      // Shouldn't be reachable — the leaver just vacated their seat and
+      // therefore can't become the new host. Log for telemetry and fall
+      // through to the plain leave path.
+      console.warn('[lobby] leave response says we are the new host of a room we left', {
+        roomId,
+        userId,
+      });
     }
     onLeave();
   }
@@ -509,11 +668,14 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     <div className="flex flex-col gap-4 border border-line bg-panel p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
-            Room code
+          <span data-testid="room-name" className="font-display text-xl tracking-[0.12em] text-ink">
+            {room.name ?? '(no name)'}
           </span>
           <div className="flex items-center gap-2">
-            <span data-testid="room-code" className="font-mono text-2xl tracking-[0.28em] text-ink">
+            <span
+              data-testid="room-code"
+              className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-faint"
+            >
               {room.code}
             </span>
             <button
@@ -531,6 +693,14 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
           <span className="font-mono text-[9px] uppercase tracking-widest text-ink-faint">
             {room.state} · {filledSeats}/{room.maxPlayers ?? 6} seats
           </span>
+          {mySeat && (
+            <span
+              data-testid="seated-as"
+              className="font-mono text-[9px] uppercase tracking-[0.18em] text-hot"
+            >
+              Seated as #{mySeat.seatIdx}
+            </span>
+          )}
         </div>
         {room.state === 'active' && (
           <button
@@ -553,24 +723,18 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
             Waiting for seats…
           </li>
         ) : (
-          seats.map((seat) => <SeatRow key={seat.seatIdx} seat={seat} />)
+          seats.map((seat) => <SeatRow key={seat.seatIdx} seat={seat} currentUserId={userId} />)
         )}
       </ul>
 
       <div className="flex flex-col gap-2">
         {mySeat && !isHost && (
-          <button
-            type="button"
-            data-testid="ready-toggle"
-            onClick={() => void handleReadyToggle()}
-            className={`border py-2 font-mono text-[10px] uppercase tracking-widest ${
-              mySeat.ready
-                ? 'border-hot bg-hot/10 text-hot hover:bg-hot/20'
-                : 'border-line text-ink-faint hover:border-line-2 hover:text-ink-dim'
-            }`}
+          <p
+            data-testid="waiting-for-host"
+            className="border border-line bg-panel py-2 text-center font-mono text-[10px] uppercase tracking-widest text-ink-ghost"
           >
-            {mySeat.ready ? 'Ready ✓' : 'Not ready'}
-          </button>
+            Waiting for host…
+          </p>
         )}
 
         {isHost && (
@@ -587,7 +751,7 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
             </button>
             {!canLaunch && room.state === 'lobby' && (
               <p className="font-mono text-[9px] uppercase tracking-widest text-ink-ghost">
-                Need 2+ seats with every human ready.
+                Launching fills empty seats with AI.
               </p>
             )}
           </>
@@ -596,7 +760,7 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
         <button
           type="button"
           data-testid="leave-btn"
-          onClick={() => void handleLeave()}
+          onClick={() => setLeaveConfirmOpen(true)}
           className="border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
         >
           Leave room
@@ -607,20 +771,62 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
           </p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={leaveConfirmOpen}
+        title={soloHuman ? 'Close this lobby?' : 'Leave this room?'}
+        body={
+          soloHuman
+            ? "You're the only player — leaving will delete the room."
+            : 'The lobby will remain open for the other players.'
+        }
+        confirmLabel={soloHuman ? 'Close lobby' : 'Leave'}
+        cancelLabel="Stay"
+        dangerous={soloHuman}
+        onConfirm={() => void handleConfirmLeave()}
+        onCancel={() => setLeaveConfirmOpen(false)}
+      />
+
+      {lobbyClosedToast !== null && (
+        <output
+          data-testid="lobby-closed-toast"
+          aria-live="polite"
+          className="pointer-events-none fixed left-1/2 top-6 z-[80] -translate-x-1/2 border border-hot bg-bg-0/95 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-hot backdrop-blur"
+        >
+          {lobbyClosedToast}
+        </output>
+      )}
     </div>
   );
 }
 
-function SeatRow({ seat }: { seat: RoomSeat }) {
-  const name = seat.isAi
-    ? `AI · ${seat.archId ?? 'archetype'}`
-    : (seat.displayName ?? (seat.userId ? seat.userId.slice(0, 8) : `Seat ${seat.seatIdx}`));
+function SeatRow({ seat, currentUserId }: { seat: RoomSeat; currentUserId: string | null }) {
+  // Human-seat fallback chain: resolved display name → first 8 of UUID → the
+  // "Seat N" placeholder. AI seats keep their archetype label.
+  const humanName =
+    seat.displayName ?? (seat.userId ? seat.userId.slice(0, 8) : `Seat ${seat.seatIdx}`);
+  const name = seat.isAi ? `AI · ${seat.archId ?? 'archetype'}` : humanName;
+  const isMe = seat.userId !== null && seat.userId === currentUserId;
+
   return (
-    <li className="flex items-center justify-between py-2">
+    <li
+      data-testid={isMe ? 'seat-row-me' : undefined}
+      className={`flex items-center justify-between py-2 ${
+        isMe ? 'border-l-2 border-hot bg-hot/5 pl-2' : ''
+      }`}
+    >
       <div className="flex items-center gap-3">
         <span className="font-mono text-[9px] uppercase tracking-widest text-ink-ghost">
           #{seat.seatIdx}
         </span>
+        {isMe && (
+          <span
+            data-testid="seat-you-badge"
+            className="border border-hot bg-hot/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-hot"
+          >
+            (YOU)
+          </span>
+        )}
         <span className="font-display text-sm text-ink">{name}</span>
         {seat.isAi && (
           <span className="border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink-faint">
