@@ -8,6 +8,7 @@
  * POST   /api/rooms/:id/ready       — toggle seat ready
  * POST   /api/rooms/:id/ai-seat     — host-only add AI seat
  * GET    /api/rooms                 — list public rooms by state
+ * GET    /api/rooms/mine            — rooms the caller holds an active seat in
  * GET    /api/rooms/:id             — fetch current game snapshot
  *
  * Write paths call Postgres RPCs via the user-scoped anon client so
@@ -37,6 +38,7 @@ const CreateRoomBody = z.object({
   visibility: z.enum(['public', 'private']).default('public'),
   maxPlayers: z.number().int().min(2).max(6).default(6),
   settings: z.record(z.unknown()).default({}),
+  name: z.string().trim().min(1).max(80).optional(),
 });
 
 const JoinBody = z.object({ code: z.string().min(1) });
@@ -84,6 +86,7 @@ roomsRouter.post('/', async (c) => {
     p_visibility: body.visibility,
     p_max_players: body.maxPlayers,
     p_settings: body.settings as Record<string, unknown>,
+    p_name: body.name ?? null,
   });
   if (error) {
     return c.json(errBody('CREATE_FAILED', error.message), 500);
@@ -254,7 +257,7 @@ roomsRouter.get('/', async (c) => {
   const svc = serviceClient();
   let q = svc
     .from('rooms')
-    .select('id, code, state, visibility, host_id, created_at, room_seats(seat_idx)')
+    .select('id, code, name, state, visibility, host_id, created_at, room_seats(seat_idx)')
     .order('created_at', { ascending: false })
     .limit(50);
   if (query.data.visibility) q = q.eq('visibility', query.data.visibility);
@@ -266,6 +269,7 @@ roomsRouter.get('/', async (c) => {
   const rows = (data ?? []) as Array<{
     id: string;
     code: string;
+    name: string | null;
     state: string;
     visibility: string;
     host_id: string;
@@ -275,11 +279,55 @@ roomsRouter.get('/', async (c) => {
   const rooms = rows.map((r) => ({
     id: r.id,
     code: r.code,
+    name: r.name,
     state: r.state,
     visibility: r.visibility,
     hostId: r.host_id,
     createdAt: r.created_at,
     seatCount: r.room_seats?.length ?? 0,
+  }));
+  return c.json({ ok: true, rooms }, 200);
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/rooms/mine
+// Rooms the caller currently holds an active seat in. Registered before
+// `/:id` so Hono's router matches the literal path first.
+// ---------------------------------------------------------------------------
+roomsRouter.get('/mine', async (c) => {
+  const jwt = bearer(c.req.header('Authorization'));
+  if (!jwt) return c.json(errBody('UNAUTHORIZED'), 401);
+
+  const user = await verifySupabaseJwt(c.req.header('Authorization') ?? null);
+  if (!user) return c.json(errBody('UNAUTHORIZED'), 401);
+
+  const client = anonClient(jwt) as unknown as AnyClient;
+  const { data, error } = await client.rpc('list_my_rooms');
+  if (error) return c.json(errBody('LIST_FAILED', error.message), 500);
+
+  const rows = (data ?? []) as Array<{
+    id: string;
+    code: string;
+    name: string | null;
+    state: string;
+    visibility: string;
+    max_players: number;
+    host_id: string;
+    created_at: string;
+    seat_count: number;
+    my_seat_idx: number;
+  }>;
+  const rooms = rows.map((r) => ({
+    id: r.id,
+    code: r.code,
+    name: r.name,
+    state: r.state,
+    visibility: r.visibility,
+    maxPlayers: r.max_players,
+    hostId: r.host_id,
+    createdAt: r.created_at,
+    seatCount: r.seat_count,
+    mySeatIdx: r.my_seat_idx,
   }));
   return c.json({ ok: true, rooms }, 200);
 });
