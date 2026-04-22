@@ -20,10 +20,18 @@ export interface Auth {
   token: string | null;
   userId: string | null;
   email: string | null;
+  /**
+   * Resolved profile display name for the current user — populated after a
+   * `fetchMyProfile` call by whatever route/component orchestrates the
+   * lookup. Null until set. Cleared on sign-out.
+   */
+  displayName: string | null;
   /** Legacy escape hatch — only honoured when Supabase isn't configured. */
   setToken: (t: string | null) => void;
   /** Signs out the current Supabase session (or clears the legacy override). */
   clearToken: () => void;
+  /** Cache the caller's resolved profile display name. Null unsets. */
+  setDisplayName: (name: string | null) => void;
 }
 
 /** Decode the `sub` claim from a JWT without verifying it. */
@@ -98,12 +106,32 @@ function broadcastLegacy(next: string | null): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Display-name cache — module-level so every useAuth consumer sees the same
+// value without re-fetching. The Lobby populates it after profile fetch;
+// sign-out clears it.
+// ---------------------------------------------------------------------------
+
+let displayNameCache: string | null = null;
+const displayNameListeners = new Set<(name: string | null) => void>();
+function broadcastDisplayName(next: string | null): void {
+  displayNameCache = next;
+  for (const fn of displayNameListeners) {
+    try {
+      fn(next);
+    } catch (e) {
+      console.warn('[auth] displayName listener threw', e);
+    }
+  }
+}
+
 export function useAuth(): Auth {
   const configured = isSupabaseConfigured();
   const [snap, setSnap] = useState<SnapshotShape>(() => {
     if (configured) return { token: null, userId: null, email: null };
     return snapshotFromLegacy(readLegacy());
   });
+  const [displayName, setDisplayNameState] = useState<string | null>(displayNameCache);
 
   useEffect(() => {
     if (configured) {
@@ -116,8 +144,11 @@ export function useAuth(): Auth {
         setSnap(snapshotFromSession(data.session));
       });
 
-      const { data: sub } = supa.auth.onAuthStateChange((_event, session) => {
+      const { data: sub } = supa.auth.onAuthStateChange((event, session) => {
         setSnap(snapshotFromSession(session));
+        // Drop any cached display-name on sign-out so the next signed-in user
+        // doesn't see the previous account's name.
+        if (event === 'SIGNED_OUT') broadcastDisplayName(null);
       });
 
       return () => {
@@ -144,6 +175,18 @@ export function useAuth(): Auth {
     };
   }, [configured]);
 
+  // Subscribe to the module-level displayName cache so every useAuth
+  // consumer re-renders when the Lobby (or anywhere else) resolves it.
+  useEffect(() => {
+    const fn = (name: string | null): void => setDisplayNameState(name);
+    displayNameListeners.add(fn);
+    // Sync late-mounts to the current cached value.
+    setDisplayNameState(displayNameCache);
+    return () => {
+      displayNameListeners.delete(fn);
+    };
+  }, []);
+
   const setToken = useCallback(
     (t: string | null): void => {
       if (configured) {
@@ -153,11 +196,15 @@ export function useAuth(): Auth {
       writeLegacy(t);
       setSnap(snapshotFromLegacy(t));
       broadcastLegacy(t);
+      // Legacy-token flip implies a session change — drop stale displayName.
+      if (t === null) broadcastDisplayName(null);
     },
     [configured],
   );
 
   const clearToken = useCallback((): void => {
+    // Always clear the cached display name on sign-out regardless of mode.
+    broadcastDisplayName(null);
     if (configured) {
       const supa = getSupabase();
       if (supa) void supa.auth.signOut();
@@ -168,11 +215,17 @@ export function useAuth(): Auth {
     broadcastLegacy(null);
   }, [configured]);
 
+  const setDisplayName = useCallback((name: string | null): void => {
+    broadcastDisplayName(name);
+  }, []);
+
   return {
     token: snap.token,
     userId: snap.userId,
     email: snap.email,
+    displayName,
     setToken,
     clearToken,
+    setDisplayName,
   };
 }

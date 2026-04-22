@@ -189,12 +189,25 @@ export function joinRoom(code: string, token: string): Promise<ApiResult<{ room:
   return authPost<{ room: RoomDetail }>('/rooms/by-code/join', { code }, token);
 }
 
-/** POST /api/rooms/:id/leave — vacate the caller's seat. */
+/**
+ * POST /api/rooms/:id/leave — vacate the caller's seat.
+ *
+ * Returns `{ roomDeleted, newHostId }`:
+ *   - `roomDeleted: true`  — caller was the last human in a lobby; server
+ *     dropped the room row (and cascaded room_seats / games / chat).
+ *   - `newHostId: <uuid>`  — caller was the host and there were other humans
+ *     remaining; host ownership transferred to this seat.
+ *   - both false / null    — plain leave with no side-effects.
+ */
 export function leaveRoom(
   roomId: string,
   token: string,
-): Promise<ApiResult<Record<string, never>>> {
-  return authPost<Record<string, never>>(`/rooms/${encodeURIComponent(roomId)}/leave`, {}, token);
+): Promise<ApiResult<{ roomDeleted: boolean; newHostId: string | null }>> {
+  return authPost<{ roomDeleted: boolean; newHostId: string | null }>(
+    `/rooms/${encodeURIComponent(roomId)}/leave`,
+    {},
+    token,
+  );
 }
 
 /** POST /api/rooms/:id/ready — toggle the caller's `is_ready`. */
@@ -251,4 +264,23 @@ export function getRoom(
   return token !== undefined
     ? authGet<{ room: RoomDetail; game: GameSummary | null }>(path, token)
     : get<{ room: RoomDetail; game: GameSummary | null }>(path);
+}
+
+// ---------------------------------------------------------------------------
+// Profile — caller's own profile row, used for display-name resolution.
+// ---------------------------------------------------------------------------
+
+/** Shape of `GET /api/profile/me` — all fields nullable. */
+export interface Profile {
+  displayName: string | null;
+  username: string | null;
+  email: string | null;
+}
+
+/**
+ * GET /api/profile/me — returns the caller's profile row joined with
+ * auth.users.email. All fields may be null; consumers must fallback.
+ */
+export function fetchMyProfile(token: string): Promise<ApiResult<Profile>> {
+  return authGet<Profile>('/profile/me', token);
 }
