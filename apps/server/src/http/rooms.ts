@@ -408,7 +408,9 @@ roomsRouter.get('/:id', async (c) => {
   const svc = serviceClient();
   const { data: roomRow, error: roomErr } = await svc
     .from('rooms')
-    .select('id, code, state, current_game_id, winner_id, finished_at')
+    .select(
+      'id, code, name, state, visibility, host_id, max_players, current_game_id, winner_id, finished_at',
+    )
     .eq('id', id)
     .maybeSingle();
   if (roomErr) return c.json(errBody('FETCH_FAILED', roomErr.message), 500);
@@ -417,7 +419,11 @@ roomsRouter.get('/:id', async (c) => {
   const row = roomRow as {
     id: string;
     code: string;
+    name: string | null;
     state: string;
+    visibility: string;
+    host_id: string;
+    max_players: number;
     current_game_id: string | null;
     winner_id: string | null;
     finished_at: string | null;
@@ -481,7 +487,20 @@ roomsRouter.get('/:id', async (c) => {
       };
     });
 
-  const roomOut = { ...row, seats };
+  // Map snake_case → camelCase for client consumption. Preserve both the
+  // snake_case fields (existing consumers may still read them) and add the
+  // camelCase versions the Lobby expects for isHost / maxPlayers / visibility.
+  const roomOut = {
+    ...row,
+    hostId: row.host_id,
+    maxPlayers: row.max_players,
+    visibility: row.visibility,
+    name: row.name,
+    currentGameId: row.current_game_id,
+    winnerId: row.winner_id,
+    finishedAt: row.finished_at,
+    seats,
+  };
 
   if (!row.current_game_id) {
     return c.json({ ok: true, data: { room: roomOut, game: null } }, 200);
