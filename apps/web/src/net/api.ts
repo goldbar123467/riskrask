@@ -4,7 +4,10 @@ type ApiOk<T> = { ok: true; data: T };
 type ApiErr = { ok: false; code: string; detail?: string };
 export type ApiResult<T> = ApiOk<T> | ApiErr;
 
-const BASE = '/api';
+// API origin is configured via VITE_API_URL at build time
+// (see apps/web/.env.production). Empty string → same-origin `/api` for local dev.
+const API_ORIGIN = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
+const BASE = `${API_ORIGIN}/api`;
 
 async function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   try {
