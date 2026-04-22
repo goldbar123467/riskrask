@@ -96,6 +96,7 @@ describe('Lobby', () => {
               {
                 id: 'r-1',
                 code: 'ABCD23',
+                name: null,
                 state: 'lobby',
                 visibility: 'public',
                 hostId: 'u-host',
@@ -109,7 +110,222 @@ describe('Lobby', () => {
     ]);
     renderAt('/lobby');
     await waitFor(() => expect(screen.getByTestId('room-list')).toBeInTheDocument());
-    expect(screen.getByText('ABCD23')).toBeInTheDocument();
+    // Row falls back to code when name is null — code appears as the row label.
+    expect(screen.getByTestId('room-row-label')).toHaveTextContent('ABCD23');
+  });
+
+  it('with no tab param fetches via the public endpoint', async () => {
+    setToken('eyJtest');
+    const stub = installFetchStub([
+      {
+        match: '/api/rooms?visibility=public&state=lobby',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+      {
+        match: '/api/rooms/mine',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+    ]);
+    renderAt('/lobby');
+    await waitFor(() => {
+      expect(
+        stub.calls.some((c) => c.url.includes('/api/rooms?visibility=public&state=lobby')),
+      ).toBe(true);
+    });
+    expect(stub.calls.some((c) => c.url.includes('/api/rooms/mine'))).toBe(false);
+  });
+
+  it('with ?tab=my fetches via listMyRooms (/rooms/mine)', async () => {
+    setToken('eyJtest');
+    const stub = installFetchStub([
+      {
+        match: '/api/rooms?visibility=public&state=lobby',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+      {
+        match: '/api/rooms/mine',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            rooms: [
+              {
+                id: 'r-7',
+                code: 'ZZZZ99',
+                name: 'Friday Night',
+                state: 'lobby',
+                visibility: 'private',
+                hostId: 'u-host',
+                createdAt: '2026-04-22T00:00:00Z',
+                seatCount: 1,
+                mySeatIdx: 0,
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby?tab=my');
+    await waitFor(() => {
+      expect(stub.calls.some((c) => c.url.includes('/api/rooms/mine'))).toBe(true);
+    });
+    // Name is surfaced as the primary row label; public endpoint untouched.
+    await waitFor(() => {
+      expect(screen.getByTestId('room-row-label')).toHaveTextContent('Friday Night');
+    });
+    expect(stub.calls.some((c) => c.url.includes('/api/rooms?visibility=public&state=lobby'))).toBe(
+      false,
+    );
+  });
+
+  it('empty My Rooms state nudges the user to create or join', async () => {
+    setToken('eyJtest');
+    installFetchStub([
+      {
+        match: '/api/rooms/mine',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+    ]);
+    renderAt('/lobby?tab=my');
+    await waitFor(() => {
+      expect(screen.getByText(/no active rooms/i)).toBeInTheDocument();
+    });
+  });
+
+  it('includes name in the create-room POST when filled and omits it when blank', async () => {
+    setToken('eyJtest');
+    const stub = installFetchStub([
+      {
+        match: '/api/rooms?visibility=public&state=lobby',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+      {
+        match: '/api/rooms',
+        method: 'POST',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-new',
+              code: 'NEWROOM',
+              name: null,
+              state: 'lobby',
+            },
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby');
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByTestId('create-toggle'));
+
+    // First submit: name blank → body must NOT include `name`.
+    await user.click(screen.getByTestId('create-room-submit'));
+    await waitFor(() => {
+      expect(
+        stub.calls.some(
+          (c) => c.url.endsWith('/api/rooms') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
+        ),
+      ).toBe(true);
+    });
+    const firstPost = stub.calls.find(
+      (c) => c.url.endsWith('/api/rooms') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
+    );
+    const firstBody = JSON.parse(String(firstPost?.init?.body ?? '{}')) as Record<string, unknown>;
+    expect(firstBody.visibility).toBe('public');
+    expect('name' in firstBody).toBe(false);
+  });
+
+  it('includes name in the create-room POST when the input is filled', async () => {
+    setToken('eyJtest');
+    const stub = installFetchStub([
+      {
+        match: '/api/rooms?visibility=public&state=lobby',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+      {
+        match: '/api/rooms',
+        method: 'POST',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-new',
+              code: 'NEWROOM',
+              name: 'My Table',
+              state: 'lobby',
+            },
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby');
+
+    const user = userEvent.setup();
+    await user.click(await screen.findByTestId('create-toggle'));
+    await user.type(screen.getByTestId('room-name-input'), '  My Table  ');
+    await user.click(screen.getByTestId('create-room-submit'));
+
+    await waitFor(() => {
+      const posts = stub.calls.filter(
+        (c) => c.url.endsWith('/api/rooms') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
+      );
+      expect(posts.length).toBeGreaterThan(0);
+    });
+    const post = stub.calls.find(
+      (c) => c.url.endsWith('/api/rooms') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
+    );
+    const body = JSON.parse(String(post?.init?.body ?? '{}')) as Record<string, unknown>;
+    // Trimmed before send.
+    expect(body.name).toBe('My Table');
+  });
+
+  it('room row renders name when present and falls back to code when null', async () => {
+    setToken('eyJtest');
+    installFetchStub([
+      {
+        match: '/api/rooms?visibility=public&state=lobby',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            rooms: [
+              {
+                id: 'r-named',
+                code: 'AAAA23',
+                name: 'Weekend Warband',
+                state: 'lobby',
+                visibility: 'public',
+                hostId: 'u-host',
+                createdAt: '2026-04-22T00:00:00Z',
+                seatCount: 3,
+              },
+              {
+                id: 'r-unnamed',
+                code: 'BBBB23',
+                name: null,
+                state: 'lobby',
+                visibility: 'public',
+                hostId: 'u-host',
+                createdAt: '2026-04-22T00:00:00Z',
+                seatCount: 1,
+              },
+            ],
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby');
+    await waitFor(() => expect(screen.getByTestId('room-list')).toBeInTheDocument());
+    const labels = screen.getAllByTestId('room-row-label').map((el) => el.textContent);
+    expect(labels).toEqual(['Weekend Warband', 'BBBB23']);
   });
 
   it('rejects a malformed room code in the join form', async () => {
