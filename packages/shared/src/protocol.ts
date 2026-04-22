@@ -85,11 +85,13 @@ export const ServerWelcomeSchema = z.object({
   hash: HashSchema,
   seq: SeqSchema,
   /**
-   * Absolute epoch ms at which the current seat's turn budget expires.
+   * Absolute epoch-ms at which the current seat's turn budget expires.
    * Optional because rooms that haven't launched yet (setup-claim without
-   * TurnDriver) won't emit it. Clients that see it start a countdown.
+   * TurnDriver) won't emit it, and reconnects that arrive between turns or
+   * after the game ended won't either. Clients that see it start a
+   * countdown.
    */
-  turnDeadlineMs: z.number().optional(),
+  turnDeadlineMs: z.number().int().optional(),
 });
 
 export const ServerAppliedSchema = z.object({
@@ -132,20 +134,22 @@ export const ServerErrorSchema = z.object({
 });
 
 /**
- * Fired whenever the server changes the active seat. Clients use it to
- * restart their per-turn countdown and optionally re-surface whose turn it
- * is. `turnNumber` matches `GameState.turn` post-advance.
+ * Fired whenever the server changes the active seat (`state.currentPlayerIdx`).
+ * Clients use it to restart their per-turn countdown and optionally
+ * re-surface whose turn it is. `turnNumber` matches `GameState.turn`
+ * post-advance.
  */
 export const ServerTurnAdvanceSchema = z.object({
   type: z.literal('turn_advance'),
   currentSeatIdx: SeatIdxSchema,
   turnNumber: z.number().int().min(0),
-  deadlineMs: z.number(),
+  deadlineMs: z.number().int(),
 });
 
 /**
- * Terminal frame when the engine reports a winner. `winnerUserId` is null
- * for AI winners; `winnerSeatIdx` is null only if the winner cannot be
+ * Terminal frame emitted exactly once when the engine sets `state.winner`.
+ * The server closes sockets ~500ms after broadcasting. `winnerUserId` is
+ * null for AI winners; `winnerSeatIdx` is null only if the winner cannot be
  * resolved back to a seat (defensive — shouldn't happen in practice).
  */
 export const ServerGameOverSchema = z.object({

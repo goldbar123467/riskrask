@@ -27,7 +27,7 @@ const { upgradeWebSocket, websocket } = createBunWebSocket();
 
 export const wsRouter = new Hono();
 
-interface AttachedSocket {
+interface AttachedWs {
   send: (data: string) => void;
 }
 
@@ -98,8 +98,17 @@ wsRouter.get(
         }
 
         // Register the send callback on the Room.
-        const attached: AttachedSocket = { send: (data) => ws.send(data) };
-        room.attach(seatIdx, (msg) => attached.send(JSON.stringify(msg)));
+        const attached: AttachedWs = { send: (data) => ws.send(data) };
+        room.attach(seatIdx, {
+          send: (msg) => attached.send(JSON.stringify(msg)),
+          close: (code, reason) => {
+            try {
+              ws.close(code ?? 1000, reason);
+            } catch {
+              // WS already closed; no-op.
+            }
+          },
+        });
         session.attached = true;
 
         sendWelcomeWithDelta((m) => sendJson(ws, m), room, seatIdx, lastSeq);
@@ -221,6 +230,7 @@ export function sendWelcomeWithDelta(
   seatIdx: number,
   lastSeq: number | undefined,
 ): void {
+  const turnDeadlineMs = room.getTurnDeadline();
   send({
     type: 'welcome',
     gameId: room.gameId,
@@ -235,6 +245,7 @@ export function sendWelcomeWithDelta(
     })),
     hash: room.getHash(),
     seq: room.getSeq(),
+    ...(turnDeadlineMs !== null ? { turnDeadlineMs } : {}),
   });
 
   if (lastSeq === undefined || lastSeq === 0) return;

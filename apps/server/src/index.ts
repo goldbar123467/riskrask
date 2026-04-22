@@ -4,6 +4,9 @@ import { healthRouter } from './http/health';
 import { profileRouter } from './http/profile';
 import { roomsRouter } from './http/rooms';
 import { savesRouter } from './http/saves';
+import { handleGameOver } from './rooms/endGame';
+import { registry } from './rooms/registry';
+import { serviceClient } from './supabase';
 import { websocket, wsRouter } from './ws';
 
 /**
@@ -28,6 +31,18 @@ app.use(
     credentials: true,
   }),
 );
+
+// ---------------------------------------------------------------------------
+// End-of-game wiring — the registry singleton needs to know how to reach the
+// Supabase service client without creating a circular import. We inject here
+// at the composition root.
+// ---------------------------------------------------------------------------
+registry.setOnGameOver((roomId, winnerPlayerId, finalState) => {
+  void handleGameOver(roomId, winnerPlayerId, finalState, {
+    registry,
+    serviceClient: () => serviceClient() as never,
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Routes

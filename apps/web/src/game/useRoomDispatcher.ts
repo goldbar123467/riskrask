@@ -24,12 +24,29 @@ export interface RoomError {
   detail?: string;
 }
 
+export interface GameOverPayload {
+  winnerPlayerId: string;
+  winnerSeatIdx: number | null;
+  winnerUserId: string | null;
+  winnerDisplay: string;
+  finalHash: string;
+  finalSeq: number;
+}
+
 export interface UseRoomDispatcherOpts {
   roomId: string;
   seatIdx: number;
   token: string;
   /** Tests pass a `ws://` URL directly; production derives from location. */
   url?: string;
+  /**
+   * Called when the server broadcasts the current turn's deadline — either
+   * on `welcome` (if the server was already tracking a turn) or on every
+   * `turn_advance`. Consumer is responsible for driving a countdown UI.
+   */
+  onTurnDeadline?: (deadlineMs: number | null) => void;
+  /** Fired once per room lifetime when the server emits `game_over`. */
+  onGameOver?: (payload: GameOverPayload) => void;
 }
 
 export interface UseRoomDispatcherResult {
@@ -42,12 +59,19 @@ export interface UseRoomDispatcherResult {
 }
 
 export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatcherResult {
-  const { roomId, seatIdx, token, url } = opts;
+  const { roomId, seatIdx, token, url, onTurnDeadline, onGameOver } = opts;
   const clientRef = useRef<WsClient | null>(null);
   const [connState, setConnState] = useState<WsState>('connecting');
   const [seq, setSeq] = useState(0);
   const [seats, setSeats] = useState<SeatInfo[]>([]);
   const [lastError, setLastError] = useState<RoomError | null>(null);
+
+  // Keep callback refs stable so the socket effect doesn't thrash on every
+  // render just because the parent rebuilds inline closures.
+  const onTurnDeadlineRef = useRef(onTurnDeadline);
+  onTurnDeadlineRef.current = onTurnDeadline;
+  const onGameOverRef = useRef(onGameOver);
+  onGameOverRef.current = onGameOver;
 
   useEffect(() => {
     const client = createWsClient(
@@ -60,7 +84,13 @@ export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatche
     });
 
     const offMsg = client.onMessage((msg: ServerMsg) => {
-      handleServerMsg(msg, { setSeq, setSeats, setLastError });
+      handleServerMsg(msg, {
+        setSeq,
+        setSeats,
+        setLastError,
+        emitTurnDeadline: (d) => onTurnDeadlineRef.current?.(d),
+        emitGameOver: (p) => onGameOverRef.current?.(p),
+      });
     });
 
     return () => {
@@ -98,6 +128,8 @@ interface Sinks {
   setSeq: (n: number) => void;
   setSeats: (s: SeatInfo[]) => void;
   setLastError: (e: RoomError | null) => void;
+  emitTurnDeadline: (deadlineMs: number | null) => void;
+  emitGameOver: (payload: GameOverPayload) => void;
 }
 
 function handleServerMsg(msg: ServerMsg, sinks: Sinks): void {
@@ -111,6 +143,7 @@ function handleServerMsg(msg: ServerMsg, sinks: Sinks): void {
       sinks.setSeats(msg.seats);
       sinks.setSeq(msg.seq);
       sinks.setLastError(null);
+      sinks.emitTurnDeadline(msg.turnDeadlineMs ?? null);
       return;
     }
     case 'applied': {
@@ -173,6 +206,27 @@ function handleServerMsg(msg: ServerMsg, sinks: Sinks): void {
       sinks.setLastError(
         msg.detail !== undefined ? { code: msg.code, detail: msg.detail } : { code: msg.code },
       );
+      return;
+    }
+    case 'turn_advance': {
+      // New turn started on the server — clients restart their countdown.
+      // Local reducer state is driven by the preceding `applied`; we just
+      // surface the fresh deadline.
+      sinks.emitTurnDeadline(msg.deadlineMs);
+      return;
+    }
+    case 'game_over': {
+      // Terminal frame. The engine will already have set `state.winner`
+      // via the preceding `applied`, which triggers VictoryModal. This
+      // handler's job is to let the room shell schedule its auto-redirect.
+      sinks.emitGameOver({
+        winnerPlayerId: msg.winnerPlayerId,
+        winnerSeatIdx: msg.winnerSeatIdx,
+        winnerUserId: msg.winnerUserId,
+        winnerDisplay: msg.winnerDisplay,
+        finalHash: msg.finalHash,
+        finalSeq: msg.finalSeq,
+      });
       return;
     }
     default: {
