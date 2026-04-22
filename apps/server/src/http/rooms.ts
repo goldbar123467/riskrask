@@ -21,6 +21,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { verifySupabaseJwt } from '../auth/verify';
+import { fillEmptySeats } from '../rooms/autofill';
+import { insertGameRow, type SeatRow } from '../rooms/createGame';
 import { registry } from '../rooms/registry';
 import type { Seat } from '../rooms/seat';
 import { anonClient, serviceClient } from '../supabase';
@@ -174,49 +176,75 @@ roomsRouter.post('/:id/ai-seat', async (c) => {
 
 // ---------------------------------------------------------------------------
 // POST /api/rooms/:id/launch
+//
+// Flow:
+//   1. Auth → host-jwt presence check.
+//   2. Service-client read of rooms(max_players, code) — we need both
+//      for autofill and for the Room hydration below.
+//   3. `fillEmptySeats` — seeds any gaps with random AI archetypes under
+//      the host JWT (RPC is host-only at the DB). Any failure aborts the
+//      launch with AUTOFILL_FAILED; the host can safely retry — the RPC
+//      is idempotent because already-filled seats are skipped.
+//   4. `launch_game` RPC (flips rooms.state='active' — the only thing
+//      that step still does now that the launch-trigger path is dead).
+//   5. `insertGameRow` — creates the games row directly via service
+//      client and links rooms.current_game_id. Replaces the old wait-
+//      for-trigger block.
+//   6. Re-read seats + hydrate the in-memory Room.
+//
+// Response is `{ ok, data: { roomId, gameId, hydrated } }` to match the
+// data-wrapper convention from commit 29b152d.
 // ---------------------------------------------------------------------------
 roomsRouter.post('/:id/launch', async (c) => {
   const jwt = bearer(c.req.header('Authorization'));
   if (!jwt) return c.json(errBody('UNAUTHORIZED'), 401);
 
   const id = c.req.param('id');
+  const svc = serviceClient();
+
+  // Step 2: pull the room metadata we need up front. If the room doesn't
+  // exist or the caller can't see it, bail before spending RPC budget on
+  // autofill. `max_players` and `code` are both required below.
+  const roomMeta = await svc
+    .from('rooms')
+    .select('id, code, max_players')
+    .eq('id', id)
+    .maybeSingle();
+  const roomData = roomMeta.data as {
+    id: string;
+    code: string | null;
+    max_players: number;
+  } | null;
+  if (roomMeta.error) {
+    return c.json(errBody('LAUNCH_FAILED', roomMeta.error.message), 500);
+  }
+  if (!roomData) {
+    return c.json(errBody('ROOM_NOT_FOUND'), 404);
+  }
+
+  // Step 3: autofill empty seats. Failure here 5xxs — the host retries.
+  try {
+    await fillEmptySeats(svc, jwt, id, roomData.max_players);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : 'unknown';
+    return c.json({ ok: false, code: 'AUTOFILL_FAILED', detail }, 500);
+  }
+
+  // Step 4: flip the room into 'active'. Host-only; RLS is enforced by
+  // the RPC itself (SECURITY DEFINER with a manual is_host check).
   const userClient = anonClient(jwt) as unknown as AnyClient;
   const { error } = await userClient.rpc('launch_game', { p_room_id: id });
   if (error) return c.json(errBody('LAUNCH_FAILED', error.message), 400);
 
-  // Hydrate the in-memory Room from the games row the launch trigger
-  // created. The service client is used here — reads of the game state
-  // bypass RLS to ensure the server always has a canonical view.
+  // Step 5 + 6: server-direct game creation + Room hydration.
   try {
-    const svc = serviceClient();
-    const roomRow = await svc
-      .from('rooms')
-      .select('id, code, current_game_id')
-      .eq('id', id)
-      .maybeSingle();
-
-    const currentGameId =
-      (roomRow.data as { current_game_id?: string | null } | null)?.current_game_id ?? null;
-    if (!currentGameId) {
-      // The launch trigger is asynchronous via pg_net in some deployments;
-      // the caller can poll via GET /api/rooms/:id. Don't hard-fail.
-      return c.json({ ok: true, data: { roomId: id, hydrated: false } }, 200);
-    }
-
-    const gameRow = await svc
-      .from('games')
-      .select('id, state, players')
-      .eq('id', currentGameId)
-      .maybeSingle();
-    const game = gameRow.data as { id: string; state: unknown; players: unknown } | null;
-    if (!game) {
-      return c.json({ ok: true, data: { roomId: id, hydrated: false } }, 200);
-    }
-
     const seatsRow = await svc
       .from('room_seats')
       .select('seat_idx, user_id, is_ai, arch_id, is_connected')
       .eq('room_id', id);
+    if (seatsRow.error) {
+      return c.json(errBody('HYDRATE_FAILED', seatsRow.error.message), 500);
+    }
     const seatRows = (seatsRow.data ?? []) as Array<{
       seat_idx: number;
       user_id: string | null;
@@ -224,6 +252,16 @@ roomsRouter.post('/:id/launch', async (c) => {
       arch_id: string | null;
       is_connected: boolean;
     }>;
+
+    const seatRowsForEngine: SeatRow[] = seatRows.map((r) => ({
+      seat_idx: r.seat_idx,
+      user_id: r.user_id,
+      is_ai: r.is_ai,
+      arch_id: r.arch_id,
+    }));
+
+    const { gameId, state } = await insertGameRow(svc, id, seatRowsForEngine);
+
     const seats: Seat[] = seatRows.map((r) => ({
       seatIdx: r.seat_idx,
       userId: r.user_id,
@@ -233,11 +271,13 @@ roomsRouter.post('/:id/launch', async (c) => {
       afk: false,
     }));
 
-    const roomCode = (roomRow.data as { code?: string | null } | null)?.code ?? undefined;
-    registry.create(id, game.id, game.state as never, seats, {
+    const roomCode = roomData.code ?? undefined;
+    registry.create(id, gameId, state, seats, {
       ...(roomCode !== undefined ? { roomCode } : {}),
     });
-    return c.json({ ok: true, data: { roomId: id, hydrated: true, gameId: game.id } }, 200);
+
+    // TODO(s3-agent2): TurnDriver.start fires inside registry.create — confirm after merge.
+    return c.json({ ok: true, data: { roomId: id, gameId, hydrated: true } }, 200);
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'unknown';
     return c.json(errBody('HYDRATE_FAILED', detail), 500);
@@ -334,13 +374,17 @@ roomsRouter.get('/mine', async (c) => {
 
 // ---------------------------------------------------------------------------
 // GET /api/rooms/:id
+//
+// `winner_id` + `finished_at` are selected in addition to `state` so the
+// client's reconnect fallback can tell that a room finished while they
+// were gone and redirect without waiting for the stale ws `game_over`.
 // ---------------------------------------------------------------------------
 roomsRouter.get('/:id', async (c) => {
   const id = c.req.param('id');
   const svc = serviceClient();
   const { data: roomRow, error: roomErr } = await svc
     .from('rooms')
-    .select('id, code, state, current_game_id')
+    .select('id, code, state, current_game_id, winner_id, finished_at')
     .eq('id', id)
     .maybeSingle();
   if (roomErr) return c.json(errBody('FETCH_FAILED', roomErr.message), 500);
@@ -351,6 +395,8 @@ roomsRouter.get('/:id', async (c) => {
     code: string;
     state: string;
     current_game_id: string | null;
+    winner_id: string | null;
+    finished_at: string | null;
   };
   if (!row.current_game_id) {
     return c.json({ ok: true, data: { room: row, game: null } }, 200);
