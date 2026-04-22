@@ -155,8 +155,8 @@ export interface GameSummary {
 export interface CreateRoomBody {
   visibility: 'public' | 'private';
   maxPlayers: number;
-  /** Optional human-readable label. Server trims + enforces length. */
-  name?: string;
+  /** Required human-readable label. Server trims + enforces length 1..80. */
+  name: string;
 }
 
 /** GET /api/rooms — list public rooms in the lobby state, newest first. */

@@ -196,7 +196,7 @@ describe('Lobby', () => {
     });
   });
 
-  it('includes name in the create-room POST when filled and omits it when blank', async () => {
+  it('requires a non-empty name — submit is disabled until the input is filled', async () => {
     setToken('eyJtest');
     const stub = installFetchStub([
       {
@@ -204,42 +204,29 @@ describe('Lobby', () => {
         method: 'GET',
         body: { ok: true, data: { rooms: [] } },
       },
-      {
-        match: '/api/rooms',
-        method: 'POST',
-        body: {
-          ok: true,
-          data: {
-            room: {
-              id: 'r-new',
-              code: 'NEWROOM',
-              name: null,
-              state: 'lobby',
-            },
-          },
-        },
-      },
     ]);
     renderAt('/lobby');
 
     const user = userEvent.setup();
     await user.click(await screen.findByTestId('create-toggle'));
 
-    // First submit: name blank → body must NOT include `name`.
-    await user.click(screen.getByTestId('create-room-submit'));
-    await waitFor(() => {
-      expect(
-        stub.calls.some(
-          (c) => c.url.endsWith('/api/rooms') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
-        ),
-      ).toBe(true);
-    });
-    const firstPost = stub.calls.find(
+    const submit = screen.getByTestId('create-room-submit');
+    expect(submit).toBeDisabled();
+
+    const input = screen.getByTestId('room-name-input');
+    await user.type(input, 'Friday');
+    expect(submit).not.toBeDisabled();
+
+    // Whitespace-only is treated as blank.
+    await user.clear(input);
+    await user.type(input, '   ');
+    expect(submit).toBeDisabled();
+
+    // No POST should have fired against /api/rooms while the form was invalid.
+    const posts = stub.calls.filter(
       (c) => c.url.endsWith('/api/rooms') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
     );
-    const firstBody = JSON.parse(String(firstPost?.init?.body ?? '{}')) as Record<string, unknown>;
-    expect(firstBody.visibility).toBe('public');
-    expect('name' in firstBody).toBe(false);
+    expect(posts.length).toBe(0);
   });
 
   it('includes name in the create-room POST when the input is filled', async () => {

@@ -391,15 +391,13 @@ function CreateRoomForm({
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [maxPlayers, setMaxPlayers] = useState(6);
 
+  const trimmedName = name.trim();
+  const canSubmit = !busy && trimmedName.length > 0;
+
   function handle(e: FormEvent) {
     e.preventDefault();
-    if (busy) return;
-    const trimmed = name.trim();
-    const body: CreateRoomBody = { visibility, maxPlayers };
-    if (trimmed.length > 0) {
-      body.name = trimmed;
-    }
-    onSubmit(body);
+    if (!canSubmit) return;
+    onSubmit({ visibility, maxPlayers, name: trimmedName });
   }
 
   return (
@@ -410,7 +408,7 @@ function CreateRoomForm({
     >
       <label className="flex flex-col gap-1.5">
         <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
-          Name (optional)
+          Name
         </span>
         <input
           data-testid="room-name-input"
@@ -418,6 +416,7 @@ function CreateRoomForm({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={80}
+          required
           placeholder="e.g. Friday Night Fight"
           className="border border-line bg-bg-0 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-ghost focus:border-hot focus:outline-none"
         />
@@ -472,7 +471,7 @@ function CreateRoomForm({
       <button
         type="submit"
         data-testid="create-room-submit"
-        disabled={busy}
+        disabled={!canSubmit}
         className="border border-hot bg-hot/10 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20 disabled:opacity-50"
       >
         {busy ? 'Creating…' : 'Create room'}

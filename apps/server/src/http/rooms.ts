@@ -38,7 +38,7 @@ const CreateRoomBody = z.object({
   visibility: z.enum(['public', 'private']).default('public'),
   maxPlayers: z.number().int().min(2).max(6).default(6),
   settings: z.record(z.unknown()).default({}),
-  name: z.string().trim().min(1).max(80).optional(),
+  name: z.string().trim().min(1).max(80),
 });
 
 const JoinBody = z.object({ code: z.string().min(1) });
@@ -86,12 +86,12 @@ roomsRouter.post('/', async (c) => {
     p_visibility: body.visibility,
     p_max_players: body.maxPlayers,
     p_settings: body.settings as Record<string, unknown>,
-    p_name: body.name ?? null,
+    p_name: body.name,
   });
   if (error) {
     return c.json(errBody('CREATE_FAILED', error.message), 500);
   }
-  return c.json({ ok: true, room: data }, 200);
+  return c.json({ ok: true, data: { room: data } }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ roomsRouter.post('/:id/join', async (c) => {
   if (error) {
     return c.json(errBody('JOIN_FAILED', error.message), 400);
   }
-  return c.json({ ok: true, room: data }, 200);
+  return c.json({ ok: true, data: { room: data } }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -127,7 +127,7 @@ roomsRouter.post('/:id/leave', async (c) => {
   const client = anonClient(jwt) as unknown as AnyClient;
   const { error } = await client.rpc('leave_room', { p_room_id: id });
   if (error) return c.json(errBody('LEAVE_FAILED', error.message), 400);
-  return c.json({ ok: true }, 200);
+  return c.json({ ok: true, data: {} }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -148,7 +148,7 @@ roomsRouter.post('/:id/ready', async (c) => {
   const client = anonClient(jwt) as unknown as AnyClient;
   const { error } = await client.rpc('set_ready', { p_room_id: id, p_ready: body.ready });
   if (error) return c.json(errBody('READY_FAILED', error.message), 400);
-  return c.json({ ok: true }, 200);
+  return c.json({ ok: true, data: {} }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -169,7 +169,7 @@ roomsRouter.post('/:id/ai-seat', async (c) => {
   const client = anonClient(jwt) as unknown as AnyClient;
   const { error } = await client.rpc('add_ai_seat', { p_room_id: id, p_arch_id: body.archId });
   if (error) return c.json(errBody('AI_SEAT_FAILED', error.message), 400);
-  return c.json({ ok: true }, 200);
+  return c.json({ ok: true, data: {} }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -200,7 +200,7 @@ roomsRouter.post('/:id/launch', async (c) => {
     if (!currentGameId) {
       // The launch trigger is asynchronous via pg_net in some deployments;
       // the caller can poll via GET /api/rooms/:id. Don't hard-fail.
-      return c.json({ ok: true, roomId: id, hydrated: false }, 200);
+      return c.json({ ok: true, data: { roomId: id, hydrated: false } }, 200);
     }
 
     const gameRow = await svc
@@ -210,7 +210,7 @@ roomsRouter.post('/:id/launch', async (c) => {
       .maybeSingle();
     const game = gameRow.data as { id: string; state: unknown; players: unknown } | null;
     if (!game) {
-      return c.json({ ok: true, roomId: id, hydrated: false }, 200);
+      return c.json({ ok: true, data: { roomId: id, hydrated: false } }, 200);
     }
 
     const seatsRow = await svc
@@ -237,7 +237,7 @@ roomsRouter.post('/:id/launch', async (c) => {
     registry.create(id, game.id, game.state as never, seats, {
       ...(roomCode !== undefined ? { roomCode } : {}),
     });
-    return c.json({ ok: true, roomId: id, hydrated: true, gameId: game.id }, 200);
+    return c.json({ ok: true, data: { roomId: id, hydrated: true, gameId: game.id } }, 200);
   } catch (err) {
     const detail = err instanceof Error ? err.message : 'unknown';
     return c.json(errBody('HYDRATE_FAILED', detail), 500);
@@ -286,7 +286,7 @@ roomsRouter.get('/', async (c) => {
     createdAt: r.created_at,
     seatCount: r.room_seats?.length ?? 0,
   }));
-  return c.json({ ok: true, rooms }, 200);
+  return c.json({ ok: true, data: { rooms } }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -329,7 +329,7 @@ roomsRouter.get('/mine', async (c) => {
     seatCount: r.seat_count,
     mySeatIdx: r.my_seat_idx,
   }));
-  return c.json({ ok: true, rooms }, 200);
+  return c.json({ ok: true, data: { rooms } }, 200);
 });
 
 // ---------------------------------------------------------------------------
@@ -353,7 +353,7 @@ roomsRouter.get('/:id', async (c) => {
     current_game_id: string | null;
   };
   if (!row.current_game_id) {
-    return c.json({ ok: true, room: row, game: null }, 200);
+    return c.json({ ok: true, data: { room: row, game: null } }, 200);
   }
   const { data: gameRow, error: gameErr } = await svc
     .from('games')
@@ -361,7 +361,7 @@ roomsRouter.get('/:id', async (c) => {
     .eq('id', row.current_game_id)
     .maybeSingle();
   if (gameErr) return c.json(errBody('FETCH_FAILED', gameErr.message), 500);
-  return c.json({ ok: true, room: row, game: gameRow ?? null }, 200);
+  return c.json({ ok: true, data: { room: row, game: gameRow ?? null } }, 200);
 });
 
 export { roomsRouter };
