@@ -19,6 +19,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Hono } from 'hono';
 import { createBunWebSocket } from 'hono/bun';
 import { verifySupabaseJwt } from '../auth/verify';
+import { ensureHydrated } from '../rooms/hydrate';
 import { type Room, RoomError } from '../rooms/Room';
 import { registry } from '../rooms/registry';
 import { anonClient } from '../supabase';
@@ -79,7 +80,10 @@ wsRouter.get(
         }
         session.userId = user.id;
 
-        const room = registry.get(roomId);
+        // Lazy-hydrate from DB when the in-memory Room is gone (server
+        // restart, etc.) but the `games` row still exists. Idempotent — if
+        // already hydrated, this is a cheap `registry.get`.
+        const room = (await ensureHydrated(roomId)) ?? registry.get(roomId);
         if (!room) {
           sendJson(ws, { type: 'error', code: 'ROOM_NOT_FOUND' });
           ws.close(1011, 'room not found');
