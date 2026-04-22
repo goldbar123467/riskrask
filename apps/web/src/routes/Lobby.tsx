@@ -14,7 +14,7 @@
 
 import { ROOM_CODE_RE } from '@riskrask/shared';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthPanel } from '../auth/AuthPanel';
 import {
   type CreateRoomBody,
@@ -27,10 +27,24 @@ import {
   joinRoom,
   launchRoom,
   leaveRoom,
+  listMyRooms,
   listPublicRooms,
   setReady,
 } from '../net/api';
 import { useAuth } from '../net/auth';
+
+type LobbyTab = 'my' | 'public';
+
+/** Narrow `useSearchParams` output to a valid tab, defaulting to `public`. */
+function readTab(params: URLSearchParams): LobbyTab {
+  const raw = params.get('tab');
+  return raw === 'my' ? 'my' : 'public';
+}
+
+/** Append `?tab=<current>` to a lobby-internal path. */
+function withTab(path: string, tab: LobbyTab): string {
+  return `${path}?tab=${tab}`;
+}
 
 const ROOM_LIST_POLL_MS = 5000;
 const ROOM_DETAIL_POLL_MS = 3000;
@@ -49,6 +63,8 @@ const AI_ARCHETYPES: readonly { id: string; label: string; tag: string }[] = [
 export function Lobby() {
   const { roomId } = useParams<{ roomId?: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const tab = readTab(searchParams);
   const { token, userId, email, setToken, clearToken } = useAuth();
 
   if (!token) {
@@ -61,7 +77,7 @@ export function Lobby() {
 
       <div className="mt-6 grid flex-1 gap-6 lg:grid-cols-[1fr_minmax(320px,420px)]">
         <section className="flex flex-col gap-4">
-          <RoomListPanel token={token} activeRoomId={roomId ?? null} />
+          <RoomListPanel token={token} activeRoomId={roomId ?? null} tab={tab} />
         </section>
 
         <section className="flex flex-col gap-4">
@@ -71,7 +87,7 @@ export function Lobby() {
               roomId={roomId}
               token={token}
               userId={userId}
-              onLeave={() => void navigate('/lobby')}
+              onLeave={() => void navigate(withTab('/lobby', tab))}
               onLaunch={() => void navigate(`/play/${roomId}`)}
             />
           ) : (
@@ -140,10 +156,12 @@ function LobbyHeader({
 interface RoomListPanelProps {
   token: string;
   activeRoomId: string | null;
+  tab: LobbyTab;
 }
 
-function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
+function RoomListPanel({ token, activeRoomId, tab }: RoomListPanelProps) {
   const navigate = useNavigate();
+  const [, setSearchParams] = useSearchParams();
   const [rooms, setRooms] = useState<RoomSummary[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [joinCode, setJoinCode] = useState('');
@@ -153,16 +171,20 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
   const [createBusy, setCreateBusy] = useState(false);
 
   const refresh = useCallback(async () => {
-    const result = await listPublicRooms(token);
+    const result = await (tab === 'my' ? listMyRooms(token) : listPublicRooms(token));
     if (result.ok) {
       setRooms(result.data.rooms);
       setListError(null);
     } else {
       setListError(result.detail ?? result.code);
     }
-  }, [token]);
+  }, [token, tab]);
 
   useEffect(() => {
+    // Reset the list when the tab flips so stale rows from the other bucket
+    // don't flash in before the first fetch resolves.
+    setRooms([]);
+    setListError(null);
     void refresh();
     const handle = setInterval(() => {
       void refresh();
@@ -182,7 +204,8 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
       return;
     }
     setCreateOpen(false);
-    void navigate(`/lobby/${result.data.room.id}`);
+    // A freshly created room always belongs in "my rooms" — snap to that tab.
+    void navigate(`/lobby/${result.data.room.id}?tab=my`);
   }
 
   async function handleJoinByCode(e: FormEvent) {
@@ -199,8 +222,18 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
       return;
     }
     setJoinCode('');
-    void navigate(`/lobby/${result.data.room.id}`);
+    void navigate(withTab(`/lobby/${result.data.room.id}`, tab));
   }
+
+  function switchTab(next: LobbyTab) {
+    if (next === tab) return;
+    setSearchParams({ tab: next });
+  }
+
+  const emptyCopy =
+    tab === 'my'
+      ? 'No active rooms — create one or join by code.'
+      : 'No open rooms yet. Create one to get started.';
 
   return (
     <>
@@ -258,6 +291,21 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
         )}
       </form>
 
+      <div data-testid="room-list-tabs" className="flex gap-0 border border-line bg-panel">
+        <TabButton
+          active={tab === 'my'}
+          onClick={() => switchTab('my')}
+          testId="tab-my"
+          label="My Rooms"
+        />
+        <TabButton
+          active={tab === 'public'}
+          onClick={() => switchTab('public')}
+          testId="tab-public"
+          label="Public Lobby"
+        />
+      </div>
+
       <div className="flex flex-col border border-line bg-panel">
         {listError && (
           <p className="border-b border-line px-3 py-2 font-mono text-[9px] text-danger">
@@ -266,7 +314,7 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
         )}
         {rooms.length === 0 && !listError ? (
           <p className="px-3 py-4 font-mono text-[10px] uppercase tracking-widest text-ink-ghost">
-            No open rooms yet. Create one to get started.
+            {emptyCopy}
           </p>
         ) : (
           <ul data-testid="room-list" className="divide-y divide-line">
@@ -278,14 +326,19 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
                 }`}
               >
                 <div className="flex flex-col gap-0.5">
-                  <span className="font-mono text-sm tracking-[0.2em] text-ink">{r.code}</span>
+                  <span
+                    data-testid="room-row-label"
+                    className="font-mono text-sm tracking-[0.2em] text-ink"
+                  >
+                    {r.name ?? r.code}
+                  </span>
                   <span className="font-mono text-[9px] uppercase tracking-widest text-ink-faint">
-                    {r.state} · {r.seatCount} seat{r.seatCount === 1 ? '' : 's'}
+                    {r.code} · {r.state} · {r.seatCount} seat{r.seatCount === 1 ? '' : 's'}
                   </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => void navigate(`/lobby/${r.id}`)}
+                  onClick={() => void navigate(withTab(`/lobby/${r.id}`, tab))}
                   className="border border-line px-3 py-1 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-hot hover:text-hot"
                 >
                   Open
@@ -299,6 +352,32 @@ function RoomListPanel({ token, activeRoomId }: RoomListPanelProps) {
   );
 }
 
+function TabButton({
+  active,
+  onClick,
+  testId,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  testId: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-pressed={active}
+      onClick={onClick}
+      className={`flex-1 border-r border-line px-3 py-2 text-center font-mono text-[10px] uppercase tracking-[0.22em] last:border-r-0 ${
+        active ? 'bg-hot/10 text-hot' : 'text-ink-faint hover:bg-bg-0/40 hover:text-ink-dim'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
 function CreateRoomForm({
   onSubmit,
   busy,
@@ -308,13 +387,19 @@ function CreateRoomForm({
   busy: boolean;
   error: string | null;
 }) {
+  const [name, setName] = useState('');
   const [visibility, setVisibility] = useState<'public' | 'private'>('public');
   const [maxPlayers, setMaxPlayers] = useState(6);
 
   function handle(e: FormEvent) {
     e.preventDefault();
     if (busy) return;
-    onSubmit({ visibility, maxPlayers });
+    const trimmed = name.trim();
+    const body: CreateRoomBody = { visibility, maxPlayers };
+    if (trimmed.length > 0) {
+      body.name = trimmed;
+    }
+    onSubmit(body);
   }
 
   return (
@@ -323,6 +408,21 @@ function CreateRoomForm({
       onSubmit={handle}
       className="flex flex-col gap-3 border border-line bg-panel p-3"
     >
+      <label className="flex flex-col gap-1.5">
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
+          Name (optional)
+        </span>
+        <input
+          data-testid="room-name-input"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          maxLength={80}
+          placeholder="e.g. Friday Night Fight"
+          className="border border-line bg-bg-0 px-3 py-2 font-mono text-sm text-ink placeholder:text-ink-ghost focus:border-hot focus:outline-none"
+        />
+      </label>
+
       <div className="flex flex-col gap-1.5">
         <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
           Visibility
@@ -509,11 +609,14 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     <div className="flex flex-col gap-4 border border-line bg-panel p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-col gap-1">
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-ghost">
-            Room code
+          <span data-testid="room-name" className="font-display text-xl tracking-[0.12em] text-ink">
+            {room.name ?? '(no name)'}
           </span>
           <div className="flex items-center gap-2">
-            <span data-testid="room-code" className="font-mono text-2xl tracking-[0.28em] text-ink">
+            <span
+              data-testid="room-code"
+              className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-faint"
+            >
               {room.code}
             </span>
             <button

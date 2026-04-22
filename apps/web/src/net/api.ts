@@ -98,11 +98,17 @@ export function loadSave(code: string): Promise<ApiResult<LoadResponse>> {
 export interface RoomSummary {
   id: string;
   code: string;
+  name: string | null;
   state: 'lobby' | 'active' | 'post_game' | 'countdown' | 'finished' | 'archived';
   visibility: 'public' | 'private';
   hostId: string;
   createdAt: string;
   seatCount: number;
+  /**
+   * Present on `/rooms/mine` responses — the seat index held by the caller
+   * in this room. Undefined on public-list rows (caller isn't a member).
+   */
+  mySeatIdx?: number | null;
 }
 
 /** Seat row surfaced on the room-detail view. Mirrors `room_seats`. */
@@ -124,6 +130,7 @@ export interface RoomSeat {
 export interface RoomDetail {
   id: string;
   code: string;
+  name?: string | null;
   state: RoomSummary['state'];
   currentGameId?: string | null;
   visibility?: 'public' | 'private';
@@ -145,11 +152,21 @@ export interface GameSummary {
 export interface CreateRoomBody {
   visibility: 'public' | 'private';
   maxPlayers: number;
+  /** Optional human-readable label. Server trims + enforces length. */
+  name?: string;
 }
 
 /** GET /api/rooms — list public rooms in the lobby state, newest first. */
 export function listPublicRooms(token: string): Promise<ApiResult<{ rooms: RoomSummary[] }>> {
   return authGet<{ rooms: RoomSummary[] }>('/rooms?visibility=public&state=lobby', token);
+}
+
+/**
+ * GET /api/rooms/mine — rooms the caller currently occupies (any state). Used
+ * by the lobby's "My Rooms" tab. Server filters by the caller's user id.
+ */
+export function listMyRooms(token: string): Promise<ApiResult<{ rooms: RoomSummary[] }>> {
+  return authGet<{ rooms: RoomSummary[] }>('/rooms/mine', token);
 }
 
 /** POST /api/rooms — create a new room. */
