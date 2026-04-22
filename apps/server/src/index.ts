@@ -51,7 +51,11 @@ app.route('/', healthRouter);
 app.route('/api/saves', savesRouter);
 app.route('/api/rooms', roomsRouter);
 app.route('/api/profile', profileRouter);
-app.route('/', wsRouter);
+// WS mount under /api so the full route is /api/ws/:roomId, matching the
+// client path in apps/web/src/net/ws.ts and keeping the whole API tree
+// consistently namespaced. Previously was mounted at '/' which exposed
+// /ws/:roomId — a 404 against client calls.
+app.route('/api', wsRouter);
 
 // ---------------------------------------------------------------------------
 // Boot
