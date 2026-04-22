@@ -111,4 +111,102 @@ describe('protocol zod schemas', () => {
   test('rejects server message with unknown type', () => {
     expect(() => ServerMsgSchema.parse({ type: 'bogus' })).toThrow();
   });
+
+  // -----------------------------------------------------------------------
+  // New frames — turn_advance + game_over
+  // -----------------------------------------------------------------------
+  test('round-trips server welcome with turnDeadlineMs', () => {
+    const m = {
+      type: 'welcome',
+      gameId: 'g1',
+      seatIdx: 0,
+      state: {},
+      seats: [{ seatIdx: 0, userId: 'u1', isAi: false, archId: null, connected: true }],
+      hash: 'deadbeef',
+      seq: 0,
+      turnDeadlineMs: 1_700_000_030_000,
+    } as const;
+    expect(() => ServerMsgSchema.parse(m)).not.toThrow();
+  });
+
+  test('round-trips turn_advance', () => {
+    const m = {
+      type: 'turn_advance',
+      currentSeatIdx: 2,
+      turnNumber: 7,
+      deadlineMs: 1_700_000_030_000,
+    } as const;
+    expect(() => ServerMsgSchema.parse(m)).not.toThrow();
+  });
+
+  test('rejects turn_advance with non-int turnNumber', () => {
+    const m = {
+      type: 'turn_advance',
+      currentSeatIdx: 2,
+      turnNumber: 7.5,
+      deadlineMs: 1_700_000_030_000,
+    };
+    expect(() => ServerMsgSchema.parse(m)).toThrow();
+  });
+
+  test('rejects turn_advance with out-of-range seat', () => {
+    const m = {
+      type: 'turn_advance',
+      currentSeatIdx: 9,
+      turnNumber: 1,
+      deadlineMs: 1,
+    };
+    expect(() => ServerMsgSchema.parse(m)).toThrow();
+  });
+
+  test('round-trips game_over (human winner)', () => {
+    const m = {
+      type: 'game_over',
+      winnerPlayerId: 'user-alice',
+      winnerSeatIdx: 0,
+      winnerUserId: 'user-alice',
+      winnerDisplay: 'Alice',
+      finalHash: 'f1nalhash',
+      finalSeq: 142,
+    } as const;
+    expect(() => ServerMsgSchema.parse(m)).not.toThrow();
+  });
+
+  test('round-trips game_over (AI winner — null user + null seat)', () => {
+    const m = {
+      type: 'game_over',
+      winnerPlayerId: 'seat-3-ai',
+      winnerSeatIdx: null,
+      winnerUserId: null,
+      winnerDisplay: 'Napoleon',
+      finalHash: 'f1nalhash',
+      finalSeq: 200,
+    } as const;
+    expect(() => ServerMsgSchema.parse(m)).not.toThrow();
+  });
+
+  test('rejects game_over with empty winnerDisplay', () => {
+    const m = {
+      type: 'game_over',
+      winnerPlayerId: 'x',
+      winnerSeatIdx: 0,
+      winnerUserId: null,
+      winnerDisplay: '',
+      finalHash: 'h',
+      finalSeq: 1,
+    };
+    expect(() => ServerMsgSchema.parse(m)).toThrow();
+  });
+
+  test('rejects game_over with missing finalHash', () => {
+    const m = {
+      type: 'game_over',
+      winnerPlayerId: 'x',
+      winnerSeatIdx: 0,
+      winnerUserId: null,
+      winnerDisplay: 'Napoleon',
+      finalSeq: 1,
+    };
+    expect(() => ServerMsgSchema.parse(m)).toThrow();
+  });
 });
