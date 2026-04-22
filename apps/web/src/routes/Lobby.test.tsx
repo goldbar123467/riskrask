@@ -707,21 +707,15 @@ describe('Lobby', () => {
     expect(screen.getByTestId('lobby-closed-toast')).toHaveTextContent('Lobby closed');
   });
 
-  it("toggles a non-host seat's ready state via setReady", async () => {
+  it('non-host seat sees a "waiting for host" indicator (ready toggle removed)', async () => {
     const hostId = 'u-host';
     const meId = 'u-me';
-    // Payload {"sub":"u-me"} → eyJzdWIiOiJ1LW1lIn0
     setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
-    const stub = installFetchStub([
+    installFetchStub([
       {
         match: '/api/rooms?',
         method: 'GET',
         body: { ok: true, data: { rooms: [] } },
-      },
-      {
-        match: '/api/rooms/r-1/ready',
-        method: 'POST',
-        body: { ok: true, data: {} },
       },
       {
         match: '/api/rooms/r-1',
@@ -761,14 +755,8 @@ describe('Lobby', () => {
       },
     ]);
     renderAt('/lobby/r-1');
-    const toggle = await screen.findByTestId('ready-toggle');
-    const user = userEvent.setup();
-    await user.click(toggle);
-    await waitFor(() => {
-      const readyCalls = stub.calls.filter(
-        (c) => c.url.includes('/ready') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
-      );
-      expect(readyCalls.length).toBeGreaterThan(0);
-    });
+    // Non-host should see the waiting-for-host label, not a ready toggle.
+    expect(await screen.findByTestId('waiting-for-host')).toBeInTheDocument();
+    expect(screen.queryByTestId('ready-toggle')).toBeNull();
   });
 });

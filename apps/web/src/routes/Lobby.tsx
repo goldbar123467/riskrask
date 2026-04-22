@@ -729,18 +729,12 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
 
       <div className="flex flex-col gap-2">
         {mySeat && !isHost && (
-          <button
-            type="button"
-            data-testid="ready-toggle"
-            onClick={() => void handleReadyToggle()}
-            className={`border py-2 font-mono text-[10px] uppercase tracking-widest ${
-              mySeat.ready
-                ? 'border-hot bg-hot/10 text-hot hover:bg-hot/20'
-                : 'border-line text-ink-faint hover:border-line-2 hover:text-ink-dim'
-            }`}
+          <p
+            data-testid="waiting-for-host"
+            className="border border-line bg-panel py-2 text-center font-mono text-[10px] uppercase tracking-widest text-ink-ghost"
           >
-            {mySeat.ready ? 'Ready ✓' : 'Not ready'}
-          </button>
+            Waiting for host…
+          </p>
         )}
 
         {isHost && (
@@ -757,7 +751,7 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
             </button>
             {!canLaunch && room.state === 'lobby' && (
               <p className="font-mono text-[9px] uppercase tracking-widest text-ink-ghost">
-                Ready up — AI fills empty seats.
+                Launching fills empty seats with AI.
               </p>
             )}
           </>
