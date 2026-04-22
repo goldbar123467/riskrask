@@ -13,9 +13,10 @@
  */
 
 import { ROOM_CODE_RE } from '@riskrask/shared';
-import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { AuthPanel } from '../auth/AuthPanel';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import {
   type CreateRoomBody,
   type RoomDetail,
@@ -23,6 +24,7 @@ import {
   type RoomSummary,
   addAiSeat,
   createRoom,
+  fetchMyProfile,
   getRoom,
   joinRoom,
   launchRoom,
@@ -65,7 +67,27 @@ export function Lobby() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const tab = readTab(searchParams);
-  const { token, userId, email, setToken, clearToken } = useAuth();
+  const { token, userId, email, setToken, clearToken, setDisplayName } = useAuth();
+
+  // One-shot profile fetch so the header + seat rows can show a real name.
+  // Guarded by a ref keyed on the token so we refetch on token rotation but
+  // never repeat for the same session.
+  const fetchedForTokenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!token) return;
+    if (fetchedForTokenRef.current === token) return;
+    fetchedForTokenRef.current = token;
+    void (async () => {
+      const result = await fetchMyProfile(token);
+      if (!result.ok) {
+        // Fall back silently — the seat rows already have their own fallbacks.
+        return;
+      }
+      const { displayName, username, email: profileEmail } = result.data;
+      const resolved = displayName ?? username ?? profileEmail ?? email ?? null;
+      setDisplayName(resolved);
+    })();
+  }, [token, email, setDisplayName]);
 
   if (!token) {
     return <AuthPanel onLegacyToken={setToken} />;
@@ -501,6 +523,10 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
   const [room, setRoom] = useState<RoomDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [leaveConfirmOpen, setLeaveConfirmOpen] = useState(false);
+  // `lobbyClosedToast` is a tiny inline toast triggered when the server
+  // reports the leave deleted the room. Null = hidden. Auto-clears via effect.
+  const [lobbyClosedToast, setLobbyClosedToast] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await getRoom(roomId, token);
@@ -531,6 +557,18 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     }
   }, [room?.state]);
 
+  // Auto-dismiss the "Lobby closed" toast after 3s and hand off to onLeave.
+  useEffect(() => {
+    if (lobbyClosedToast === null) return;
+    const h = setTimeout(() => {
+      setLobbyClosedToast(null);
+      onLeave();
+    }, 2400);
+    return () => {
+      clearTimeout(h);
+    };
+  }, [lobbyClosedToast, onLeave]);
+
   if (loadError) {
     return (
       <div className="flex flex-col gap-3 border border-line bg-panel p-4">
@@ -560,8 +598,15 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
   const isHost = room.hostId !== undefined && userId !== null && room.hostId === userId;
   const mySeat = seats.find((s) => s.userId !== null && s.userId === userId) ?? null;
   const filledSeats = seats.length;
-  const allReady = seats.length > 0 && seats.every((s) => s.isAi || s.ready);
-  const canLaunch = isHost && filledSeats >= 2 && allReady && room.state === 'lobby';
+  // Launch gate — the host's click is the implicit ready signal, so we drop
+  // the per-seat `allReady` requirement. S3 autofill handles empty slots.
+  const canLaunch = isHost && filledSeats >= 1 && room.state === 'lobby';
+
+  // Count active humans for the leave-confirm copy. A user is "solo" iff
+  // they're the only non-AI seat currently present; leaving then deletes
+  // the room server-side. AI seats don't block deletion.
+  const activeHumanCount = seats.filter((s) => s.userId !== null && !s.isAi).length;
+  const soloHuman = activeHumanCount === 1 && mySeat !== null;
 
   async function handleReadyToggle() {
     if (!mySeat) return;
@@ -574,12 +619,27 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     void refresh();
   }
 
-  async function handleLeave() {
+  async function handleConfirmLeave() {
+    setLeaveConfirmOpen(false);
     setActionError(null);
     const result = await leaveRoom(roomId, token);
     if (!result.ok) {
       setActionError(result.detail ?? result.code);
       return;
+    }
+    if (result.data.roomDeleted) {
+      // Server dropped the room — surface a brief toast then navigate out.
+      setLobbyClosedToast('Lobby closed');
+      return;
+    }
+    if (result.data.newHostId !== null && result.data.newHostId === userId) {
+      // Shouldn't be reachable — the leaver just vacated their seat and
+      // therefore can't become the new host. Log for telemetry and fall
+      // through to the plain leave path.
+      console.warn('[lobby] leave response says we are the new host of a room we left', {
+        roomId,
+        userId,
+      });
     }
     onLeave();
   }
@@ -633,6 +693,14 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
           <span className="font-mono text-[9px] uppercase tracking-widest text-ink-faint">
             {room.state} · {filledSeats}/{room.maxPlayers ?? 6} seats
           </span>
+          {mySeat && (
+            <span
+              data-testid="seated-as"
+              className="font-mono text-[9px] uppercase tracking-[0.18em] text-hot"
+            >
+              Seated as #{mySeat.seatIdx}
+            </span>
+          )}
         </div>
         {room.state === 'active' && (
           <button
@@ -655,7 +723,7 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
             Waiting for seats…
           </li>
         ) : (
-          seats.map((seat) => <SeatRow key={seat.seatIdx} seat={seat} />)
+          seats.map((seat) => <SeatRow key={seat.seatIdx} seat={seat} currentUserId={userId} />)
         )}
       </ul>
 
@@ -689,7 +757,7 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
             </button>
             {!canLaunch && room.state === 'lobby' && (
               <p className="font-mono text-[9px] uppercase tracking-widest text-ink-ghost">
-                Need 2+ seats with every human ready.
+                Ready up — AI fills empty seats.
               </p>
             )}
           </>
@@ -698,7 +766,7 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
         <button
           type="button"
           data-testid="leave-btn"
-          onClick={() => void handleLeave()}
+          onClick={() => setLeaveConfirmOpen(true)}
           className="border border-line py-2 font-mono text-[10px] uppercase tracking-widest text-ink-faint hover:border-line-2 hover:text-ink-dim"
         >
           Leave room
@@ -709,20 +777,62 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
           </p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={leaveConfirmOpen}
+        title={soloHuman ? 'Close this lobby?' : 'Leave this room?'}
+        body={
+          soloHuman
+            ? "You're the only player — leaving will delete the room."
+            : 'The lobby will remain open for the other players.'
+        }
+        confirmLabel={soloHuman ? 'Close lobby' : 'Leave'}
+        cancelLabel="Stay"
+        dangerous={soloHuman}
+        onConfirm={() => void handleConfirmLeave()}
+        onCancel={() => setLeaveConfirmOpen(false)}
+      />
+
+      {lobbyClosedToast !== null && (
+        <output
+          data-testid="lobby-closed-toast"
+          aria-live="polite"
+          className="pointer-events-none fixed left-1/2 top-6 z-[80] -translate-x-1/2 border border-hot bg-bg-0/95 px-4 py-2 font-mono text-[10px] uppercase tracking-[0.18em] text-hot backdrop-blur"
+        >
+          {lobbyClosedToast}
+        </output>
+      )}
     </div>
   );
 }
 
-function SeatRow({ seat }: { seat: RoomSeat }) {
-  const name = seat.isAi
-    ? `AI · ${seat.archId ?? 'archetype'}`
-    : (seat.displayName ?? (seat.userId ? seat.userId.slice(0, 8) : `Seat ${seat.seatIdx}`));
+function SeatRow({ seat, currentUserId }: { seat: RoomSeat; currentUserId: string | null }) {
+  // Human-seat fallback chain: resolved display name → first 8 of UUID → the
+  // "Seat N" placeholder. AI seats keep their archetype label.
+  const humanName =
+    seat.displayName ?? (seat.userId ? seat.userId.slice(0, 8) : `Seat ${seat.seatIdx}`);
+  const name = seat.isAi ? `AI · ${seat.archId ?? 'archetype'}` : humanName;
+  const isMe = seat.userId !== null && seat.userId === currentUserId;
+
   return (
-    <li className="flex items-center justify-between py-2">
+    <li
+      data-testid={isMe ? 'seat-row-me' : undefined}
+      className={`flex items-center justify-between py-2 ${
+        isMe ? 'border-l-2 border-hot bg-hot/5 pl-2' : ''
+      }`}
+    >
       <div className="flex items-center gap-3">
         <span className="font-mono text-[9px] uppercase tracking-widest text-ink-ghost">
           #{seat.seatIdx}
         </span>
+        {isMe && (
+          <span
+            data-testid="seat-you-badge"
+            className="border border-hot bg-hot/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-hot"
+          >
+            (YOU)
+          </span>
+        )}
         <span className="font-display text-sm text-ink">{name}</span>
         {seat.isAi && (
           <span className="border border-line px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-widest text-ink-faint">

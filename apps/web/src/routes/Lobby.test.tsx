@@ -333,8 +333,7 @@ describe('Lobby', () => {
     await waitFor(() => expect(screen.getByTestId('join-error')).toBeInTheDocument());
   });
 
-  it('disables the launch button when fewer than 2 seats are ready', async () => {
-    setToken('eyJtest');
+  it('enables the launch button for a solo host (1 human, 0 AI)', async () => {
     const userId = 'u-host';
     // Minimal fake JWT whose `sub` claim the auth decoder can read. Payload:
     // {"sub":"u-host"} base64url = eyJzdWIiOiJ1LWhvc3QifQ (no padding)
@@ -369,7 +368,343 @@ describe('Lobby', () => {
     ]);
     renderAt('/lobby/r-1');
     const launch = await screen.findByTestId('launch-btn');
+    // S4 relaxation: host can LAUNCH solo — AI autofills empty seats.
+    expect(launch).not.toBeDisabled();
+  });
+
+  it('disables the launch button for an empty lobby (0 seats)', async () => {
+    const userId = 'u-host';
+    setToken('aaa.eyJzdWIiOiJ1LWhvc3QifQ.bbb');
+    installFetchStub([
+      {
+        match: '/api/rooms?',
+        method: 'GET',
+        body: { ok: true, data: { rooms: [] } },
+      },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId: userId,
+              maxPlayers: 4,
+              seats: [],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    // No seats and the caller isn't in one → LAUNCH is invisible because the
+    // host check requires at least a hostId match AND room.seats isn't the
+    // gate — canLaunch still needs filledSeats >= 1.
+    const launch = await screen.findByTestId('launch-btn');
     expect(launch).toBeDisabled();
+  });
+
+  it('renders (YOU) badge on the current-user seat and not on others', async () => {
+    const meId = 'u-me';
+    const hostId = 'u-host';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+    installFetchStub([
+      { match: '/api/rooms?', method: 'GET', body: { ok: true, data: { rooms: [] } } },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId,
+              maxPlayers: 4,
+              seats: [
+                {
+                  seatIdx: 0,
+                  userId: hostId,
+                  isAi: false,
+                  archId: null,
+                  ready: true,
+                  connected: true,
+                  displayName: 'Alice',
+                },
+                {
+                  seatIdx: 1,
+                  userId: meId,
+                  isAi: false,
+                  archId: null,
+                  ready: false,
+                  connected: true,
+                  displayName: 'Me',
+                },
+              ],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    const badges = await screen.findAllByTestId('seat-you-badge');
+    expect(badges).toHaveLength(1);
+    // The badge lives inside the `seat-row-me` <li>.
+    const myRow = screen.getByTestId('seat-row-me');
+    expect(myRow).toContainElement(badges[0]!);
+    // Other seats: no (YOU) text.
+    expect(screen.queryAllByText(/\(YOU\)/)).toHaveLength(1);
+  });
+
+  it('renders Seated as #N when the user holds a seat', async () => {
+    const meId = 'u-me';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+    installFetchStub([
+      { match: '/api/rooms?', method: 'GET', body: { ok: true, data: { rooms: [] } } },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId: meId,
+              maxPlayers: 4,
+              seats: [
+                {
+                  seatIdx: 0,
+                  userId: meId,
+                  isAi: false,
+                  archId: null,
+                  ready: false,
+                  connected: true,
+                },
+              ],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    const seated = await screen.findByTestId('seated-as');
+    expect(seated).toHaveTextContent('Seated as #0');
+  });
+
+  it('falls back to UUID slice for a human seat with no displayName', async () => {
+    const meId = 'u-me';
+    const other = '01234567-abcd-efab-cdef-000000000000';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+    installFetchStub([
+      { match: '/api/rooms?', method: 'GET', body: { ok: true, data: { rooms: [] } } },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId: meId,
+              maxPlayers: 4,
+              seats: [
+                {
+                  seatIdx: 0,
+                  userId: meId,
+                  isAi: false,
+                  archId: null,
+                  ready: true,
+                  connected: true,
+                  displayName: 'Me',
+                },
+                {
+                  seatIdx: 1,
+                  userId: other,
+                  isAi: false,
+                  archId: null,
+                  ready: true,
+                  connected: true,
+                  displayName: null,
+                },
+              ],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    // 'Me' renders for my seat (displayName present), first 8 of UUID for the other.
+    expect(await screen.findByText('Me')).toBeInTheDocument();
+    expect(screen.getByText(other.slice(0, 8))).toBeInTheDocument();
+  });
+
+  it('opens solo-copy ConfirmDialog when the only human clicks Leave', async () => {
+    const meId = 'u-me';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+    installFetchStub([
+      { match: '/api/rooms?', method: 'GET', body: { ok: true, data: { rooms: [] } } },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId: meId,
+              maxPlayers: 4,
+              seats: [
+                {
+                  seatIdx: 0,
+                  userId: meId,
+                  isAi: false,
+                  archId: null,
+                  ready: false,
+                  connected: true,
+                },
+              ],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    const leave = await screen.findByTestId('leave-btn');
+    const user = userEvent.setup();
+    await user.click(leave);
+    await waitFor(() => expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument());
+    expect(screen.getByText('Close this lobby?')).toBeInTheDocument();
+    expect(screen.getByTestId('confirm-dialog-confirm')).toHaveTextContent('Close lobby');
+  });
+
+  it('opens non-solo ConfirmDialog copy when ≥2 humans are seated', async () => {
+    const meId = 'u-me';
+    const hostId = 'u-host';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+    installFetchStub([
+      { match: '/api/rooms?', method: 'GET', body: { ok: true, data: { rooms: [] } } },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId,
+              maxPlayers: 4,
+              seats: [
+                {
+                  seatIdx: 0,
+                  userId: hostId,
+                  isAi: false,
+                  archId: null,
+                  ready: true,
+                  connected: true,
+                },
+                {
+                  seatIdx: 1,
+                  userId: meId,
+                  isAi: false,
+                  archId: null,
+                  ready: false,
+                  connected: true,
+                },
+              ],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    const leave = await screen.findByTestId('leave-btn');
+    const user = userEvent.setup();
+    await user.click(leave);
+    await waitFor(() => expect(screen.getByTestId('confirm-dialog')).toBeInTheDocument());
+    expect(screen.getByText('Leave this room?')).toBeInTheDocument();
+    expect(screen.getByTestId('confirm-dialog-confirm')).toHaveTextContent('Leave');
+  });
+
+  it('on confirm with roomDeleted=true → calls leave API and shows lobby-closed toast', async () => {
+    const meId = 'u-me';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+    const stub = installFetchStub([
+      { match: '/api/rooms?', method: 'GET', body: { ok: true, data: { rooms: [] } } },
+      {
+        match: '/api/rooms/r-1/leave',
+        method: 'POST',
+        body: { ok: true, data: { roomDeleted: true, newHostId: null } },
+      },
+      {
+        match: '/api/rooms/r-1',
+        method: 'GET',
+        body: {
+          ok: true,
+          data: {
+            room: {
+              id: 'r-1',
+              code: 'ABCD23',
+              state: 'lobby',
+              visibility: 'public',
+              hostId: meId,
+              maxPlayers: 4,
+              seats: [
+                {
+                  seatIdx: 0,
+                  userId: meId,
+                  isAi: false,
+                  archId: null,
+                  ready: false,
+                  connected: true,
+                },
+              ],
+            },
+            game: null,
+          },
+        },
+      },
+    ]);
+    renderAt('/lobby/r-1');
+    const leave = await screen.findByTestId('leave-btn');
+    const user = userEvent.setup();
+    await user.click(leave);
+    const confirm = await screen.findByTestId('confirm-dialog-confirm');
+    await user.click(confirm);
+    // POST /leave was called.
+    await waitFor(() => {
+      const leaveCalls = stub.calls.filter(
+        (c) => c.url.includes('/leave') && (c.init?.method ?? 'GET').toUpperCase() === 'POST',
+      );
+      expect(leaveCalls.length).toBeGreaterThan(0);
+    });
+    // Toast renders the "Lobby closed" notice (auto-dismisses via a real
+    // timer — we don't wait for the dismissal here, just that it fired).
+    await waitFor(() => expect(screen.getByTestId('lobby-closed-toast')).toBeInTheDocument());
+    expect(screen.getByTestId('lobby-closed-toast')).toHaveTextContent('Lobby closed');
   });
 
   it("toggles a non-host seat's ready state via setReady", async () => {
