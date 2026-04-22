@@ -5,7 +5,7 @@
 // Kept for backward compatibility with pre-Track-C sentinel test
 export const AI_SENTINEL = 'riskrask-ai' as const;
 
-export { Arch } from './arch.js';
+export { Arch, ARCH_IDS } from './arch.js';
 export type { ArchDef, ArchId, ArchWeights, RuleMods } from './arch.js';
 
 export {
