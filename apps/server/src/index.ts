@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { healthRouter } from './http/health';
+import { profileRouter } from './http/profile';
 import { roomsRouter } from './http/rooms';
 import { savesRouter } from './http/saves';
 import { websocket, wsRouter } from './ws';
@@ -34,6 +35,7 @@ app.use(
 app.route('/', healthRouter);
 app.route('/api/saves', savesRouter);
 app.route('/api/rooms', roomsRouter);
+app.route('/api/profile', profileRouter);
 app.route('/', wsRouter);
 
 // ---------------------------------------------------------------------------

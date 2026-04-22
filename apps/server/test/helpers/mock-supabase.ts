@@ -80,6 +80,7 @@ export interface SupabaseLike {
 interface QueryBuilder {
   select(cols?: string): QueryBuilder;
   eq(col: string, val: unknown): QueryBuilder;
+  in(col: string, vals: readonly unknown[]): QueryBuilder;
   order(col: string, opts?: unknown): QueryBuilder;
   limit(n: number): QueryBuilder;
   maybeSingle(): Promise<{ data: TableRow | null; error: null }>;
@@ -99,6 +100,9 @@ export function createMockSupabase(): MockSupabase {
         return self;
       },
       eq(_col: string, _val: unknown) {
+        return self;
+      },
+      in(_col: string, _vals: readonly unknown[]) {
         return self;
       },
       order(_col: string, _opts?: unknown) {

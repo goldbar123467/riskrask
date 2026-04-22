@@ -127,9 +127,28 @@ roomsRouter.post('/:id/leave', async (c) => {
 
   const id = c.req.param('id');
   const client = anonClient(jwt) as unknown as AnyClient;
-  const { error } = await client.rpc('leave_room', { p_room_id: id });
+  // Migration 0020 made leave_room a TABLE-returning function; supabase-js
+  // surfaces that as an array of rows. A well-formed call returns exactly one
+  // row. If anything unexpected comes back we fall back to the pre-0020
+  // shape (`roomDeleted: false, newHostId: null`) so the client doesn't
+  // accidentally navigate away.
+  const { data, error } = await client.rpc('leave_room', { p_room_id: id });
   if (error) return c.json(errBody('LEAVE_FAILED', error.message), 400);
-  return c.json({ ok: true, data: {} }, 200);
+  const rows = (Array.isArray(data) ? data : []) as Array<{
+    room_deleted: boolean;
+    new_host_id: string | null;
+  }>;
+  const row = rows[0];
+  return c.json(
+    {
+      ok: true,
+      data: {
+        roomDeleted: Boolean(row?.room_deleted),
+        newHostId: row?.new_host_id ?? null,
+      },
+    },
+    200,
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -375,9 +394,14 @@ roomsRouter.get('/mine', async (c) => {
 // ---------------------------------------------------------------------------
 // GET /api/rooms/:id
 //
-// `winner_id` + `finished_at` are selected in addition to `state` so the
-// client's reconnect fallback can tell that a room finished while they
-// were gone and redirect without waiting for the stale ws `game_over`.
+// Returns the room header, the current game snapshot (if any), and the seat
+// list with resolved display names. `winner_id` + `finished_at` are selected
+// in addition to `state` so the client's reconnect fallback can tell that a
+// room finished while the client was gone and redirect without waiting for
+// the stale ws `game_over`. The seat query joins `profiles` in a second
+// round-trip rather than via PostgREST's relationship syntax to keep the
+// Database type stub in supabase.ts minimal; two selects is cheap compared
+// to the latency of a single request.
 // ---------------------------------------------------------------------------
 roomsRouter.get('/:id', async (c) => {
   const id = c.req.param('id');
@@ -398,8 +422,69 @@ roomsRouter.get('/:id', async (c) => {
     winner_id: string | null;
     finished_at: string | null;
   };
+
+  // --- seats + display names ---------------------------------------------
+  const { data: seatRows, error: seatsErr } = await svc
+    .from('room_seats')
+    .select('seat_idx, user_id, is_ai, arch_id, is_ready, is_connected')
+    .eq('room_id', id);
+  if (seatsErr) return c.json(errBody('FETCH_FAILED', seatsErr.message), 500);
+
+  const rawSeats = (seatRows ?? []) as Array<{
+    seat_idx: number;
+    user_id: string | null;
+    is_ai: boolean;
+    arch_id: string | null;
+    is_ready: boolean;
+    is_connected: boolean;
+  }>;
+
+  // Fetch profile rows in a single IN(...) query. AI seats (user_id === null)
+  // contribute nothing.
+  const humanUserIds = Array.from(
+    new Set(
+      rawSeats.map((s) => s.user_id).filter((uid): uid is string => uid !== null && uid !== ''),
+    ),
+  );
+  const profileByUserId = new Map<
+    string,
+    { displayName: string | null; username: string | null }
+  >();
+  if (humanUserIds.length > 0) {
+    const { data: profileRows, error: profilesErr } = await svc
+      .from('profiles')
+      .select('id, display_name, username')
+      .in('id', humanUserIds);
+    if (profilesErr) return c.json(errBody('FETCH_FAILED', profilesErr.message), 500);
+    for (const p of (profileRows ?? []) as Array<{
+      id: string;
+      display_name: string | null;
+      username: string | null;
+    }>) {
+      profileByUserId.set(p.id, { displayName: p.display_name, username: p.username });
+    }
+  }
+
+  const seats = rawSeats
+    .sort((a, b) => a.seat_idx - b.seat_idx)
+    .map((s) => {
+      const prof = s.user_id ? (profileByUserId.get(s.user_id) ?? null) : null;
+      const displayName = prof ? (prof.displayName ?? prof.username ?? null) : null;
+      return {
+        seatIdx: s.seat_idx,
+        userId: s.user_id,
+        isAi: s.is_ai,
+        archId: s.arch_id,
+        ready: s.is_ready,
+        connected: s.is_connected,
+        displayName,
+      };
+    });
+
+  const roomOut = { ...row, seats };
+
   if (!row.current_game_id) {
-    return c.json({ ok: true, data: { room: row, game: null } }, 200);
+    return c.json({ ok: true, data: { room: roomOut, game: null } }, 200);
   }
   const { data: gameRow, error: gameErr } = await svc
     .from('games')
@@ -407,7 +492,7 @@ roomsRouter.get('/:id', async (c) => {
     .eq('id', row.current_game_id)
     .maybeSingle();
   if (gameErr) return c.json(errBody('FETCH_FAILED', gameErr.message), 500);
-  return c.json({ ok: true, data: { room: row, game: gameRow ?? null } }, 200);
+  return c.json({ ok: true, data: { room: roomOut, game: gameRow ?? null } }, 200);
 });
 
 export { roomsRouter };
