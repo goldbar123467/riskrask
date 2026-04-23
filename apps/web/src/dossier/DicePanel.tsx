@@ -52,7 +52,7 @@ export function DicePanel({ attackDice, defenseDice }: DicePanelProps) {
   const [showBanner, setShowBanner] = useState(false);
   const prevRef = useRef<string>('');
 
-  const key = JSON.stringify({ attackDice, defenseDice });
+  const key = `${attackDice.join(',')}|${defenseDice.join(',')}`;
   const outcome = computeOutcome(attackDice, defenseDice);
 
   useEffect(() => {
