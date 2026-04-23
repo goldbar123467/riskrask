@@ -2,9 +2,18 @@ import type { Action, Effect, GameState, TerritoryName } from '@riskrask/engine'
 import { apply } from '@riskrask/engine';
 import { create } from 'zustand';
 
+/**
+ * Category tag for an Intel feed entry. Derived at log-append time from the
+ * effect that spawned it; the Intel panel uses it for filter chips. Kept
+ * optional so legacy callers constructing `LogLine` objects by hand still
+ * compile — an absent `kind` is treated as `'log'`.
+ */
+export type LogKind = 'capture' | 'dice' | 'eliminate' | 'trade' | 'log';
+
 export interface LogLine {
   readonly turn: number;
   readonly text: string;
+  readonly kind?: LogKind;
 }
 
 /** Upper bound on the rolling intel-feed log. The UI only reads the newest 4. */
@@ -51,15 +60,37 @@ interface GameStore {
   shiftEffect: () => void;
 }
 
+/**
+ * Classify a `log`-kind effect's free-text by keyword. Covers trade entries,
+ * which are emitted by the engine as plain `log` effects rather than a
+ * dedicated kind. Keep patterns case-insensitive and broad.
+ */
+function classifyLogText(text: string): LogKind {
+  if (/trades? cards?/i.test(text)) return 'trade';
+  return 'log';
+}
+
 export function appendLog(prev: LogLine[], effects: readonly Effect[], turn: number): LogLine[] {
   const additions: LogLine[] = [];
   for (const e of effects) {
-    if (e.kind === 'log') additions.push({ turn, text: e.text });
-    else if (e.kind === 'territory-captured')
-      additions.push({ turn, text: `${e.to} captured from ${e.from}.` });
-    else if (e.kind === 'player-eliminated')
-      additions.push({ turn, text: `${e.playerId} eliminated.` });
-    else if (e.kind === 'game-over') additions.push({ turn, text: `${e.winner} wins the game.` });
+    if (e.kind === 'log') {
+      additions.push({ turn, text: e.text, kind: classifyLogText(e.text) });
+    } else if (e.kind === 'territory-captured') {
+      additions.push({ turn, text: `${e.to} captured from ${e.from}.`, kind: 'capture' });
+    } else if (e.kind === 'player-eliminated') {
+      additions.push({ turn, text: `${e.playerId} eliminated.`, kind: 'eliminate' });
+    } else if (e.kind === 'game-over') {
+      additions.push({ turn, text: `${e.winner} wins the game.`, kind: 'eliminate' });
+    } else if (e.kind === 'dice-roll') {
+      // Synthesise a short dice-roll log line so the Intel panel can surface
+      // combat exchanges under the `dice` filter. Purely additive; the
+      // transient `effectsQueue` still drives the animated `DicePanel`.
+      additions.push({
+        turn,
+        text: `Dice atk [${e.atk.join(',')}] vs def [${e.def.join(',')}].`,
+        kind: 'dice',
+      });
+    }
   }
   if (additions.length === 0) return prev;
   let merged = [...prev, ...additions];
