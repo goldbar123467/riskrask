@@ -19,10 +19,10 @@
  */
 
 import type { GameState } from '@riskrask/engine';
-import { registry } from './registry';
-import type { Room } from './Room';
-import type { Seat } from './seat';
 import { serviceClient } from '../supabase';
+import type { Room } from './Room';
+import { registry } from './registry';
+import type { Seat } from './seat';
 
 export async function ensureHydrated(roomId: string): Promise<Room | null> {
   const existing = registry.get(roomId);
@@ -96,5 +96,42 @@ export async function ensureHydrated(roomId: string): Promise<Room | null> {
     ...(room.code !== null ? { roomCode: room.code } : {}),
   });
   console.log('[hydrate] rebuilt in-memory room', { roomId, gameId: game.id });
+
+  // Rebuild the in-memory event log so clients that reconnect with ?lastSeq=N
+  // get a delta replay instead of a full re-hydrate. `turn_events` is our
+  // only source of truth after a server restart.
+  const hydratedRoom = registry.get(roomId);
+  if (hydratedRoom) {
+    const { data: events, error: evErr } = await svc
+      .from('turn_events')
+      .select('seq, turn, actor_id, action, resulting_hash')
+      .eq('room_id', roomId)
+      .order('seq', { ascending: true });
+    if (evErr) {
+      console.warn('[hydrate] turn_events fetch failed (continuing without log)', {
+        roomId,
+        err: evErr.message,
+      });
+    } else {
+      const rows = (events ?? []) as Array<{
+        seq: number;
+        turn: number;
+        actor_id: string | null;
+        action: unknown;
+        resulting_hash: string;
+      }>;
+      hydratedRoom.hydrateEventLog(
+        rows.map((r) => ({
+          seq: r.seq,
+          turn: r.turn,
+          actorId: r.actor_id,
+          action: r.action as never,
+          hash: r.resulting_hash,
+          effects: [],
+        })),
+      );
+    }
+  }
+
   return registry.get(roomId) ?? null;
 }

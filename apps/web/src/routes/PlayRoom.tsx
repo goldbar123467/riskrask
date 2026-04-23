@@ -23,7 +23,7 @@
  */
 
 import type { Action, TerritoryName } from '@riskrask/engine';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Brand } from '../console/Brand';
 import { Rail } from '../console/Rail';
@@ -185,21 +185,20 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
 
   // Consume dice-roll effects pushed by the dispatcher when it re-runs the
   // reducer on `applied`. Same effect queue as solo — no divergence.
-  const effectsQueue = useGame((s) => s.effectsQueue);
+  // Subscribe to length only; the array identity churns on every store tick.
+  const effectsLen = useGame((s) => s.effectsQueue.length);
   const shiftEffect = useGame((s) => s.shiftEffect);
-  const effectsRef = useRef(effectsQueue);
-  effectsRef.current = effectsQueue;
 
   useEffect(() => {
-    if (effectsQueue.length === 0) return;
-    const effect = effectsQueue[0];
+    if (effectsLen === 0) return;
+    const effect = useGame.getState().effectsQueue[0];
     if (!effect) return;
     if (effect.kind === 'dice-roll') {
       setAttackDice(effect.atk);
       setDefenseDice(effect.def);
     }
     shiftEffect();
-  }, [effectsQueue, shiftEffect]);
+  }, [effectsLen, shiftEffect]);
 
   const handleSelect = useCallback(
     (name: TerritoryName) => {
@@ -440,14 +439,20 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
       )}
 
       {state.pendingForcedTrade && (
-        <ForcedTradeModal
-          state={state}
-          forcedTrade={state.pendingForcedTrade}
-          onTrade={handleTrade}
-          onCancel={() => {
-            /* forced trade cannot be skipped */
-          }}
-        />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          aria-label="forced-trade-backdrop"
+          role="presentation"
+        >
+          <ForcedTradeModal
+            state={state}
+            forcedTrade={state.pendingForcedTrade}
+            onTrade={handleTrade}
+            onCancel={() => {
+              /* forced trade cannot be skipped */
+            }}
+          />
+        </div>
       )}
 
       {state.phase === 'done' && state.winner && (

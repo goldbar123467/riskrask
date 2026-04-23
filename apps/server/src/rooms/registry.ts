@@ -17,6 +17,7 @@
 
 import type { Action, GameState } from '@riskrask/engine';
 import { runFallbackTurn } from '../ai/fallback';
+import type { GameSnapshotWriter } from '../persistence/games';
 import { Room, type TurnLogger } from './Room';
 import type { Seat } from './seat';
 import { TurnDriver } from './turnDriver';
@@ -39,6 +40,12 @@ export interface RegistryOptions {
    * passes `endGame.handleGameOver` bound to this registry.
    */
   onGameOver?: (roomId: string, winnerPlayerId: string, finalState: GameState) => void;
+  /**
+   * Debounced snapshot writer for `games.state`. Wired to every Room via the
+   * `onSnapshot` hook. Injected at composition-root time via `setSnapshotWriter`
+   * in production to avoid importing Supabase here. Null in tests by default.
+   */
+  snapshotWriter?: GameSnapshotWriter;
 }
 
 export interface CreateRoomOptions {
@@ -59,12 +66,16 @@ export class RoomRegistry {
     | null;
   /** Remembers each room's per-turn duration so we can restart on turn advance. */
   private readonly roomDurations: Map<string, number> = new Map();
+  /** Maps roomId → gameId so `delete(roomId)` can flush the snapshot writer. */
+  private readonly roomToGame: Map<string, string> = new Map();
+  private snapshotWriter: GameSnapshotWriter | null;
 
   constructor(opts: RegistryOptions = {}) {
     this.logger = opts.logger ?? null;
     this.now = opts.now ?? null;
     this.turnDriver = opts.turnDriver ?? new TurnDriver();
     this.onGameOverHandler = opts.onGameOver ?? null;
+    this.snapshotWriter = opts.snapshotWriter ?? null;
     if (opts.autoTick !== false) {
       this.tickHandle = setInterval(() => this.tickAll(), opts.tickIntervalMs ?? 1_000);
       // Node/Bun: don't keep the event loop alive just for this.
@@ -100,6 +111,16 @@ export class RoomRegistry {
     this.onGameOverHandler = handler;
   }
 
+  /**
+   * Wire up the debounced `games.state` snapshot writer after construction.
+   * Mirrors `setOnGameOver` — the production caller lives in
+   * `apps/server/src/index.ts` where the Supabase service client is safe to
+   * import. Tests that want no persistence simply skip this call.
+   */
+  setSnapshotWriter(writer: GameSnapshotWriter): void {
+    this.snapshotWriter = writer;
+  }
+
   get(roomId: string): Room | undefined {
     return this.rooms.get(roomId);
   }
@@ -128,6 +149,38 @@ export class RoomRegistry {
       onTurnAdvance: (id) => this.onTurnAdvance(id),
       getTurnDeadline: (id) => this.turnDriver.getDeadline(id),
       runFallback: runFallbackTurn,
+      ...(this.snapshotWriter
+        ? {
+            onSnapshot: ({
+              state,
+              hash,
+              seq: _seq,
+              turnAdvanced,
+              winner,
+            }: {
+              state: GameState;
+              hash: string;
+              seq: number;
+              turnAdvanced: boolean;
+              winner: string | null;
+            }) => {
+              const writer = this.snapshotWriter;
+              if (!writer) return;
+              const input = {
+                gameId,
+                state,
+                turnNumber: state.turn,
+                turnPhase: state.phase,
+                lastHash: hash,
+              };
+              if (winner || turnAdvanced) {
+                void writer.writeNow(input);
+              } else {
+                writer.queue(input);
+              }
+            },
+          }
+        : {}),
       onGameOver: (winnerPlayerId, finalState) => {
         if (this.onGameOverHandler) {
           try {
@@ -143,6 +196,7 @@ export class RoomRegistry {
     });
     this.rooms.set(roomId, room);
     this.roomDurations.set(roomId, durationMs);
+    this.roomToGame.set(roomId, gameId);
     this.turnDriver.start(roomId, durationMs, () => {
       void this.onTurnExpire(roomId);
     });
@@ -168,6 +222,12 @@ export class RoomRegistry {
 
   delete(roomId: string): void {
     this.turnDriver.cancel(roomId);
+    const gameId = this.roomToGame.get(roomId);
+    if (gameId && this.snapshotWriter) {
+      // Best-effort — don't block `delete` on the DB round-trip.
+      void this.snapshotWriter.flush(gameId);
+    }
+    this.roomToGame.delete(roomId);
     this.roomDurations.delete(roomId);
     this.rooms.delete(roomId);
   }
@@ -276,6 +336,7 @@ export class RoomRegistry {
       this.tickHandle = null;
     }
     this.turnDriver.shutdown();
+    this.snapshotWriter?.shutdown();
   }
 }
 
@@ -333,9 +394,9 @@ function forcedActionFor(state: GameState, _seat: Seat | undefined): Action | nu
 
 // Singleton for production use. Tests build their own.
 //
-// The production `onGameOver` is wired up in `apps/server/src/index.ts`
-// (which knows how to import the serviceClient without creating a cycle
-// back into this module) via a setter — not here — so that this file stays
-// a pure container for the registry. See the server bootstrap for the
-// `registerOnGameOver` call.
+// The production `onGameOver` AND `snapshotWriter` are wired up in
+// `apps/server/src/index.ts` (which knows how to import the serviceClient
+// without creating a cycle back into this module) via setters — not here —
+// so that this file stays a pure container for the registry. See the server
+// bootstrap for the `registerOnGameOver` + `setSnapshotWriter` calls.
 export const registry = new RoomRegistry({ autoTick: true });

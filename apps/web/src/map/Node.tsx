@@ -1,5 +1,6 @@
 import type { TerritoryState } from '@riskrask/engine';
 import type { TerritoryName } from '@riskrask/engine';
+import { memo, useMemo } from 'react';
 import { UnitSilhouette, unitTypeForTerritory } from './UnitSilhouette';
 
 interface NodeProps {
@@ -24,7 +25,7 @@ const HEX_H = 32;
  * and a name label below. Troop count rides as a small badge on the lower
  * edge of the hex so the silhouette stays the dominant glyph.
  */
-export function Node({
+function NodeImpl({
   name,
   territory,
   ownerColor,
@@ -37,6 +38,14 @@ export function Node({
 }: NodeProps) {
   const { x, y } = territory;
   const unitType = unitTypeForTerritory(name);
+
+  // Stable per-(x,y) string outputs so the <g> transform and pointer arrow
+  // don't re-fire CSS keyframes / re-alloc path data on every tick.
+  const transformOrigin = useMemo(() => `${x}px ${y}px`, [x, y]);
+  const pointerPath = useMemo(
+    () => `M ${x - 3},${y + 8} L ${x + 3},${y + 8} L ${x},${y + 11} Z`,
+    [x, y],
+  );
 
   const strokeColor = selected ? 'var(--hot)' : targetable ? 'var(--warn)' : ownerColor;
   const strokeWidth = selected ? 2 : targetable ? 1.6 : 1.2;
@@ -64,7 +73,7 @@ export function Node({
       onMouseLeave={() => onHover(null)}
       style={{
         cursor: 'pointer',
-        transformOrigin: `${x}px ${y}px`,
+        transformOrigin,
         transformBox: 'fill-box',
         transition: 'transform 160ms var(--ease-out-fast)',
       }}
@@ -125,11 +134,7 @@ export function Node({
       )}
 
       {/* Pointer arrow below icon */}
-      <path
-        d={`M ${x - 3},${y + 8} L ${x + 3},${y + 8} L ${x},${y + 11} Z`}
-        fill={strokeColor}
-        opacity={selected ? 1 : 0.7}
-      />
+      <path d={pointerPath} fill={strokeColor} opacity={selected ? 1 : 0.7} />
 
       {/* Troop count — small badge centered under the hex body */}
       <text
@@ -254,3 +259,5 @@ const ABBREV: Readonly<Record<string, string>> = Object.freeze({
 function displayName(name: string): string {
   return ABBREV[name] ?? name.toUpperCase();
 }
+
+export const Node = memo(NodeImpl);

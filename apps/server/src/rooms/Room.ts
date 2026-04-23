@@ -102,6 +102,16 @@ export class Room {
   private readonly getDeadline: ((roomId: string) => number | null) | null;
   /** Injected AI driver — runs when a new turn lands on an AI seat. */
   private readonly runFallback: RunFallbackFn | null;
+  /** Fired after every applied action. Null when no snapshot writer is wired up. */
+  private readonly onSnapshot:
+    | ((snapshot: {
+        state: GameState;
+        hash: string;
+        seq: number;
+        turnAdvanced: boolean;
+        winner: string | null;
+      }) => void)
+    | null;
 
   /** ms after a seat disconnects before it's flagged AFK for AI takeover. */
   readonly disconnectGraceMs: number;
@@ -138,6 +148,14 @@ export class Room {
        * tests can opt out.
        */
       runFallback?: RunFallbackFn;
+      /** Fired after every applied action. Registry wires this to the debounced snapshot writer. */
+      onSnapshot?: (snapshot: {
+        state: GameState;
+        hash: string;
+        seq: number;
+        turnAdvanced: boolean;
+        winner: string | null;
+      }) => void;
     } = {},
   ) {
     this.roomId = roomId;
@@ -156,6 +174,7 @@ export class Room {
     this.onTurnAdvance = opts.onTurnAdvance ?? null;
     this.getDeadline = opts.getTurnDeadline ?? null;
     this.runFallback = opts.runFallback ?? null;
+    this.onSnapshot = opts.onSnapshot ?? null;
   }
 
   // ---- read-only accessors (used by tests & fallback) --------------------
@@ -176,6 +195,24 @@ export class Room {
   }
   getSeat(seatIdx: number): Seat | undefined {
     return this.seats.find((s) => s.seatIdx === seatIdx);
+  }
+
+  /**
+   * Bulk-load prior events — used by `ensureHydrated` to rebuild the
+   * in-memory event log after a server restart. Entries from DB don't carry
+   * effects (we never recompute them), so late-joiners that ask for a delta
+   * earlier than the snapshot will only see the action + hash slots.
+   *
+   * Idempotent: safe to call twice but only the first call populates.
+   */
+  hydrateEventLog(entries: readonly RoomEventLogEntry[]): void {
+    if (this.eventLog.length > 0) return;
+    this.eventLog = entries.slice();
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry && lastEntry.seq > this.seq) {
+      this.seq = lastEntry.seq;
+      this.hash = lastEntry.hash;
+    }
   }
 
   // ---- presence ---------------------------------------------------------
@@ -279,6 +316,7 @@ export class Room {
     seatIdx: number,
     action: Action,
     clientHash?: string,
+    expectedUserId?: string,
   ): Promise<{ nextHash: string; seq: number; effects: Effect[] }> {
     if (this.terminated) {
       throw new RoomError('GAME_TERMINATED', 'room is closed');
@@ -290,6 +328,17 @@ export class Room {
     }
 
     this.assertSeatIsCurrent(seatIdx, action);
+
+    if (expectedUserId !== undefined) {
+      const seat = this.getSeat(seatIdx);
+      if (!seat) throw new RoomError('UNKNOWN_SEAT', `seat ${seatIdx} missing`);
+      if (seat.userId !== expectedUserId) {
+        throw new RoomError(
+          'SEAT_USER_MISMATCH',
+          `seat ${seatIdx} belongs to ${seat.userId ?? 'ai/none'}, not ${expectedUserId}`,
+        );
+      }
+    }
 
     const prevSeatIdx = this.state.currentPlayerIdx;
     const prevWinner = this.state.winner;
@@ -403,6 +452,21 @@ export class Room {
           err: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    try {
+      this.onSnapshot?.({
+        state: this.state,
+        hash: this.hash,
+        seq: this.seq,
+        turnAdvanced: advanced,
+        winner: this.state.winner ?? null,
+      });
+    } catch (err) {
+      console.warn('[room] onSnapshot threw', {
+        roomId: this.roomId,
+        err: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return { nextHash: this.hash, seq: this.seq, effects: result.effects };

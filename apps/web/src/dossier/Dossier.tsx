@@ -73,6 +73,9 @@ export function Dossier({
       {/* Phase hero — only show when it's human's turn */}
       {isHumanTurn && (
         <>
+          {/* Forced trade always takes priority; render the DraftPanel so the
+              player has a tradeable-set surface even when the modal hasn't
+              fully mounted. */}
           {phase === 'Draft' && (
             <DraftPanel
               state={state}
@@ -82,7 +85,12 @@ export function Dossier({
             />
           )}
 
-          {state.phase === 'reinforce' && (player?.reserves ?? 0) > 0 && (
+          {/* DeployPanel is valid throughout reinforce phase. The engine
+              auto-advances to attack when reserves hit 0, so reserves>0 is
+              implied — but we still render the panel when state.phase is
+              reinforce so the user sees the current deploy surface even if
+              a draft panel is also visible. */}
+          {state.phase === 'reinforce' && (
             <DeployPanel
               state={state}
               humanPlayerId={humanPlayerId}
@@ -94,7 +102,7 @@ export function Dossier({
             />
           )}
 
-          {phase === 'Attack' && (
+          {state.phase === 'attack' && (
             <>
               <AttackPanel
                 state={state}
@@ -110,7 +118,7 @@ export function Dossier({
             </>
           )}
 
-          {phase === 'Fortify' && (
+          {state.phase === 'fortify' && (
             <FortifyPanel
               state={state}
               humanPlayerId={humanPlayerId}

@@ -111,3 +111,44 @@ describe('createInitialState — two-player Neutral variant (§3.5)', () => {
     expect(wilds).toBe(2);
   });
 });
+
+describe('createInitialState fortifyRule validation', () => {
+  test('rejects an unknown fortifyRule value', () => {
+    expect(() =>
+      createInitialState({
+        seed: 'x',
+        players: [
+          { id: 'p1', name: 'P1', color: '#f00', isAI: false },
+          { id: 'p2', name: 'P2', color: '#0f0', isAI: false },
+          { id: 'p3', name: 'P3', color: '#00f', isAI: false },
+        ],
+        // deliberately invalid — must throw.
+        fortifyRule: 'freeform' as any,
+      }),
+    ).toThrow(/fortifyRule/i);
+  });
+  test('accepts adjacent', () => {
+    const s = createInitialState({
+      seed: 'x',
+      players: [
+        { id: 'p1', name: 'P1', color: '#f00', isAI: false },
+        { id: 'p2', name: 'P2', color: '#0f0', isAI: false },
+        { id: 'p3', name: 'P3', color: '#00f', isAI: false },
+      ],
+      fortifyRule: 'adjacent',
+    });
+    expect(s.fortifyRule).toBe('adjacent');
+  });
+  test('accepts connected', () => {
+    const s = createInitialState({
+      seed: 'x',
+      players: [
+        { id: 'p1', name: 'P1', color: '#f00', isAI: false },
+        { id: 'p2', name: 'P2', color: '#0f0', isAI: false },
+        { id: 'p3', name: 'P3', color: '#00f', isAI: false },
+      ],
+      fortifyRule: 'connected',
+    });
+    expect(s.fortifyRule).toBe('connected');
+  });
+});

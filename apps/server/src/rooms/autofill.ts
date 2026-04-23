@@ -60,7 +60,8 @@ export async function fillEmptySeats(
   } = {},
 ): Promise<AutofillResult> {
   const rng = deps.rng ?? Math.random;
-  const makeAnonClient = deps.makeAnonClient ?? ((jwt) => anonClient(jwt) as unknown as SupabaseClient);
+  const makeAnonClient =
+    deps.makeAnonClient ?? ((jwt) => anonClient(jwt) as unknown as SupabaseClient);
 
   const { data, error } = await svc
     .from('room_seats')
