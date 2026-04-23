@@ -62,9 +62,11 @@ describe('IntelPanel', () => {
     expect(screen.getByLabelText('turn-1-group')).toBeInTheDocument();
     expect(screen.getByLabelText('turn-2-group')).toBeInTheDocument();
     expect(screen.getByLabelText('turn-3-group')).toBeInTheDocument();
-    // Header text uses — TURN N — pattern (case-insensitive match)
-    expect(screen.getByText(/Turn 1/i)).toBeInTheDocument();
-    expect(screen.getByText(/Turn 3/i)).toBeInTheDocument();
+    // Header text uses — Turn N — pattern. Scope to the entries container
+    // so the outer summary (which also mentions "turn N") doesn't match.
+    const entries = screen.getByLabelText('intel-entries');
+    expect(within(entries).getByText(/Turn 1/i)).toBeInTheDocument();
+    expect(within(entries).getByText(/Turn 3/i)).toBeInTheDocument();
   });
 
   it('marks the current turn group as highlighted', () => {
@@ -106,10 +108,10 @@ describe('IntelPanel', () => {
       { turn: 1, text: 'Bob eliminated.', kind: 'eliminate' },
     ]);
     renderPanelOnTurn(1);
-    fireEvent.click(screen.getByLabelText('filter-captures'));
+    fireEvent.click(screen.getByLabelText('filter-capture'));
     // all chip now off
     expect(screen.getByLabelText('filter-all')).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByLabelText('filter-captures')).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText('filter-capture')).toHaveAttribute('aria-pressed', 'true');
 
     const entries = screen.getByLabelText('intel-entries');
     expect(entries.getAttribute('data-visible-count')).toBe('1');
@@ -126,7 +128,7 @@ describe('IntelPanel', () => {
       { turn: 1, text: 'L1', kind: 'log' },
     ]);
     renderPanelOnTurn(1);
-    fireEvent.click(screen.getByLabelText('filter-captures'));
+    fireEvent.click(screen.getByLabelText('filter-capture'));
     fireEvent.click(screen.getByLabelText('filter-dice'));
     const entries = screen.getByLabelText('intel-entries');
     expect(entries.getAttribute('data-visible-count')).toBe('2');
@@ -140,7 +142,7 @@ describe('IntelPanel', () => {
   it('clicking the same chip twice deselects and falls back to all', () => {
     setLog(1, [{ turn: 1, text: 'C', kind: 'capture' }]);
     renderPanelOnTurn(1);
-    const captures = screen.getByLabelText('filter-captures');
+    const captures = screen.getByLabelText('filter-capture');
     fireEvent.click(captures);
     fireEvent.click(captures);
     expect(screen.getByLabelText('filter-all')).toHaveAttribute('aria-pressed', 'true');
@@ -152,10 +154,10 @@ describe('IntelPanel', () => {
       { turn: 1, text: 'D', kind: 'dice' },
     ]);
     renderPanelOnTurn(1);
-    fireEvent.click(screen.getByLabelText('filter-captures'));
+    fireEvent.click(screen.getByLabelText('filter-capture'));
     fireEvent.click(screen.getByLabelText('filter-all'));
     expect(screen.getByLabelText('filter-all')).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByLabelText('filter-captures')).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByLabelText('filter-capture')).toHaveAttribute('aria-pressed', 'false');
     const entries = screen.getByLabelText('intel-entries');
     expect(entries.getAttribute('data-visible-count')).toBe('2');
   });
