@@ -11,6 +11,12 @@ interface MapProps {
   humanPlayerId: string;
   selected: TerritoryName | null;
   target: TerritoryName | null;
+  /**
+   * True when it's the local human's turn. Used to gate hover/click visual
+   * feedback via a `data-your-turn` attribute on the SVG root — see
+   * theme/index.css for the corresponding rules.
+   */
+  isYourTurn: boolean;
   onSelect: (name: TerritoryName) => void;
   onHover: (name: TerritoryName | null) => void;
 }
@@ -43,7 +49,15 @@ const CONTINENT_BY_TERRITORY: Readonly<Record<string, string>> = (() => {
  * Uses territory positions from the engine's TERRITORIES constant.
  * Selection is managed by the parent (Play.tsx) and passed down.
  */
-export function GameMap({ state, humanPlayerId, selected, target, onSelect, onHover }: MapProps) {
+export function GameMap({
+  state,
+  humanPlayerId,
+  selected,
+  target,
+  isYourTurn,
+  onSelect,
+  onHover,
+}: MapProps) {
   // Stable per-players player-id → color map. Rebuilding every render broke
   // React.memo on <Node>; memoizing here keeps the reference steady until a
   // player is added, removed, or re-coloured.
@@ -66,6 +80,7 @@ export function GameMap({ state, humanPlayerId, selected, target, onSelect, onHo
       width="100%"
       height="100%"
       style={{ display: 'block' }}
+      data-your-turn={isYourTurn ? 'true' : 'false'}
       aria-label="game-map"
       role="img"
     >

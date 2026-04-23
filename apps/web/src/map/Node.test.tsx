@@ -28,6 +28,7 @@ describe('Map node click interactions', () => {
         <GameMap
           state={state}
           humanPlayerId="p1"
+          isYourTurn={true}
           selected={null}
           target={null}
           onSelect={vi.fn()}
@@ -48,6 +49,7 @@ describe('Map node click interactions', () => {
         <GameMap
           state={state}
           humanPlayerId="p1"
+          isYourTurn={true}
           selected={null}
           target={null}
           onSelect={onSelect}
@@ -72,6 +74,7 @@ describe('Map node click interactions', () => {
         <GameMap
           state={state}
           humanPlayerId="p1"
+          isYourTurn={true}
           selected={null}
           target={null}
           onSelect={vi.fn()}

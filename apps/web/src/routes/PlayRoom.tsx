@@ -419,6 +419,7 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
   }
 
   const cp = state.players[state.currentPlayerIdx];
+  const isYourTurn = cp?.id === humanPlayerId;
 
   return (
     <>
@@ -431,6 +432,8 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
             phase={phase}
             clock={secondsRemaining !== null ? `${secondsRemaining}s` : '—'}
             players={`${state.players.filter((p) => !p.eliminated).length}/${state.players.length}`}
+            currentPlayerName={cp?.name ?? '—'}
+            isYourTurn={isYourTurn}
           />
         }
         rail={<Rail activeItem={activeRailItem} onSelect={setActiveRailItem} />}

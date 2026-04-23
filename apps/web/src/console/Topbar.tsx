@@ -4,13 +4,25 @@ interface TopbarProps {
   phase: string;
   clock: string;
   players: string;
+  /** Name of the current player (whose turn it is). Optional — solo routes may omit it. */
+  currentPlayerName?: string;
+  /** True when it's the local human's turn. Drives the YOU / WAITING pill. */
+  isYourTurn?: boolean;
 }
 
 /**
- * Top bar with 5-cell layout: session · turn · phase · clock · players + icon buttons.
+ * Top bar with meta cells + a "whose turn" pill + icon buttons.
  * Pure presentational — no store reads.
  */
-export function Topbar({ session, turn, phase, clock, players }: TopbarProps) {
+export function Topbar({
+  session,
+  turn,
+  phase,
+  clock,
+  players,
+  currentPlayerName,
+  isYourTurn,
+}: TopbarProps) {
   return (
     <div className="flex h-full items-stretch">
       {/* Title area */}
@@ -26,6 +38,9 @@ export function Topbar({ session, turn, phase, clock, players }: TopbarProps) {
         <TopbarCell label="PHASE" value={phase} />
         <TopbarCell label="CLOCK" value={clock} />
         <TopbarCell label="PLAYERS" value={players} />
+        {currentPlayerName !== undefined && (
+          <WhoseTurnPill name={currentPlayerName} isYourTurn={isYourTurn ?? false} />
+        )}
       </div>
 
       {/* Icon buttons */}
@@ -67,6 +82,36 @@ function TopbarCell({ label, value, hot }: { label: string; value: string; hot?:
       >
         {value}
       </span>
+    </div>
+  );
+}
+
+/**
+ * Whose-turn pill. Shows `YOU` in the accent color when it's the local
+ * human's turn, or `{name} · WAITING` in a muted tone when another player
+ * (remote human or AI) is up. Keeps the Topbar density identical to the
+ * meta cells so layout doesn't shift between turns.
+ */
+function WhoseTurnPill({ name, isYourTurn }: { name: string; isYourTurn: boolean }) {
+  return (
+    <div
+      className="flex min-w-[140px] flex-col justify-center gap-0.5 border-r border-line px-5"
+      aria-label="whose-turn"
+      data-your-turn={isYourTurn ? 'true' : 'false'}
+    >
+      <span className="font-mono text-[9px] uppercase tracking-[0.18em] text-ink-faint">TURN</span>
+      {isYourTurn ? (
+        <span className="font-display text-[13px] tracking-[0.04em] text-hot">YOU</span>
+      ) : (
+        <span className="flex items-baseline gap-2">
+          <span className="truncate font-display text-[13px] tracking-[0.04em] text-ink-dim">
+            {name}
+          </span>
+          <span className="font-mono text-[8px] uppercase tracking-[0.18em] text-ink-faint">
+            WAITING
+          </span>
+        </span>
+      )}
     </div>
   );
 }

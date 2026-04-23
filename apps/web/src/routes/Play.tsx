@@ -292,6 +292,8 @@ function PlaySolo() {
             phase={phase}
             clock="—"
             players={`${state.players.filter((p) => !p.eliminated).length}/${state.players.length}`}
+            currentPlayerName={cp?.name ?? '—'}
+            isYourTurn={isHumanTurn}
           />
         }
         rail={<Rail activeItem={activeRailItem} onSelect={setActiveRailItem} />}

@@ -41,6 +41,7 @@ export function Stage({
 }: StageProps) {
   const [scale, setScale] = useState(1);
   const cp = state.players[state.currentPlayerIdx];
+  const isYourTurn = !!cp && cp.id === humanPlayerId;
   const aiTurn =
     mode === 'solo' &&
     !!cp &&
@@ -102,6 +103,7 @@ export function Stage({
           target={target}
           currentPhase={currentPhase}
           scale={scale}
+          isYourTurn={isYourTurn}
           onSelect={onSelect}
           onHover={onHover}
         />
@@ -125,6 +127,7 @@ interface ZoomInnerProps {
   target: TerritoryName | null;
   currentPhase: UIPhase;
   scale: number;
+  isYourTurn: boolean;
   onSelect: (name: TerritoryName) => void;
   onHover: (name: TerritoryName | null) => void;
 }
@@ -136,6 +139,7 @@ function ZoomInner({
   target,
   currentPhase,
   scale,
+  isYourTurn,
   onSelect,
   onHover,
 }: ZoomInnerProps) {
@@ -154,6 +158,7 @@ function ZoomInner({
             humanPlayerId={humanPlayerId}
             selected={selected}
             target={target}
+            isYourTurn={isYourTurn}
             onSelect={onSelect}
             onHover={onHover}
           />

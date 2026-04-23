@@ -59,7 +59,9 @@ export function Dossier({
   const player = state.players.find((p) => p.id === humanPlayerId);
   const phase = uiPhase(state, humanPlayerId, draftSkipped);
 
-  const isHumanTurn = state.players[state.currentPlayerIdx]?.id === humanPlayerId;
+  const currentPlayer = state.players[state.currentPlayerIdx];
+  const isHumanTurn = currentPlayer?.id === humanPlayerId;
+  const waitingFor = !isHumanTurn && currentPlayer ? currentPlayer.name : null;
 
   return (
     <div className="flex h-full flex-col overflow-y-auto" aria-label="dossier">
@@ -68,6 +70,7 @@ export function Dossier({
         name={player?.name ?? 'Commander'}
         tag={`${phase} · ${state.phase.toUpperCase()}`}
         color={player?.color ?? 'var(--neu)'}
+        waitingFor={waitingFor}
       />
 
       {/* Phase hero — only show when it's human's turn */}
