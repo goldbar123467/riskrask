@@ -341,6 +341,7 @@ export class Room {
     }
 
     const prevSeatIdx = this.state.currentPlayerIdx;
+    const prevPhase = this.state.phase;
     const prevWinner = this.state.winner;
 
     let result: { next: GameState; effects: Effect[] };
@@ -399,7 +400,15 @@ export class Room {
     });
 
     const nextSeatIdx = this.state.currentPlayerIdx;
-    const advanced = nextSeatIdx !== prevSeatIdx;
+    const nextPhase = this.state.phase;
+    const seatChanged = nextSeatIdx !== prevSeatIdx;
+    const phaseChanged = nextPhase !== prevPhase;
+    // "Segment advance" = the active turn segment changed. That's either a
+    // seat rotation or an intra-turn phase flip (reinforce -> attack -> fortify).
+    // Broadcast turn_advance + restart the TurnDriver in both cases so humans
+    // get a fresh 30s at every segment. Skip when the game just ended -
+    // `'done'` means no more segments.
+    const advanced = (seatChanged || phaseChanged) && nextPhase !== 'done';
 
     if (advanced) {
       // Let the registry restart its per-room countdown BEFORE we read the
@@ -424,8 +433,10 @@ export class Room {
 
       // New turn landed on an AI seat → microtask-queue the fallback so the
       // caller's promise resolves first (keeps applyIntent call stacks shallow).
+      // Only fire on actual seat rotation; phase-change-within-same-seat is
+      // already being driven by the in-flight fallback for that AI seat.
       const nextSeat = this.seats[nextSeatIdx];
-      if (nextSeat?.isAi && this.runFallback && !this.state.winner) {
+      if (seatChanged && nextSeat?.isAi && this.runFallback && !this.state.winner) {
         const driver = this.runFallback;
         const idx = nextSeatIdx;
         queueMicrotask(() => {

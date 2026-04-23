@@ -5,6 +5,12 @@
  * `onExpire` callback runs — the registry uses this to drive AI takeover
  * (AI seat) or force-advance (human seat) on the authoritative Room.
  *
+ * The timer is restarted on every "active segment advance" — either a seat
+ * rotation OR an intra-turn phase flip (reinforce -> attack -> fortify). That
+ * guarantees humans always see a fresh 30s countdown at the start of each
+ * segment, not a single countdown that drains across all three phases of
+ * their turn. See `Room.applyIntent` for where the advance is detected.
+ *
  * All scheduling primitives are injectable so unit tests can run on a
  * synthetic clock.
  */
