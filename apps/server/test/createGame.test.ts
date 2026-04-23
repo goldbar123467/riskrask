@@ -18,12 +18,12 @@ beforeAll(() => {
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
+  type SeatRow,
   aiPlayerIdForSeat,
   insertGameRow,
   seatIdxFromAiPlayerId,
   seatsToPlayerConfigs,
   seatsToPlayersJson,
-  type SeatRow,
 } from '../src/rooms/createGame';
 
 // ---------------------------------------------------------------------------

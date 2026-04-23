@@ -22,7 +22,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { verifySupabaseJwt } from '../auth/verify';
 import { fillEmptySeats } from '../rooms/autofill';
-import { insertGameRow, type SeatRow } from '../rooms/createGame';
+import { type SeatRow, insertGameRow } from '../rooms/createGame';
 import { registry } from '../rooms/registry';
 import type { Seat } from '../rooms/seat';
 import { anonClient, serviceClient } from '../supabase';

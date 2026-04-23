@@ -19,8 +19,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { Hono } from 'hono';
 import { createBunWebSocket } from 'hono/bun';
 import { verifySupabaseJwt } from '../auth/verify';
-import { ensureHydrated } from '../rooms/hydrate';
 import { type Room, RoomError } from '../rooms/Room';
+import { ensureHydrated } from '../rooms/hydrate';
 import { registry } from '../rooms/registry';
 import { anonClient } from '../supabase';
 
