@@ -313,6 +313,7 @@ function PlaySolo() {
           <Dossier
             state={state}
             humanPlayerId={humanPlayerId}
+            activeTab={activeRailItem}
             selected={selected}
             target={target}
             attackDice={attackDice}

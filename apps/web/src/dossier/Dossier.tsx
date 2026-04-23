@@ -8,6 +8,13 @@ import { DraftPanel } from './DraftPanel';
 import { FortifyPanel } from './FortifyPanel';
 import { IntelFeed } from './IntelFeed';
 import { PowersList } from './PowersList';
+import { ArmyPanel } from './panels/ArmyPanel';
+import { DiplPanel } from './panels/DiplPanel';
+import { HelpPanel } from './panels/HelpPanel';
+import { IntelPanel } from './panels/IntelPanel';
+import { LogPanel } from './panels/LogPanel';
+
+export type DossierTab = 'map' | 'army' | 'intel' | 'dipl' | 'log' | 'help';
 
 interface DossierProps {
   state: GameState;
@@ -29,12 +36,9 @@ interface DossierProps {
   onFortifyConfirm: (count: number) => void;
   onFortifySkip: () => void;
   draftSkipped?: boolean;
+  activeTab?: DossierTab;
 }
 
-/**
- * Scrollable sidebar host. Switches the phase-hero panel based on UIPhase.
- * CommanderCard, PowersList, IntelFeed are always visible.
- */
 export function Dossier({
   state,
   humanPlayerId,
@@ -55,17 +59,16 @@ export function Dossier({
   onFortifyConfirm,
   onFortifySkip,
   draftSkipped = false,
+  activeTab = 'map',
 }: DossierProps) {
   const player = state.players.find((p) => p.id === humanPlayerId);
   const phase = uiPhase(state, humanPlayerId, draftSkipped);
-
   const currentPlayer = state.players[state.currentPlayerIdx];
   const isHumanTurn = currentPlayer?.id === humanPlayerId;
   const waitingFor = !isHumanTurn && currentPlayer ? currentPlayer.name : null;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto" aria-label="dossier">
-      {/* Commander card — always visible */}
+    <div className="flex h-full flex-col overflow-y-auto" aria-label="dossier" data-tab={activeTab}>
       <CommanderCard
         name={player?.name ?? 'Commander'}
         tag={`${phase} · ${state.phase.toUpperCase()}`}
@@ -73,72 +76,66 @@ export function Dossier({
         waitingFor={waitingFor}
       />
 
-      {/* Phase hero — only show when it's human's turn */}
-      {isHumanTurn && (
+      {activeTab === 'map' && (
         <>
-          {/* Forced trade always takes priority; render the DraftPanel so the
-              player has a tradeable-set surface even when the modal hasn't
-              fully mounted. */}
-          {phase === 'Draft' && (
-            <DraftPanel
-              state={state}
-              humanPlayerId={humanPlayerId}
-              onTrade={onTrade}
-              onSkip={onSkipDraft}
-            />
-          )}
-
-          {/* DeployPanel is valid throughout reinforce phase. The engine
-              auto-advances to attack when reserves hit 0, so reserves>0 is
-              implied — but we still render the panel when state.phase is
-              reinforce so the user sees the current deploy surface even if
-              a draft panel is also visible. */}
-          {state.phase === 'reinforce' && (
-            <DeployPanel
-              state={state}
-              humanPlayerId={humanPlayerId}
-              selected={selected}
-              count={deployCount}
-              onCountChange={onDeployCountChange}
-              onConfirm={onDeployConfirm}
-              onCancel={onDeployCancel}
-            />
-          )}
-
-          {state.phase === 'attack' && (
+          {isHumanTurn && (
             <>
-              <AttackPanel
-                state={state}
-                humanPlayerId={humanPlayerId}
-                selected={selected}
-                target={target}
-                onSingle={onAttackSingle}
-                onBlitz={onAttackBlitz}
-                onEndAttack={onEndAttack}
-                onCancel={onAttackCancel}
-              />
-              <DicePanel attackDice={attackDice} defenseDice={defenseDice} />
+              {phase === 'Draft' && (
+                <DraftPanel
+                  state={state}
+                  humanPlayerId={humanPlayerId}
+                  onTrade={onTrade}
+                  onSkip={onSkipDraft}
+                />
+              )}
+              {state.phase === 'reinforce' && (
+                <DeployPanel
+                  state={state}
+                  humanPlayerId={humanPlayerId}
+                  selected={selected}
+                  count={deployCount}
+                  onCountChange={onDeployCountChange}
+                  onConfirm={onDeployConfirm}
+                  onCancel={onDeployCancel}
+                />
+              )}
+              {state.phase === 'attack' && (
+                <>
+                  <AttackPanel
+                    state={state}
+                    humanPlayerId={humanPlayerId}
+                    selected={selected}
+                    target={target}
+                    onSingle={onAttackSingle}
+                    onBlitz={onAttackBlitz}
+                    onEndAttack={onEndAttack}
+                    onCancel={onAttackCancel}
+                  />
+                  <DicePanel attackDice={attackDice} defenseDice={defenseDice} />
+                </>
+              )}
+              {state.phase === 'fortify' && (
+                <FortifyPanel
+                  state={state}
+                  humanPlayerId={humanPlayerId}
+                  selected={selected}
+                  target={target}
+                  onConfirm={onFortifyConfirm}
+                  onSkip={onFortifySkip}
+                />
+              )}
             </>
           )}
-
-          {state.phase === 'fortify' && (
-            <FortifyPanel
-              state={state}
-              humanPlayerId={humanPlayerId}
-              selected={selected}
-              target={target}
-              onConfirm={onFortifyConfirm}
-              onSkip={onFortifySkip}
-            />
-          )}
+          <PowersList state={state} humanPlayerId={humanPlayerId} />
+          <IntelFeed state={state} />
         </>
       )}
 
-      {/* Powers list — always visible */}
-      <PowersList state={state} humanPlayerId={humanPlayerId} />
-
-      {/* Intel feed — always visible */}
-      <IntelFeed state={state} />
+      {activeTab === 'army' && <ArmyPanel state={state} humanPlayerId={humanPlayerId} />}
+      {activeTab === 'intel' && <IntelPanel state={state} humanPlayerId={humanPlayerId} />}
+      {activeTab === 'dipl' && <DiplPanel state={state} humanPlayerId={humanPlayerId} />}
+      {activeTab === 'log' && <LogPanel humanPlayerId={humanPlayerId} />}
+      {activeTab === 'help' && <HelpPanel />}
     </div>
   );
 }

@@ -454,6 +454,7 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
           <Dossier
             state={state}
             humanPlayerId={humanPlayerId}
+            activeTab={activeRailItem}
             selected={selected}
             target={target}
             attackDice={attackDice}
