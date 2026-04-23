@@ -316,6 +316,7 @@ export class Room {
     seatIdx: number,
     action: Action,
     clientHash?: string,
+    expectedUserId?: string,
   ): Promise<{ nextHash: string; seq: number; effects: Effect[] }> {
     if (this.terminated) {
       throw new RoomError('GAME_TERMINATED', 'room is closed');
@@ -327,6 +328,17 @@ export class Room {
     }
 
     this.assertSeatIsCurrent(seatIdx, action);
+
+    if (expectedUserId !== undefined) {
+      const seat = this.getSeat(seatIdx);
+      if (!seat) throw new RoomError('UNKNOWN_SEAT', `seat ${seatIdx} missing`);
+      if (seat.userId !== expectedUserId) {
+        throw new RoomError(
+          'SEAT_USER_MISMATCH',
+          `seat ${seatIdx} belongs to ${seat.userId ?? 'ai/none'}, not ${expectedUserId}`,
+        );
+      }
+    }
 
     const prevSeatIdx = this.state.currentPlayerIdx;
     const prevWinner = this.state.winner;

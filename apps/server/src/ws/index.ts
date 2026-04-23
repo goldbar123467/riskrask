@@ -177,7 +177,8 @@ wsRouter.get(
               await room.applyIntent(
                 session.seatIdx,
                 action,
-                ...(msg.data.clientHash !== undefined ? [msg.data.clientHash] : []),
+                msg.data.clientHash,
+                session.userId,
               );
             } catch (err) {
               if (err instanceof RoomError) {
