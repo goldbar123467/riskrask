@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { CONTINENTS, PALETTE, TERRITORIES } from '@riskrask/engine';
 import type { GameState, TerritoryName } from '@riskrask/engine';
 import { AdjacencyLines } from './AdjacencyLines';
@@ -43,33 +44,14 @@ const CONTINENT_BY_TERRITORY: Readonly<Record<string, string>> = (() => {
  * Selection is managed by the parent (Play.tsx) and passed down.
  */
 export function GameMap({ state, humanPlayerId, selected, target, onSelect, onHover }: MapProps) {
-  // Build a stable player-id → color map
-  const playerColors: Record<string, string> = {};
-  for (const p of state.players) {
-    playerColors[p.id] = p.color;
-  }
-
-  const isClickable = (name: TerritoryName): boolean => {
-    const terr = state.territories[name];
-    if (!terr) return false;
-
-    if (state.phase === 'setup-claim') return terr.owner === null;
-    if (state.phase === 'setup-reinforce') return terr.owner === humanPlayerId;
-
-    const cp = state.players[state.currentPlayerIdx];
-    if (!cp || cp.id !== humanPlayerId) return false;
-
-    if (state.phase === 'reinforce') return terr.owner === humanPlayerId;
-    if (state.phase === 'attack') {
-      if (terr.owner === humanPlayerId && terr.armies >= 2) return true;
-      if (selected && terr.owner !== humanPlayerId && terr.owner !== null) {
-        return state.territories[selected]?.adj.includes(name) ?? false;
-      }
-      return false;
-    }
-    if (state.phase === 'fortify') return terr.owner === humanPlayerId;
-    return false;
-  };
+  // Stable per-players player-id → color map. Rebuilding every render broke
+  // React.memo on <Node>; memoizing here keeps the reference steady until a
+  // player is added, removed, or re-coloured.
+  const playerColors = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of state.players) m[p.id] = p.color;
+    return m;
+  }, [state.players]);
 
   const isTargetable = (name: TerritoryName): boolean => {
     if (!selected || state.phase !== 'attack') return false;
