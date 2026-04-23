@@ -57,36 +57,60 @@ function runAiStep(state: GameState, dispatch: DispatchFn): void {
 
   const actions = dilettanteTurn(state, cp.id);
   let dispatched = false;
+  let lastError: unknown = null;
   for (const action of actions) {
     try {
       // Dice-rolling and post-capture moves each get their own tick so the
       // dice animation + capture readout have space to breathe. Every other
       // action type flushes immediately in this batch.
-      if (action.type === 'attack-blitz' || action.type === 'attack') {
-        dispatch(action);
-        return;
-      }
-      if (action.type === 'move-after-capture') {
+      if (
+        action.type === 'attack' ||
+        action.type === 'attack-blitz' ||
+        action.type === 'move-after-capture'
+      ) {
         dispatch(action);
         return;
       }
       dispatch(action);
       dispatched = true;
-    } catch {
-      // An engine rejection mid-batch means the AI's plan went stale (rare —
-      // usually from a prior action changing the board). Bail out of the
-      // remaining batch; the next tick recomputes from the current state.
+    } catch (err) {
+      lastError = err;
       break;
     }
   }
 
-  // Safety valve: if the entire batch failed (or was empty) and we're mid-turn,
-  // forcibly end the turn so the dispatcher doesn't deadlock on an unchanged state.
-  if (!dispatched) {
-    try {
-      dispatch({ type: 'end-turn' });
-    } catch {
-      // nothing more we can do; next tick will re-evaluate
-    }
+  if (dispatched) return;
+
+  // Safety valve 1: try to end the turn cleanly.
+  try {
+    dispatch({ type: 'end-turn' });
+    return;
+  } catch {
+    // fall through to safety valve 2
+  }
+
+  // Safety valve 2: try to end the attack phase (common stuck-state).
+  try {
+    dispatch({ type: 'end-attack-phase' });
+    return;
+  } catch {
+    // fall through
+  }
+
+  // Hard deadlock — concede so the game can progress. Log once so it surfaces
+  // in dev/console but never throws into the React tree.
+  try {
+    dispatch({ type: 'concede' });
+    console.warn('[solo-dispatcher] AI seat forced to concede after deadlock', {
+      player: cp.id,
+      phase: state.phase,
+      error: lastError,
+    });
+  } catch (finalErr) {
+    console.error('[solo-dispatcher] hard deadlock — game cannot advance', {
+      player: cp.id,
+      phase: state.phase,
+      finalErr,
+    });
   }
 }
