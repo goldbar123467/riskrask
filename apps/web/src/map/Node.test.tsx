@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Map as GameMap } from './Map';
+import { Node } from './Node';
 
 function makeState() {
   // Create a state where Alaska is owned by p1, Kamchatka by p2 (adjacent via edge)
@@ -96,5 +97,15 @@ describe('Map node click interactions', () => {
       text.includes('Alberta') ||
       text.includes('Northwest Territory');
     expect(hasNeighbour).toBe(true);
+  });
+});
+
+describe("Node memoization", () => {
+  it("is wrapped in React.memo so parent re-renders with identical props skip reconciliation", () => {
+    // React.memo-wrapped components expose a $$typeof symbol whose description
+    // contains "react.memo". A plain function component does not.
+    const typed = Node as unknown as { $$typeof?: symbol };
+    const typeofDesc = typed.$$typeof?.toString() ?? "";
+    expect(typeofDesc).toContain("react.memo");
   });
 });

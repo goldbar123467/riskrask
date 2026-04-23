@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { TerritoryState } from '@riskrask/engine';
 import type { TerritoryName } from '@riskrask/engine';
 import { UnitSilhouette, unitTypeForTerritory } from './UnitSilhouette';
@@ -24,7 +25,7 @@ const HEX_H = 32;
  * and a name label below. Troop count rides as a small badge on the lower
  * edge of the hex so the silhouette stays the dominant glyph.
  */
-export function Node({
+function NodeImpl({
   name,
   territory,
   ownerColor,
@@ -254,3 +255,5 @@ const ABBREV: Readonly<Record<string, string>> = Object.freeze({
 function displayName(name: string): string {
   return ABBREV[name] ?? name.toUpperCase();
 }
+
+export const Node = memo(NodeImpl);
