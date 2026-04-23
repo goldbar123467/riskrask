@@ -197,6 +197,24 @@ export class Room {
     return this.seats.find((s) => s.seatIdx === seatIdx);
   }
 
+  /**
+   * Bulk-load prior events — used by `ensureHydrated` to rebuild the
+   * in-memory event log after a server restart. Entries from DB don't carry
+   * effects (we never recompute them), so late-joiners that ask for a delta
+   * earlier than the snapshot will only see the action + hash slots.
+   *
+   * Idempotent: safe to call twice but only the first call populates.
+   */
+  hydrateEventLog(entries: readonly RoomEventLogEntry[]): void {
+    if (this.eventLog.length > 0) return;
+    this.eventLog = entries.slice();
+    const lastEntry = entries[entries.length - 1];
+    if (lastEntry && lastEntry.seq > this.seq) {
+      this.seq = lastEntry.seq;
+      this.hash = lastEntry.hash;
+    }
+  }
+
   // ---- presence ---------------------------------------------------------
   /**
    * Register a socket for `seatIdx`. Two signatures are supported:
