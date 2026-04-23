@@ -1,4 +1,5 @@
 import type { GameState, TerritoryName } from '@riskrask/engine';
+import { useEffect, useRef } from 'react';
 import { uiPhase } from '../game/phase';
 import { AttackPanel } from './AttackPanel';
 import { CommanderCard } from './CommanderCard';
@@ -67,8 +68,39 @@ export function Dossier({
   const isHumanTurn = currentPlayer?.id === humanPlayerId;
   const waitingFor = !isHumanTurn && currentPlayer ? currentPlayer.name : null;
 
+  // Scroll the sidebar back to the top whenever the rail tab switches. Without
+  // this the user can click e.g. Army, have the panel swap, but still be
+  // scrolled to where the previous tab's content sat — makes the click feel
+  // dead when the new panel is entirely above the current viewport.
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: activeTab is the intended trigger; its value isn't read inside the effect.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [activeTab]);
+
+  const TAB_LABEL: Record<DossierTab, string> = {
+    map: '01 · COMMAND',
+    army: '02 · ARMY',
+    intel: '03 · INTEL',
+    dipl: '04 · DIPLOMACY',
+    log: '05 · LOG',
+    help: '06 · HELP',
+  };
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto" aria-label="dossier" data-tab={activeTab}>
+    <div
+      ref={scrollRef}
+      className="flex h-full flex-col overflow-y-auto"
+      aria-label="dossier"
+      data-tab={activeTab}
+    >
+      <div
+        className="flex items-center justify-between border-b border-line bg-bg-1 px-4 py-2 font-mono text-[9px] uppercase tracking-[0.24em] text-hot"
+        aria-label="dossier-tab-banner"
+      >
+        <span>{TAB_LABEL[activeTab]}</span>
+        <span className="text-ink-faint">T-{String(state.turn + 1).padStart(3, '0')}</span>
+      </div>
       <CommanderCard
         name={player?.name ?? 'Commander'}
         tag={`${phase} · ${state.phase.toUpperCase()}`}
