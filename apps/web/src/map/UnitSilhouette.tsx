@@ -1,3 +1,5 @@
+import { memo, useMemo } from 'react';
+
 export type UnitType = 'tank' | 'drone' | 'jet' | 'inf';
 
 interface UnitSilhouetteProps {
@@ -12,10 +14,13 @@ interface UnitSilhouetteProps {
  * Four SVG silhouettes ported from the mockup: tank / drone / jet / inf.
  * Rendered as small icons above the troop count in territory nodes.
  */
-export function UnitSilhouette({ type, color, x, y, size = 10 }: UnitSilhouetteProps) {
-  const half = size / 2;
+function UnitSilhouetteImpl({ type, color, x, y, size = 10 }: UnitSilhouetteProps) {
+  const transform = useMemo(() => {
+    const half = size / 2;
+    return `translate(${x - half}, ${y - half})`;
+  }, [x, y, size]);
   return (
-    <g transform={`translate(${x - half}, ${y - half})`} opacity="0.85">
+    <g transform={transform} opacity="0.85">
       {type === 'tank' && <TankIcon size={size} color={color} />}
       {type === 'drone' && <DroneIcon size={size} color={color} />}
       {type === 'jet' && <JetIcon size={size} color={color} />}
@@ -23,6 +28,8 @@ export function UnitSilhouette({ type, color, x, y, size = 10 }: UnitSilhouetteP
     </g>
   );
 }
+
+export const UnitSilhouette = memo(UnitSilhouetteImpl);
 
 function TankIcon({ size, color }: { size: number; color: string }) {
   const s = size;
