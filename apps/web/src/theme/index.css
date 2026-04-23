@@ -165,13 +165,15 @@
   }
 }
 
-/* Node hover lift — SVG can't use Tailwind's hover variant for transforms cleanly. */
+/* Node hover feedback — visual-only. Must NOT change hit geometry, or the
+ * scaled labels of hex A end up inside hex B's space and cause a mouseenter/
+ * mouseleave flicker loop at shared edges. Use filter instead of transform. */
 .rr-node:hover {
-  transform: scale(1.08);
+  filter: brightness(1.22) drop-shadow(0 0 3px rgba(255, 180, 80, 0.35));
 }
 .rr-node:focus-visible {
   outline: none;
-  transform: scale(1.06);
+  filter: brightness(1.18) drop-shadow(0 0 2px rgba(255, 200, 120, 0.4));
 }
 
 @layer base {

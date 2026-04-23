@@ -75,7 +75,8 @@ function NodeImpl({
         cursor: 'pointer',
         transformOrigin,
         transformBox: 'fill-box',
-        transition: 'transform 160ms var(--ease-out-fast)',
+        // No transform transition — hover feedback is handled via `filter`
+        // in theme/index.css so hit geometry never changes during hover.
       }}
       className="rr-node"
       tabIndex={0}
@@ -95,7 +96,8 @@ function NodeImpl({
         </defs>
       )}
 
-      {/* Soft pulsing ring around selected node. */}
+      {/* Soft pulsing ring around selected node. Visual only — must not
+       * catch pointer events or it steals hover from the hex shell. */}
       {selected && (
         <circle
           cx={x}
@@ -105,12 +107,14 @@ function NodeImpl({
           stroke="var(--hot)"
           strokeWidth="0.9"
           opacity="0.55"
-          style={{ animation: 'pulseGlow 1600ms ease-in-out infinite' }}
+          style={{ animation: 'pulseGlow 1600ms ease-in-out infinite', pointerEvents: 'none' }}
           className="rr-anim-pulseGlow"
         />
       )}
 
-      {/* Hex outline shell */}
+      {/* Hex outline shell — THE sole hit target for this node. Every other
+       * child below has pointerEvents:none so hover/click is unambiguous
+       * about which territory is under the cursor. */}
       <g
         style={{
           filter: selected ? `url(#${glowId})` : undefined,
@@ -128,15 +132,24 @@ function NodeImpl({
         />
       </g>
 
-      {/* Unit silhouette — centered in hex */}
+      {/* Unit silhouette — visual only. */}
       {territory.armies > 0 && (
-        <UnitSilhouette type={unitType} color={ownerColor} x={x} y={y - 2} size={14} />
+        <g style={{ pointerEvents: 'none' }}>
+          <UnitSilhouette type={unitType} color={ownerColor} x={x} y={y - 2} size={14} />
+        </g>
       )}
 
-      {/* Pointer arrow below icon */}
-      <path d={pointerPath} fill={strokeColor} opacity={selected ? 1 : 0.7} />
+      {/* Pointer arrow below icon — visual only. */}
+      <path
+        d={pointerPath}
+        fill={strokeColor}
+        opacity={selected ? 1 : 0.7}
+        style={{ pointerEvents: 'none' }}
+      />
 
-      {/* Troop count — small badge centered under the hex body */}
+      {/* Troop count — small badge centered under the hex body. The text
+       * geometrically sits below the hex and can overlap neighbour hexes in
+       * dense map regions; pointerEvents:none prevents mis-hits. */}
       <text
         x={x}
         y={y + HEX_H / 2 - 0.5}
@@ -147,11 +160,14 @@ function NodeImpl({
         fontWeight="600"
         fill={selected ? 'var(--hot)' : ownerColor}
         opacity="0.95"
+        style={{ pointerEvents: 'none' }}
       >
         {territory.armies > 0 ? territory.armies : ''}
       </text>
 
-      {/* Territory name label (below hex) */}
+      {/* Territory name label (below hex). Same reason: sits 9 units below
+       * the hex body and would otherwise capture hits belonging to the
+       * neighbour immediately south of this node. */}
       <text
         x={x}
         y={y + HEX_H / 2 + 9}
@@ -161,6 +177,7 @@ function NodeImpl({
         fill="rgba(180,190,210,0.72)"
         letterSpacing="0.12em"
         fontWeight="500"
+        style={{ pointerEvents: 'none' }}
       >
         {label}
       </text>
