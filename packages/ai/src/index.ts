@@ -56,3 +56,5 @@ export { recordGame, emptyStats, leaderboard } from './stats.js';
 export type { ArchStats, ArchStatsBlob, PlayerOutcome } from './stats.js';
 
 export { takeTurn } from './orchestrator.js';
+
+export { takeSetupAction } from './setup.js';
