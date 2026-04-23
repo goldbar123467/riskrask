@@ -122,3 +122,60 @@ describe('appendLog per-turn cap', () => {
     expect(turn5.length).toBe(PER_TURN_CAP);
   });
 });
+
+describe('appendLog kind classification', () => {
+  it('tags territory-captured effects as capture', () => {
+    const log = appendLog(
+      [],
+      [{ kind: 'territory-captured', from: 'A' as never, to: 'B' as never }],
+      1,
+    );
+    expect(log).toHaveLength(1);
+    expect(log[0]?.kind).toBe('capture');
+    expect(log[0]?.text).toBe('B captured from A.');
+  });
+
+  it('tags player-eliminated effects as eliminate', () => {
+    const log = appendLog([], [{ kind: 'player-eliminated', playerId: 'p1' as never }], 2);
+    expect(log[0]?.kind).toBe('eliminate');
+  });
+
+  it('tags game-over effects as eliminate (terminal category)', () => {
+    const log = appendLog([], [{ kind: 'game-over', winner: 'p0' as never }], 3);
+    expect(log[0]?.kind).toBe('eliminate');
+    expect(log[0]?.text).toMatch(/wins the game/);
+  });
+
+  it('synthesises a dice-kind entry from dice-roll effects', () => {
+    const log = appendLog([], [{ kind: 'dice-roll', atk: [6, 5, 1], def: [4, 2] }], 1);
+    expect(log).toHaveLength(1);
+    expect(log[0]?.kind).toBe('dice');
+    expect(log[0]?.text).toContain('[6,5,1]');
+    expect(log[0]?.text).toContain('[4,2]');
+  });
+
+  it('classifies a trade-text log effect as trade', () => {
+    const log = appendLog([], [{ kind: 'log', text: 'Alice trades cards for 4 armies.' }], 1);
+    expect(log[0]?.kind).toBe('trade');
+  });
+
+  it('classifies a non-trade log effect as log', () => {
+    const log = appendLog([], [{ kind: 'log', text: 'Alice claims Greenland.' }], 1);
+    expect(log[0]?.kind).toBe('log');
+  });
+
+  it('accepts LogLine objects without a kind field (backward compat)', () => {
+    const legacy: LogLine = { turn: 0, text: 'legacy entry' };
+    // Should pass through untouched; no runtime error on missing kind.
+    expect(legacy.kind).toBeUndefined();
+    // Round-trip through appendLog adding a new capture — legacy survives.
+    const merged = appendLog(
+      [legacy],
+      [{ kind: 'territory-captured', from: 'X' as never, to: 'Y' as never }],
+      0,
+    );
+    expect(merged).toHaveLength(2);
+    expect(merged[0]).toEqual(legacy);
+    expect(merged[1]?.kind).toBe('capture');
+  });
+});

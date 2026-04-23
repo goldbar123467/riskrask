@@ -434,6 +434,9 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
             players={`${state.players.filter((p) => !p.eliminated).length}/${state.players.length}`}
             currentPlayerName={cp?.name ?? '—'}
             isYourTurn={isYourTurn}
+            onExit={() => {
+              void navigate(`/lobby/${roomId}`);
+            }}
           />
         }
         rail={<Rail activeItem={activeRailItem} onSelect={setActiveRailItem} />}
@@ -454,6 +457,7 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
           <Dossier
             state={state}
             humanPlayerId={humanPlayerId}
+            activeTab={activeRailItem}
             selected={selected}
             target={target}
             attackDice={attackDice}
