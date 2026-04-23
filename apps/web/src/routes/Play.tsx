@@ -1,6 +1,6 @@
 import type { Action, Effect, TerritoryName } from '@riskrask/engine';
 import { createInitialState } from '@riskrask/engine';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Brand } from '../console/Brand';
 import { Rail } from '../console/Rail';
@@ -71,22 +71,24 @@ function PlaySolo() {
     setDraftSkipped(false);
   }, [phaseTurnKey]);
 
-  // Consume dice-roll effects
-  const effectsQueue = useGame((s) => s.effectsQueue);
+  // Consume dice-roll effects. Subscribe to length only so the effect fires
+  // once per queue transition — the array identity churns every store tick
+  // and was cascading Map/Node re-renders.
+  const effectsLen = useGame((s) => s.effectsQueue.length);
   const shiftEffect = useGame((s) => s.shiftEffect);
-  const effectsRef = useRef(effectsQueue);
-  effectsRef.current = effectsQueue;
 
   useEffect(() => {
-    if (effectsQueue.length === 0) return;
-    const effect = effectsQueue[0];
+    if (effectsLen === 0) return;
+    // Read the current head through the store ref — avoids the array identity
+    // change triggering an extra render pass.
+    const effect = useGame.getState().effectsQueue[0];
     if (!effect) return;
     if (effect.kind === 'dice-roll') {
       setAttackDice(effect.atk);
       setDefenseDice(effect.def);
     }
     shiftEffect();
-  }, [effectsQueue, shiftEffect]);
+  }, [effectsLen, shiftEffect]);
 
   const handleSelect = useCallback(
     (name: TerritoryName) => {
