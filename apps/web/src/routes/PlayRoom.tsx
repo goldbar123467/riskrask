@@ -159,13 +159,24 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
   const handleTurnDeadline = useCallback((d: number | null) => setTurnDeadline(d), []);
   const handleGameOver = useCallback((p: GameOverPayload) => setGameOver(p), []);
 
-  const { connState, sendIntent, lastError } = useRoomDispatcher({
+  const { connState, sendIntent, lastError, terminalClose } = useRoomDispatcher({
     roomId,
     seatIdx,
     token,
     onTurnDeadline: handleTurnDeadline,
     onGameOver: handleGameOver,
   });
+
+  // If the WS closes before we ever saw `welcome` (auth/seat reject, server
+  // rebooted, etc.), stop hanging on the generic loader and auto-fall back
+  // to the lobby after 10s. The button gives the user a manual escape.
+  useEffect(() => {
+    if (!terminalClose) return;
+    const id = setTimeout(() => {
+      void navigate(`/lobby/${roomId}`, { replace: true });
+    }, 10_000);
+    return () => clearTimeout(id);
+  }, [terminalClose, navigate, roomId]);
 
   // 3-second redirect on game_over — the VictoryModal renders immediately
   // because the preceding `applied` set `state.phase === 'done'`.
@@ -357,6 +368,39 @@ function PlayRoomInner({ roomId, seatIdx, humanPlayerId, token }: InnerProps) {
   );
 
   if (!state) {
+    if (terminalClose) {
+      return (
+        <main
+          data-testid="room-terminal-close"
+          className="flex h-full min-h-screen flex-col items-center justify-center gap-3 bg-bg-0"
+        >
+          <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-danger">
+            Connection closed
+          </p>
+          {lastError ? (
+            <p className="font-mono text-[9px] text-danger">
+              {lastError.code}
+              {lastError.detail ? `: ${lastError.detail}` : ''}
+            </p>
+          ) : (
+            <p className="font-mono text-[9px] text-ink-ghost">
+              The room closed the connection before the game could start.
+            </p>
+          )}
+          <button
+            type="button"
+            data-testid="room-return-to-lobby"
+            onClick={() => void navigate(`/lobby/${roomId}`, { replace: true })}
+            className="border border-hot bg-hot/10 px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-hot hover:bg-hot/20"
+          >
+            Return to lobby
+          </button>
+          <p className="font-mono text-[9px] uppercase tracking-widest text-ink-ghost">
+            Auto-returning in 10s
+          </p>
+        </main>
+      );
+    }
     return (
       <main className="flex h-full min-h-screen flex-col items-center justify-center gap-3 bg-bg-0">
         <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-ink-ghost">

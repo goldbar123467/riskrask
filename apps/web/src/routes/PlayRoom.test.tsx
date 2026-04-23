@@ -51,6 +51,7 @@ vi.mock('../game/useRoomDispatcher', async () => {
         sendIntent: () => {},
         sendChat: () => {},
         lastError: null,
+        terminalClose: false,
       };
     }),
   };

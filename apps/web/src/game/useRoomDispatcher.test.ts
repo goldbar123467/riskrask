@@ -205,6 +205,69 @@ describe('useRoomDispatcher', () => {
     warnSpy.mockRestore();
   });
 
+  it('flags terminalClose=true when the socket closes before welcome', () => {
+    const { result } = renderHook(() =>
+      useRoomDispatcher({
+        roomId: 'room-1',
+        seatIdx: 0,
+        token: 't',
+        url: 'ws://t/ws',
+      }),
+    );
+
+    expect(result.current.terminalClose).toBe(false);
+
+    // Open, then close with 1008 (policy-violation / auth reject) before
+    // ever delivering a welcome. The hook must now flag the terminal state
+    // so PlayRoom can surface an error instead of spinning forever.
+    const ws = instances[0]!;
+    act(() => {
+      ws.triggerOpen();
+      ws.close(1008);
+    });
+
+    expect(result.current.connState).toBe('closed');
+    expect(result.current.terminalClose).toBe(true);
+  });
+
+  it('does not flag terminalClose when welcome arrives before close', () => {
+    const { result } = renderHook(() =>
+      useRoomDispatcher({
+        roomId: 'room-1',
+        seatIdx: 0,
+        token: 't',
+        url: 'ws://t/ws',
+      }),
+    );
+
+    const initial = createInitialState({
+      seed: 'terminal-guard',
+      players: [
+        { id: playerId('a'), name: 'A', color: '#f00', isAI: false },
+        { id: playerId('b'), name: 'B', color: '#0f0', isAI: true },
+      ],
+    });
+
+    const ws = instances[0]!;
+    act(() => {
+      ws.triggerOpen();
+      ws.deliver({
+        type: 'welcome',
+        gameId: 'g1',
+        seatIdx: 0,
+        state: initial,
+        seats: [],
+        hash: 'h0',
+        seq: 0,
+      });
+      ws.close(1000);
+    });
+
+    // Welcome was seen first — the subsequent close is NOT terminal from
+    // the shell's perspective. Reconnect logic handles it.
+    expect(result.current.terminalClose).toBe(false);
+  });
+
   it('closes the socket on unmount', () => {
     const { unmount } = renderHook(() =>
       useRoomDispatcher({
