@@ -69,11 +69,19 @@ type Resolution =
 
 export function PlayRoom({ roomId }: PlayRoomProps) {
   const navigate = useNavigate();
-  const { token, userId } = useAuth();
+  const { token, userId, hydrating } = useAuth();
 
   const [resolution, setResolution] = useState<Resolution>({ kind: 'loading' });
 
   useEffect(() => {
+    if (hydrating) {
+      // Auth is still hydrating from Supabase's async `getSession()` on the
+      // first mount — do NOT interpret `token=null` as "no session" here.
+      // Stay in the loading state; the effect will re-fire once hydration
+      // settles thanks to `hydrating` being in the dep array below.
+      setResolution({ kind: 'loading' });
+      return;
+    }
     if (!token || !userId) {
       setResolution({ kind: 'redirect', to: `/lobby/${roomId}` });
       return;
@@ -103,7 +111,7 @@ export function PlayRoom({ roomId }: PlayRoomProps) {
     return () => {
       cancelled = true;
     };
-  }, [roomId, token, userId]);
+  }, [roomId, token, userId, hydrating]);
 
   useEffect(() => {
     if (resolution.kind === 'redirect') {

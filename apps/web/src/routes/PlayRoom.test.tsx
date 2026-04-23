@@ -19,6 +19,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGame } from '../game/useGame';
+import type { Auth } from '../net/auth';
 import type { GameOverPayload } from '../game/useRoomDispatcher';
 
 // ---------------------------------------------------------------------------
@@ -59,6 +60,26 @@ const getRoomMock = vi.fn();
 vi.mock('../net/api', async () => {
   const actual = await vi.importActual<typeof import('../net/api')>('../net/api');
   return { ...actual, getRoom: (...args: unknown[]) => getRoomMock(...args) };
+});
+
+// ---------------------------------------------------------------------------
+// useAuth override — default path delegates to the real hook so existing
+// setLegacyToken()-based tests keep working. Individual tests can plug
+// their own implementation via `authOverride.impl = () => ({...})` to
+// simulate Supabase hydration races.
+// ---------------------------------------------------------------------------
+
+const authOverride: { impl: (() => Auth) | null } = { impl: null };
+
+vi.mock('../net/auth', async () => {
+  const actual = await vi.importActual<typeof import('../net/auth')>('../net/auth');
+  return {
+    ...actual,
+    useAuth: () => {
+      if (authOverride.impl) return authOverride.impl();
+      return actual.useAuth();
+    },
+  };
 });
 
 // Stubs for the big visual primitives. They don't need to do anything;
@@ -138,6 +159,7 @@ beforeEach(() => {
   dispatcherMock.onGameOver = null;
   dispatcherMock.onTurnDeadline = null;
   getRoomMock.mockReset();
+  authOverride.impl = null;
 });
 
 afterEach(() => {
@@ -208,6 +230,91 @@ describe('PlayRoom — game_over auto-redirect', () => {
     });
 
     await waitFor(() => expect(screen.getByTestId('lobby-landing')).toBeInTheDocument());
+  });
+});
+
+describe('PlayRoom — auth hydration race', () => {
+  it('does not redirect to /lobby/:roomId while auth is hydrating', async () => {
+    // First render: Supabase is async-loading the session — hydrating=true,
+    // token/userId still null. Under the old code PlayRoom's resolver fires
+    // with nulls, sets resolution→redirect, and unmounts us.
+    let hydrating = true;
+    let token: string | null = null;
+    let userId: string | null = null;
+
+    authOverride.impl = (): Auth => ({
+      token,
+      userId,
+      email: null,
+      displayName: null,
+      hydrating,
+      setToken: () => {},
+      clearToken: () => {},
+      setDisplayName: () => {},
+    });
+
+    getRoomMock.mockResolvedValue({
+      ok: true,
+      data: {
+        room: {
+          id: 'r-1',
+          code: 'ABCD23',
+          state: 'active',
+          hostId: 'u-me',
+          maxPlayers: 2,
+          seats: [
+            { seatIdx: 0, userId: 'u-me', isAi: false, archId: null, ready: true, connected: true },
+            {
+              seatIdx: 1,
+              userId: null,
+              isAi: true,
+              archId: 'dilettante',
+              ready: true,
+              connected: true,
+            },
+          ],
+        },
+        game: null,
+      },
+    });
+
+    const { rerender } = renderPlayRoom();
+
+    // We should NOT have bounced to the lobby route during the hydrating
+    // window. The "lobby-for-room" element would only mount if PlayRoom's
+    // resolver effect had prematurely fired the redirect path.
+    expect(screen.queryByTestId('lobby-for-room')).toBeNull();
+    expect(screen.queryByTestId('lobby-landing')).toBeNull();
+
+    // Now simulate Supabase finishing hydration with a real session. The
+    // auth mock flips, rerender kicks the hook, the resolver re-runs and
+    // walks the happy path into `ready`.
+    await act(async () => {
+      hydrating = false;
+      token = 'aaa.eyJzdWIiOiJ1LW1lIn0.bbb';
+      userId = 'u-me';
+      seedGameStore();
+      rerender(
+        <MemoryRouter initialEntries={['/play/r-1']}>
+          <Routes>
+            <Route path="/play/:id" element={<PlayRoom roomId="r-1" />} />
+            <Route path="/lobby" element={<div data-testid="lobby-landing">lobby</div>} />
+            <Route
+              path="/lobby/:roomId"
+              element={<div data-testid="lobby-for-room">lobby-for-room</div>}
+            />
+          </Routes>
+        </MemoryRouter>,
+      );
+    });
+
+    // Inner dispatcher mounts — means the happy path ran instead of a redirect.
+    await act(async () => {
+      await waitFor(() => expect(dispatcherMock.onGameOver).not.toBeNull());
+    });
+    // And we're still not on a lobby route.
+    expect(screen.queryByTestId('lobby-for-room')).toBeNull();
+    expect(screen.queryByTestId('lobby-landing')).toBeNull();
   });
 });
 
