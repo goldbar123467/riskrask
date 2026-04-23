@@ -96,7 +96,10 @@ export class GameSnapshotWriter {
         })
         .eq('id', input.gameId);
       if (error) {
-        console.warn('[games-snapshot] update failed', { gameId: input.gameId, err: error.message });
+        console.warn('[games-snapshot] update failed', {
+          gameId: input.gameId,
+          err: error.message,
+        });
       }
     } catch (err) {
       console.warn('[games-snapshot] update threw', {

@@ -17,7 +17,7 @@
 
 import type { Action, GameState } from '@riskrask/engine';
 import { runFallbackTurn } from '../ai/fallback';
-import { GameSnapshotWriter } from '../persistence/games';
+import type { GameSnapshotWriter } from '../persistence/games';
 import { Room, type TurnLogger } from './Room';
 import type { Seat } from './seat';
 import { TurnDriver } from './turnDriver';
