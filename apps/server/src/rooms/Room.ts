@@ -102,6 +102,16 @@ export class Room {
   private readonly getDeadline: ((roomId: string) => number | null) | null;
   /** Injected AI driver — runs when a new turn lands on an AI seat. */
   private readonly runFallback: RunFallbackFn | null;
+  /** Fired after every applied action. Null when no snapshot writer is wired up. */
+  private readonly onSnapshot:
+    | ((snapshot: {
+        state: GameState;
+        hash: string;
+        seq: number;
+        turnAdvanced: boolean;
+        winner: string | null;
+      }) => void)
+    | null;
 
   /** ms after a seat disconnects before it's flagged AFK for AI takeover. */
   readonly disconnectGraceMs: number;
@@ -138,6 +148,14 @@ export class Room {
        * tests can opt out.
        */
       runFallback?: RunFallbackFn;
+      /** Fired after every applied action. Registry wires this to the debounced snapshot writer. */
+      onSnapshot?: (snapshot: {
+        state: GameState;
+        hash: string;
+        seq: number;
+        turnAdvanced: boolean;
+        winner: string | null;
+      }) => void;
     } = {},
   ) {
     this.roomId = roomId;
@@ -156,6 +174,7 @@ export class Room {
     this.onTurnAdvance = opts.onTurnAdvance ?? null;
     this.getDeadline = opts.getTurnDeadline ?? null;
     this.runFallback = opts.runFallback ?? null;
+    this.onSnapshot = opts.onSnapshot ?? null;
   }
 
   // ---- read-only accessors (used by tests & fallback) --------------------
@@ -403,6 +422,21 @@ export class Room {
           err: err instanceof Error ? err.message : String(err),
         });
       }
+    }
+
+    try {
+      this.onSnapshot?.({
+        state: this.state,
+        hash: this.hash,
+        seq: this.seq,
+        turnAdvanced: advanced,
+        winner: this.state.winner ?? null,
+      });
+    } catch (err) {
+      console.warn('[room] onSnapshot threw', {
+        roomId: this.roomId,
+        err: err instanceof Error ? err.message : String(err),
+      });
     }
 
     return { nextHash: this.hash, seq: this.seq, effects: result.effects };
