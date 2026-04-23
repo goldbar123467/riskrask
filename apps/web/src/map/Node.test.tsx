@@ -100,12 +100,12 @@ describe('Map node click interactions', () => {
   });
 });
 
-describe("Node memoization", () => {
-  it("is wrapped in React.memo so parent re-renders with identical props skip reconciliation", () => {
+describe('Node memoization', () => {
+  it('is wrapped in React.memo so parent re-renders with identical props skip reconciliation', () => {
     // React.memo-wrapped components expose a $$typeof symbol whose description
     // contains "react.memo". A plain function component does not.
     const typed = Node as unknown as { $$typeof?: symbol };
-    const typeofDesc = typed.$$typeof?.toString() ?? "";
-    expect(typeofDesc).toContain("react.memo");
+    const typeofDesc = typed.$$typeof?.toString() ?? '';
+    expect(typeofDesc).toContain('react.memo');
   });
 });

@@ -1,6 +1,6 @@
-import { memo, useMemo } from 'react';
 import type { TerritoryState } from '@riskrask/engine';
 import type { TerritoryName } from '@riskrask/engine';
+import { memo, useMemo } from 'react';
 import { UnitSilhouette, unitTypeForTerritory } from './UnitSilhouette';
 
 interface NodeProps {
@@ -261,4 +261,3 @@ function displayName(name: string): string {
 }
 
 export const Node = memo(NodeImpl);
-

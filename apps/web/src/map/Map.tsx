@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
 import { CONTINENTS, PALETTE, TERRITORIES } from '@riskrask/engine';
 import type { GameState, TerritoryName } from '@riskrask/engine';
+import { useMemo } from 'react';
 import { AdjacencyLines } from './AdjacencyLines';
 import { ContinentLabel } from './ContinentLabel';
 import { Node } from './Node';
