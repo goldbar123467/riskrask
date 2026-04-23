@@ -56,6 +56,13 @@ export interface UseRoomDispatcherResult {
   sendIntent: (action: Action) => void;
   sendChat: (text: string) => void;
   lastError: RoomError | null;
+  /**
+   * True when the WS transitioned to `closed` WITHOUT ever having received
+   * a `welcome` frame. Signals that the room shell should render an error
+   * with the `lastError` code and a fallback route, instead of hanging on
+   * the generic "Awaiting welcome…" loader forever.
+   */
+  terminalClose: boolean;
 }
 
 export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatcherResult {
@@ -65,6 +72,13 @@ export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatche
   const [seq, setSeq] = useState(0);
   const [seats, setSeats] = useState<SeatInfo[]>([]);
   const [lastError, setLastError] = useState<RoomError | null>(null);
+  const [terminalClose, setTerminalClose] = useState(false);
+
+  // Tracks whether we've ever seen a `welcome` frame on this connection.
+  // A socket that goes `connecting` → `closed` without a welcome is a
+  // terminal failure (auth reject, seat mismatch, etc.) — the room shell
+  // needs to surface it instead of spinning on "Awaiting welcome…".
+  const welcomeSeenRef = useRef(false);
 
   // Keep callback refs stable so the socket effect doesn't thrash on every
   // render just because the parent rebuilds inline closures.
@@ -74,6 +88,12 @@ export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatche
   onGameOverRef.current = onGameOver;
 
   useEffect(() => {
+    // Reset per-connection flags. If this effect re-fires due to a roomId
+    // or token change, the old socket is closed and a fresh one mounts —
+    // we shouldn't carry welcome-seen state across that boundary.
+    welcomeSeenRef.current = false;
+    setTerminalClose(false);
+
     const client = createWsClient(
       url !== undefined ? { roomId, seatIdx, token, url } : { roomId, seatIdx, token },
     );
@@ -81,9 +101,16 @@ export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatche
 
     const offState = client.onState((s) => {
       setConnState(s);
+      if (s === 'closed' && !welcomeSeenRef.current) {
+        // Socket went down before the server ever sent a welcome. The WS
+        // client has already decided this is terminal (no reconnect), so
+        // surface the fact to the shell.
+        setTerminalClose(true);
+      }
     });
 
     const offMsg = client.onMessage((msg: ServerMsg) => {
+      if (msg.type === 'welcome') welcomeSeenRef.current = true;
       handleServerMsg(msg, {
         setSeq,
         setSeats,
@@ -121,7 +148,7 @@ export function useRoomDispatcher(opts: UseRoomDispatcherOpts): UseRoomDispatche
     client.send({ type: 'chat', text: trimmed.slice(0, 512) });
   };
 
-  return { connState, seq, seats, sendIntent, sendChat, lastError };
+  return { connState, seq, seats, sendIntent, sendChat, lastError, terminalClose };
 }
 
 interface Sinks {

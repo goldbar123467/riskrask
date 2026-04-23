@@ -548,14 +548,24 @@ function ActiveRoomPanel({ roomId, token, userId, onLeave, onLaunch }: ActiveRoo
     };
   }, [refresh]);
 
-  // Stop polling once active — keep the last snapshot visible, then let the
-  // host press launch to navigate.
+  // Auto-navigate seated users into /play once the host launches. Without
+  // this non-hosts sat on the lobby staring at an "Open in play" button and
+  // had no idea the game had started. We only fire the transition when
+  // `state` flips from something-else → 'active' so re-renders with the
+  // same active state (refresh polls, other seat updates) don't repeatedly
+  // push navigation.
+  const prevRoomStateRef = useRef<string | undefined>(room?.state);
   useEffect(() => {
-    if (room?.state === 'active') {
-      // Let the host trigger navigation manually; non-hosts see the snapshot
-      // and can press "Open in play" below. No automatic navigation here.
-    }
-  }, [room?.state]);
+    const prev = prevRoomStateRef.current;
+    const current = room?.state;
+    prevRoomStateRef.current = current;
+    if (current !== 'active' || prev === 'active') return;
+    if (userId === null) return;
+    const seats: RoomSeat[] = room?.seats ?? [];
+    const seated = seats.some((s) => s.userId !== null && s.userId === userId);
+    if (!seated) return;
+    onLaunch();
+  }, [room?.state, room?.seats, userId, onLaunch]);
 
   // Auto-dismiss the "Lobby closed" toast after 3s and hand off to onLeave.
   useEffect(() => {

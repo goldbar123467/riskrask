@@ -62,6 +62,7 @@ function renderAt(path: string) {
       <Routes>
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/lobby/:roomId" element={<Lobby />} />
+        <Route path="/play/:roomId" element={<div data-testid="play-landing">play</div>} />
         <Route path="/" element={<div>home</div>} />
       </Routes>
     </MemoryRouter>,
@@ -705,6 +706,64 @@ describe('Lobby', () => {
     // timer — we don't wait for the dismissal here, just that it fired).
     await waitFor(() => expect(screen.getByTestId('lobby-closed-toast')).toBeInTheDocument());
     expect(screen.getByTestId('lobby-closed-toast')).toHaveTextContent('Lobby closed');
+  });
+
+  it('auto-navigates seated users to /play when the room flips to active', async () => {
+    const meId = 'u-me';
+    const hostId = 'u-host';
+    setToken('aaa.eyJzdWIiOiJ1LW1lIn0.bbb');
+
+    // Start the fixture in `lobby`; after the first detail fetch resolves
+    // we flip the scripted body to `active` so the next poll observes
+    // the transition that would normally come from the host pressing
+    // LAUNCH on another client.
+    const roomLobby = {
+      id: 'r-1',
+      code: 'ABCD23',
+      state: 'lobby' as const,
+      visibility: 'public' as const,
+      hostId,
+      maxPlayers: 4,
+      seats: [
+        { seatIdx: 0, userId: hostId, isAi: false, archId: null, ready: true, connected: true },
+        { seatIdx: 1, userId: meId, isAi: false, archId: null, ready: false, connected: true },
+      ],
+    };
+    const roomActive = { ...roomLobby, state: 'active' as const };
+
+    const state = { room: roomLobby as typeof roomLobby | typeof roomActive };
+    const impl = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+      const method = (init?.method ?? 'GET').toUpperCase();
+      const urlStr = typeof url === 'string' ? url : url.toString();
+      if (method === 'GET' && urlStr.includes('/api/rooms?')) {
+        return new Response(JSON.stringify({ ok: true, data: { rooms: [] } }), { status: 200 });
+      }
+      if (method === 'GET' && urlStr.includes('/api/rooms/r-1')) {
+        return new Response(JSON.stringify({ ok: true, data: { room: state.room, game: null } }), {
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: false, code: 'NOT_FOUND' }), { status: 404 });
+    };
+    vi.stubGlobal('fetch', vi.fn(impl));
+
+    renderAt('/lobby/r-1');
+
+    // First snapshot resolves — we're still in lobby so the play route
+    // shouldn't be mounted yet.
+    await waitFor(() => expect(screen.getByTestId('seat-list')).toBeInTheDocument());
+    expect(screen.queryByTestId('play-landing')).toBeNull();
+
+    // Flip the scripted room to active. The detail poller runs every 3s
+    // on a real interval; rather than racing the wall clock, we give the
+    // test up to 5s of real time to pick up the transition via the
+    // waitFor's built-in polling.
+    state.room = roomActive;
+
+    // onLaunch should have fired → navigate('/play/r-1') → play route mounts.
+    await waitFor(() => expect(screen.getByTestId('play-landing')).toBeInTheDocument(), {
+      timeout: 5_000,
+    });
   });
 
   it('non-host seat sees a "waiting for host" indicator (ready toggle removed)', async () => {

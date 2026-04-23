@@ -26,6 +26,13 @@ export interface Auth {
    * lookup. Null until set. Cleared on sign-out.
    */
   displayName: string | null;
+  /**
+   * True while the Supabase session is being hydrated on first mount.
+   * Consumers should treat `token=null` as "still loading" when this is
+   * true, NOT as "no session". Always false in the legacy (paste-token)
+   * path since that hydrates synchronously from localStorage.
+   */
+  hydrating: boolean;
   /** Legacy escape hatch — only honoured when Supabase isn't configured. */
   setToken: (t: string | null) => void;
   /** Signs out the current Supabase session (or clears the legacy override). */
@@ -131,21 +138,36 @@ export function useAuth(): Auth {
     if (configured) return { token: null, userId: null, email: null };
     return snapshotFromLegacy(readLegacy());
   });
+  // Legacy path hydrates synchronously from localStorage in the useState
+  // initializer above, so we're never "hydrating" there. Supabase path
+  // has to wait for an async getSession() round-trip; until that settles,
+  // `token=null` must NOT be interpreted as "no session".
+  const [hydrating, setHydrating] = useState<boolean>(configured);
   const [displayName, setDisplayNameState] = useState<string | null>(displayNameCache);
 
   useEffect(() => {
     if (configured) {
       const supa = getSupabase();
-      if (!supa) return;
+      if (!supa) {
+        // No Supabase client available despite `configured` — flush the
+        // hydrating flag so consumers don't wait forever.
+        setHydrating(false);
+        return;
+      }
       let cancelled = false;
 
       void supa.auth.getSession().then(({ data }) => {
         if (cancelled) return;
         setSnap(snapshotFromSession(data.session));
+        setHydrating(false);
       });
 
       const { data: sub } = supa.auth.onAuthStateChange((event, session) => {
         setSnap(snapshotFromSession(session));
+        // First `onAuthStateChange` callback also resolves the hydrating
+        // window — flip the flag defensively in case `getSession()` lost
+        // the race.
+        setHydrating(false);
         // Drop any cached display-name on sign-out so the next signed-in user
         // doesn't see the previous account's name.
         if (event === 'SIGNED_OUT') broadcastDisplayName(null);
@@ -224,6 +246,7 @@ export function useAuth(): Auth {
     userId: snap.userId,
     email: snap.email,
     displayName,
+    hydrating,
     setToken,
     clearToken,
     setDisplayName,
