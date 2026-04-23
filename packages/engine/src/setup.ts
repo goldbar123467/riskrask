@@ -60,7 +60,9 @@ function shuffleWith<T>(arr: readonly T[], seed: string): T[] {
 export function createInitialState(config: GameConfig): GameState {
   const { seed, players: inputPlayers, fortifyRule = 'adjacent' } = config;
   if (fortifyRule !== 'adjacent' && fortifyRule !== 'connected') {
-    throw new Error(`createInitialState: invalid fortifyRule '${fortifyRule}'. Must be 'adjacent' or 'connected'.`);
+    throw new Error(
+      `createInitialState: invalid fortifyRule '${fortifyRule}'. Must be 'adjacent' or 'connected'.`,
+    );
   }
   const humanCount = inputPlayers.length;
   const startingReserves = STARTING_ARMIES[humanCount];
