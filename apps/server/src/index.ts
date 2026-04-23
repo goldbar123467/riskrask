@@ -5,6 +5,7 @@ import { profileRouter } from './http/profile';
 import { roomsRouter } from './http/rooms';
 import { savesRouter } from './http/saves';
 import { handleGameOver } from './rooms/endGame';
+import { GameSnapshotWriter } from './persistence/games';
 import { registry } from './rooms/registry';
 import { serviceClient } from './supabase';
 import { websocket, wsRouter } from './ws';
@@ -43,6 +44,11 @@ registry.setOnGameOver((roomId, winnerPlayerId, finalState) => {
     serviceClient: () => serviceClient() as never,
   });
 });
+
+// Debounced `games.state` snapshot writer — imported here so the Supabase
+// service client stays out of `rooms/registry.ts`. Fires after every
+// applyIntent via the Room's `onSnapshot` hook.
+registry.setSnapshotWriter(new GameSnapshotWriter(serviceClient() as never));
 
 // ---------------------------------------------------------------------------
 // Routes
