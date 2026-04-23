@@ -19,8 +19,8 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGame } from '../game/useGame';
-import type { Auth } from '../net/auth';
 import type { GameOverPayload } from '../game/useRoomDispatcher';
+import type { Auth } from '../net/auth';
 
 // ---------------------------------------------------------------------------
 // Shared mock surface: useRoomDispatcher + getRoom + heavy UI.
