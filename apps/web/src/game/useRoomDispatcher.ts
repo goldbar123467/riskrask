@@ -175,6 +175,22 @@ function handleServerMsg(msg: ServerMsg, sinks: Sinks): void {
       );
       return;
     }
+    case 'turn_advance': {
+      // Server broadcasts on every turn rotation. Treated as a passive
+      // signal — the UI derives whose-turn-it-is from the next `applied`
+      // frame's state. A future hook could surface the deadline countdown.
+      return;
+    }
+    case 'game_over': {
+      // Terminal frame. The local reducer already set state.winner via the
+      // preceding `applied` frame, which triggers VictoryModal; we surface
+      // the authoritative winner here so consumers can observe it.
+      sinks.setLastError({
+        code: 'GAME_OVER',
+        detail: `winner: ${msg.winnerDisplay} (seat ${msg.winnerSeatIdx ?? '?'})`,
+      });
+      return;
+    }
     default: {
       // Exhaustive check — if a new variant appears the switch will fail
       // to type-check here at the `never` assignment.

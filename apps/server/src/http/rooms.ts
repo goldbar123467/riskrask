@@ -22,7 +22,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { verifySupabaseJwt } from '../auth/verify';
 import { fillEmptySeats } from '../rooms/autofill';
-import { insertGameRow, type SeatRow } from '../rooms/createGame';
+import { type SeatRow, insertGameRow } from '../rooms/createGame';
 import { registry } from '../rooms/registry';
 import type { Seat } from '../rooms/seat';
 import { anonClient, serviceClient } from '../supabase';
@@ -40,7 +40,7 @@ const CreateRoomBody = z.object({
   visibility: z.enum(['public', 'private']).default('public'),
   maxPlayers: z.number().int().min(2).max(6).default(6),
   settings: z.record(z.unknown()).default({}),
-  name: z.string().trim().min(1).max(80),
+  name: z.string().trim().min(1).max(80).optional(),
 });
 
 const JoinBody = z.object({ code: z.string().min(1) });
@@ -88,7 +88,7 @@ roomsRouter.post('/', async (c) => {
     p_visibility: body.visibility,
     p_max_players: body.maxPlayers,
     p_settings: body.settings as Record<string, unknown>,
-    p_name: body.name,
+    p_name: body.name ?? null,
   });
   if (error) {
     return c.json(errBody('CREATE_FAILED', error.message), 500);

@@ -19,10 +19,10 @@
  */
 
 import type { GameState } from '@riskrask/engine';
-import { registry } from './registry';
-import type { Room } from './Room';
-import type { Seat } from './seat';
 import { serviceClient } from '../supabase';
+import type { Room } from './Room';
+import { registry } from './registry';
+import type { Seat } from './seat';
 
 export async function ensureHydrated(roomId: string): Promise<Room | null> {
   const existing = registry.get(roomId);

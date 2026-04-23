@@ -80,9 +80,15 @@ export interface SupabaseLike {
 interface QueryBuilder {
   select(cols?: string): QueryBuilder;
   eq(col: string, val: unknown): QueryBuilder;
+  is(col: string, val: unknown): QueryBuilder;
+  in(col: string, vals: readonly unknown[]): QueryBuilder;
   order(col: string, opts?: unknown): QueryBuilder;
   limit(n: number): QueryBuilder;
+  insert(row: unknown): QueryBuilder;
+  update(row: unknown): QueryBuilder;
+  upsert(row: unknown, opts?: unknown): QueryBuilder;
   maybeSingle(): Promise<{ data: TableRow | null; error: null }>;
+  single(): Promise<{ data: TableRow | null; error: null }>;
   then<T>(onFulfilled: (v: { data: TableRow[]; error: null }) => T): Promise<T>;
 }
 
@@ -101,13 +107,33 @@ export function createMockSupabase(): MockSupabase {
       eq(_col: string, _val: unknown) {
         return self;
       },
+      is(_col: string, _val: unknown) {
+        return self;
+      },
+      in(_col: string, _vals: readonly unknown[]) {
+        return self;
+      },
       order(_col: string, _opts?: unknown) {
         return self;
       },
       limit(_n: number) {
         return self;
       },
+      insert(_row: unknown) {
+        // Inserts are no-ops in the stub — tests seed fixtures directly.
+        return self;
+      },
+      update(_row: unknown) {
+        return self;
+      },
+      upsert(_row: unknown, _opts?: unknown) {
+        return self;
+      },
       async maybeSingle() {
+        const rows = fixtures[table] ?? [];
+        return { data: rows[0] ?? null, error: null };
+      },
+      async single() {
         const rows = fixtures[table] ?? [];
         return { data: rows[0] ?? null, error: null };
       },
