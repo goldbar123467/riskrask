@@ -1,8 +1,12 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { healthRouter } from './http/health';
+import { profileRouter } from './http/profile';
 import { roomsRouter } from './http/rooms';
 import { savesRouter } from './http/saves';
+import { handleGameOver } from './rooms/endGame';
+import { registry } from './rooms/registry';
+import { serviceClient } from './supabase';
 import { websocket, wsRouter } from './ws';
 
 /**
@@ -29,12 +33,29 @@ app.use(
 );
 
 // ---------------------------------------------------------------------------
+// End-of-game wiring — the registry singleton needs to know how to reach the
+// Supabase service client without creating a circular import. We inject here
+// at the composition root.
+// ---------------------------------------------------------------------------
+registry.setOnGameOver((roomId, winnerPlayerId, finalState) => {
+  void handleGameOver(roomId, winnerPlayerId, finalState, {
+    registry,
+    serviceClient: () => serviceClient() as never,
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------
 app.route('/', healthRouter);
 app.route('/api/saves', savesRouter);
 app.route('/api/rooms', roomsRouter);
-app.route('/', wsRouter);
+app.route('/api/profile', profileRouter);
+// WS mount under /api so the full route is /api/ws/:roomId, matching the
+// client path in apps/web/src/net/ws.ts and keeping the whole API tree
+// consistently namespaced. Previously was mounted at '/' which exposed
+// /ws/:roomId — a 404 against client calls.
+app.route('/api', wsRouter);
 
 // ---------------------------------------------------------------------------
 // Boot

@@ -109,7 +109,12 @@ export interface Database {
       };
       leave_room: {
         Args: { p_room_id: string };
-        Returns: null;
+        // Migration 0020 widened the return type from `void` to a one-row
+        // TABLE. PostgREST exposes this as an array with one element.
+        Returns: {
+          room_deleted: boolean;
+          new_host_id: string | null;
+        }[];
       };
       set_ready: {
         Args: { p_room_id: string; p_ready: boolean };
