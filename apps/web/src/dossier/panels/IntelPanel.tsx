@@ -102,7 +102,7 @@ export function IntelPanel({ state, humanPlayerId }: IntelPanelProps) {
         </p>
       </header>
 
-      <div className="flex flex-wrap gap-1" role="group" aria-label="intel-filters">
+      <fieldset className="flex flex-wrap gap-1 border-0 p-0" aria-label="intel-filters">
         {CATEGORIES.map((cat) => {
           const on = active.has(cat.id);
           return (
@@ -112,19 +112,18 @@ export function IntelPanel({ state, humanPlayerId }: IntelPanelProps) {
               onClick={() => toggle(cat.id)}
               aria-pressed={on}
               aria-label={`filter-${cat.id}`}
-              className={
-                'rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] transition-colors ' +
-                (on
+              className={`rounded-sm border px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] transition-colors ${
+                on
                   ? 'border-line-2 bg-panel-2 text-ink'
-                  : 'border-line bg-transparent text-ink-faint hover:text-ink-dim')
-              }
+                  : 'border-line bg-transparent text-ink-faint hover:text-ink-dim'
+              }`}
               style={on ? { color: cat.color, borderColor: cat.color } : undefined}
             >
               {cat.label}
             </button>
           );
         })}
-      </div>
+      </fieldset>
 
       <div
         className="flex max-h-80 flex-col gap-2 overflow-y-auto"
@@ -153,10 +152,7 @@ export function IntelPanel({ state, humanPlayerId }: IntelPanelProps) {
                       <li
                         // biome-ignore lint/suspicious/noArrayIndexKey: log is append-only; index is stable within a turn bucket
                         key={idx}
-                        className={
-                          'flex items-baseline gap-2 rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-ink-dim ' +
-                          (isCurrent ? 'bg-panel-2' : '')
-                        }
+                        className={`flex items-baseline gap-2 rounded-sm px-1.5 py-0.5 font-mono text-[10px] text-ink-dim ${isCurrent ? 'bg-panel-2' : ''}`}
                         data-kind={kindOf(entry)}
                       >
                         <span className="shrink-0 text-ink-faint">T{entry.turn + 1}</span>

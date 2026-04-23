@@ -22,7 +22,7 @@ function setLog(turn: number, log: LogLine[]): void {
 
 function renderPanelOnTurn(turn: number): void {
   const state = { ...freshState(), turn };
-  render(<IntelPanel state={state} humanPlayerId='0' />);
+  render(<IntelPanel state={state} humanPlayerId="0" />);
 }
 
 beforeEach(() => {

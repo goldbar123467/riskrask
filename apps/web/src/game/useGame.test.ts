@@ -155,11 +155,7 @@ describe('appendLog kind classification', () => {
   });
 
   it('classifies a trade-text log effect as trade', () => {
-    const log = appendLog(
-      [],
-      [{ kind: 'log', text: 'Alice trades cards for 4 armies.' }],
-      1,
-    );
+    const log = appendLog([], [{ kind: 'log', text: 'Alice trades cards for 4 armies.' }], 1);
     expect(log[0]?.kind).toBe('trade');
   });
 
