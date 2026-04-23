@@ -1,6 +1,6 @@
-import { Arch, takeTurn } from '@riskrask/ai';
+import { Arch, takeSetupAction, takeTurn } from '@riskrask/ai';
 import type { Action, GameState, PlayerId } from '@riskrask/engine';
-import { ADJACENCY, TERR_ORDER, createRng, nextInt } from '@riskrask/engine';
+import { createRng, nextInt } from '@riskrask/engine';
 
 /**
  * Deterministically assign an archetype to a player based on seed + id, so
@@ -17,9 +17,9 @@ function archForPlayer(seed: string, playerId: PlayerId): string {
 /**
  * Generate the next batch of actions for an AI player.
  *
- * Setup phases are handled inline — `@riskrask/ai.takeTurn` only covers the
- * main three-phase turn (reinforce → attack → fortify), so we keep a
- * lightweight claimer for setup-claim / setup-reinforce here.
+ * Setup phases delegate to `takeSetupAction` so solo and MP (server fallback)
+ * share a single source of truth. Main-game phases delegate to `takeTurn`
+ * for the scored archetype AI.
  */
 export function dilettanteTurn(state: GameState, playerId: PlayerId): Action[] {
   const player = state.players.find((p) => p.id === playerId);
@@ -30,33 +30,9 @@ export function dilettanteTurn(state: GameState, playerId: PlayerId): Action[] {
     return [{ type: 'move-after-capture', count: state.pendingMove.min }];
   }
 
-  // Setup phases: pure random placement (classic Risk setup is strategic but
-  // we intentionally keep AI behaviour light here — the main game uses the
-  // scored AI below).
-  if (state.phase === 'setup-claim') {
+  if (state.phase === 'setup-claim' || state.phase === 'setup-reinforce') {
     const rng = createRng(`${state.seed}:ai:${playerId}:${state.turn}:${state.rngCursor}`);
-    const unclaimed = TERR_ORDER.filter((n) => state.territories[n]?.owner === null);
-    if (unclaimed.length === 0) return [];
-    const pick = unclaimed[nextInt(rng, unclaimed.length)];
-    return pick ? [{ type: 'claim-territory', territory: pick }] : [];
-  }
-
-  if (state.phase === 'setup-reinforce') {
-    const rng = createRng(`${state.seed}:ai:${playerId}:${state.turn}:${state.rngCursor}`);
-    const owned = TERR_ORDER.filter((n) => state.territories[n]?.owner === playerId);
-    if (owned.length === 0 || player.reserves <= 0) return [];
-
-    // Prefer owned territories with at least one enemy neighbour (classic
-    // strategy: reinforce borders first). Fallback to a random owned tile.
-    const borders = owned.filter((n) =>
-      (ADJACENCY[n] ?? []).some((adj) => {
-        const t = state.territories[adj];
-        return t && t.owner !== null && t.owner !== playerId;
-      }),
-    );
-    const pool = borders.length > 0 ? borders : owned;
-    const pick = pool[nextInt(rng, pool.length)];
-    return pick ? [{ type: 'setup-reinforce', territory: pick }] : [];
+    return takeSetupAction(state, playerId, rng);
   }
 
   if (state.phase === 'done') return [];
