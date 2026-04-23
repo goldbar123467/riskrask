@@ -123,7 +123,6 @@ describe('createInitialState fortifyRule validation', () => {
           { id: 'p3', name: 'P3', color: '#00f', isAI: false },
         ],
         // deliberately invalid — must throw.
-        // biome-ignore lint/suspicious/noExplicitAny: intentional bad input
         fortifyRule: 'freeform' as any,
       }),
     ).toThrow(/fortifyRule/i);
