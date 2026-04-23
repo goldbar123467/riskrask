@@ -294,6 +294,9 @@ function PlaySolo() {
             players={`${state.players.filter((p) => !p.eliminated).length}/${state.players.length}`}
             currentPlayerName={cp?.name ?? '—'}
             isYourTurn={isHumanTurn}
+            onExit={() => {
+              void navigate('/');
+            }}
           />
         }
         rail={<Rail activeItem={activeRailItem} onSelect={setActiveRailItem} />}
