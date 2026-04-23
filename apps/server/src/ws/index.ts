@@ -174,12 +174,7 @@ wsRouter.get(
           case 'intent': {
             const action = msg.data.action as Action;
             try {
-              await room.applyIntent(
-                session.seatIdx,
-                action,
-                msg.data.clientHash,
-                session.userId,
-              );
+              await room.applyIntent(session.seatIdx, action, msg.data.clientHash, session.userId);
             } catch (err) {
               if (err instanceof RoomError) {
                 sendJson(ws, {
