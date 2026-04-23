@@ -350,14 +350,20 @@ function PlaySolo() {
       )}
 
       {state.pendingForcedTrade && (
-        <ForcedTradeModal
-          state={state}
-          forcedTrade={state.pendingForcedTrade}
-          onTrade={handleTrade}
-          onCancel={() => {
-            /* forced trade cannot be skipped — do nothing */
-          }}
-        />
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+          aria-label="forced-trade-backdrop"
+          role="presentation"
+        >
+          <ForcedTradeModal
+            state={state}
+            forcedTrade={state.pendingForcedTrade}
+            onTrade={handleTrade}
+            onCancel={() => {
+              /* forced trade cannot be skipped — do nothing */
+            }}
+          />
+        </div>
       )}
 
       {state.phase === 'done' && state.winner && (
