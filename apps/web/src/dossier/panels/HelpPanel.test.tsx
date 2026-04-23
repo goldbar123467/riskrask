@@ -14,9 +14,13 @@ describe('HelpPanel', () => {
 
   it('opens the phase quick-ref by default and keeps others collapsed', () => {
     const { container } = render(<HelpPanel />);
-    const phases = container.querySelector("[data-testid='help-section-phases']") as HTMLDetailsElement;
+    const phases = container.querySelector(
+      "[data-testid='help-section-phases']",
+    ) as HTMLDetailsElement;
     const dice = container.querySelector("[data-testid='help-section-dice']") as HTMLDetailsElement;
-    const cards = container.querySelector("[data-testid='help-section-cards']") as HTMLDetailsElement;
+    const cards = container.querySelector(
+      "[data-testid='help-section-cards']",
+    ) as HTMLDetailsElement;
     const keys = container.querySelector("[data-testid='help-section-keys']") as HTMLDetailsElement;
     expect(phases.open).toBe(true);
     expect(dice.open).toBe(false);
