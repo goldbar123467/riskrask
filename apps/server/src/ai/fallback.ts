@@ -2,8 +2,9 @@
  * AI takeover fallback for AFK / disconnected seats.
  *
  * Invoked by RoomRegistry.tick when a seat's timer runs out on their
- * turn. Delegates to `@riskrask/ai`'s `takeTurn` orchestrator, then
- * pipes each returned Action through the Room's authoritative pipeline.
+ * turn. Delegates to `@riskrask/ai`'s `takeTurn` orchestrator (main game)
+ * or `takeSetupAction` (setup phases), then pipes each returned Action
+ * through the Room's authoritative pipeline.
  *
  * Handles the engine's forced-trade gate: the orchestrator may leave
  * `pendingForcedTrade` set if it couldn't drain it in one pass (shouldn't
@@ -11,14 +12,14 @@
  * fixed bound.
  */
 
-import { takeTurn } from '@riskrask/ai';
+import { takeSetupAction, takeTurn } from '@riskrask/ai';
 import { createRng } from '@riskrask/engine';
 import type { Action } from '@riskrask/engine';
 import type { Room } from '../rooms/Room';
 
 const MAX_FALLBACK_PASSES = 4;
 
-/** Injection point for tests — swap out the orchestrator. */
+/** Injection point for tests — swap out the main-game orchestrator. */
 export type TakeTurnFn = typeof takeTurn;
 
 export async function runFallbackTurn(
@@ -43,7 +44,12 @@ export async function runFallbackTurn(
     if (state.currentPlayerIdx !== seatIdx) return;
 
     const rng = createRng(`${room.gameId}:fallback:${seatIdx}:${pass}:${room.getSeq()}`);
-    const actions: Action[] = takeTurnImpl(state, current.id, rng, archId);
+    // Setup phases are single-action (claim or setup-reinforce); main-game
+    // is a batched turn. Split on phase so setup doesn't silently stall.
+    const actions: Action[] =
+      state.phase === 'setup-claim' || state.phase === 'setup-reinforce'
+        ? takeSetupAction(state, current.id, rng)
+        : takeTurnImpl(state, current.id, rng, archId);
     if (actions.length === 0) return;
 
     for (const action of actions) {

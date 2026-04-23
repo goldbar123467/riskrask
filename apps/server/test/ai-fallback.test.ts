@@ -120,4 +120,52 @@ describe('runFallbackTurn', () => {
     // State unchanged.
     expect(room.getSeq()).toBe(0);
   });
+
+  test('drives a claim-territory action during setup-claim', async () => {
+    // Fresh setup state — seat 0 is current. Burn one claim so seat 1 is up.
+    let s = createInitialState({ seed: 'fallback-setup', players: PLAYERS });
+    expect(s.phase).toBe('setup-claim');
+    expect(s.currentPlayerIdx).toBe(0);
+
+    const firstUnowned = Object.keys(s.territories).find((n) => s.territories[n]?.owner === null)!;
+    s = apply(s, { type: 'claim-territory', territory: firstUnowned }).next;
+    expect(s.currentPlayerIdx).toBe(1);
+    expect(s.phase).toBe('setup-claim');
+
+    const room = new Room('r-f3', 'g-f3', s, seats(), { roomCode: 'FFFFF3' });
+    const log: ServerMsg[] = [];
+    room.attach(0, (m) => log.push(m));
+    room.attach(1, () => {});
+
+    // Pass a stub that would fail the test if reached — the setup path
+    // should bypass takeTurn entirely and use takeSetupAction.
+    const stubbed = (): Action[] => {
+      throw new Error('takeTurn should not be called during setup-claim');
+    };
+
+    const seatsBefore = Object.values(room.getState().territories).filter(
+      (t) => t.owner === '1',
+    ).length;
+
+    await runFallbackTurn(room, 1, stubbed);
+
+    const after = room.getState();
+    // Seat 1 now owns one more territory (they claimed exactly one).
+    const seatsAfter = Object.values(after.territories).filter((t) => t.owner === '1').length;
+    expect(seatsAfter).toBe(seatsBefore + 1);
+
+    // One applied frame + one ai-takeover broadcast, in order.
+    const takeoverIdx = log.findIndex((m) => m.type === 'ai-takeover');
+    const appliedMsgs = log.filter(
+      (m): m is Extract<ServerMsg, { type: 'applied' }> => m.type === 'applied',
+    );
+    expect(takeoverIdx).toBeGreaterThanOrEqual(0);
+    expect(appliedMsgs.length).toBe(1);
+    // The applied action is a claim-territory.
+    const appliedAction = appliedMsgs[0]!.action as Action;
+    expect(appliedAction.type).toBe('claim-territory');
+
+    // Engine round-robin moves to next seat after a claim.
+    expect(after.currentPlayerIdx).not.toBe(1);
+  });
 });
